@@ -41,12 +41,12 @@ The [mods overview](/mods/) has a line on each.
 
 The mods are the same source on both platforms. A few only exist on one:
 
-- **macOS only (7):** outputsync, betterfx, audiomem, xfadelock, and fontcache, screeninfo and midipoll (the last
-  three fix slow macOS calls that Windows doesn't have).
+- **macOS only (6):** outputsync, betterfx, audiomem, and fontcache, screeninfo and midipoll (the last three fix
+  slow macOS calls that Windows doesn't have).
 - **Windows only (1):** spotifystart, a fix for rekordbox 7.2.19 for Windows that does nothing on any other build.
 
 <!--@public intro-platform-count-->
-So the Mac has 33 mods and Windows 27. The chip's window lists what's on.
+So the Mac has 33 mods and Windows 28. The chip's window lists what's on.
 <!--@/public-->
 
 ## Supported rekordbox versions

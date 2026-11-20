@@ -286,6 +286,10 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 # ---- timing ----
 # Logs how long each step of an analysis takes.
 #timing=1
+
+# ---- xfadelock ----
+# A small lock button next to the on-screen crossfader holds the crossfader exactly in the middle.
+#xfadelock=1
 )__";
 #else
 static const char kConfigTemplate[] = R"__(# platendoos options
@@ -621,8 +625,7 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #timing=1
 
 # ---- xfadelock ----
-# A small lock button next to the on-screen crossfader holds the crossfader exactly in the middle
-# (macOS).
+# A small lock button next to the on-screen crossfader holds the crossfader exactly in the middle.
 #xfadelock=1
 )__";
 #endif

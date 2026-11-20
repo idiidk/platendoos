@@ -53,5 +53,5 @@ Each switch shows a short message over rekordbox ("DECK 4: the right side and it
 | `flx4_keep_tempo` | `1` | `0`: rekordbox's own behaviour, a newly controlled deck takes the tempo fader position rekordbox remembers. |
 
 The full list is on the [flx4](/mods/flx4) page. Related: [keepmaster](/mods/keepmaster) (master changes that don't
-change tempo), [xfadelock](/mods/xfadelock) (crossfader lock, macOS), [stemcache](/mods/stemcache) (stems on Spotify
+change tempo), [xfadelock](/mods/xfadelock) (crossfader lock), [stemcache](/mods/stemcache) (stems on Spotify
 tracks).

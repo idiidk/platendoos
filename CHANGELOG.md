@@ -16,6 +16,8 @@ What changed per release, for people using platendoos. The details of each mod a
   (`spotifyaudio_mb=256` keeps the last few for a while), so they work on Spotify playlists without anything on
   disk.
 - The PLATENDOOS chip's window and the patcher say which edition runs (see [docs/editions.md](docs/editions.md)).
+- **xfadelock on Windows**: the crossfader lock button next to the on-screen crossfader now works in rekordbox
+  for Windows too (7.2.19 and 7.2.20).
 
 - **bettergrid: bars start on the first kick; a grid on the off-beats is moved onto the kicks.** Some tracks had
   their first kick on beat 3 or 4: where rekordbox and Beat This! disagree on the bar start, the beat where the kick

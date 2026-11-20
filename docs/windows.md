@@ -164,6 +164,18 @@ Cross-compiled with clang-cl in the MSVC ABI, static CRT. SQLite comes from reko
 `RBM_JOBS=<n> tools/win/build.sh` compiles at most n files at a time (the default starts them all at once, which
 fails with "fork failed" when the Mac is close to its process limit).
 
+## Testing without Windows
+
+`tools/win/emu/` runs the DLL's compiled code on the Mac: a small x86-64 emulator (Python + Unicorn) maps the real
+rekordbox.exe and rbmods.dll, runs the DLL's C runtime and static initialisers (the real table loads, every `Addr`
+and `Offset` resolves), and a per-mod test calls the mod's functions against rekordbox's real code and RTTI, with
+Python stand-ins for what needs a live app (JUCE components, the engine, windows). xfadelock's test checks its
+vtable slot search, the fields it reads and the lock and pickup behaviour on 7.2.19 and 7.2.20:
+
+    python3 tools/win/emu/run.py            # every test against each rekordbox.exe under $RBWIN with a table
+
+See [tools/win/emu/README.md](../tools/win/emu/README.md) for writing a test and what runs for real.
+
 ## Paths on Windows
 
 | | |
@@ -382,6 +394,7 @@ loads in pieces and re-sorts.
 | betterfx | not ported (betterfx's recipes and hooks are arm64-specific). tfpool's warm-up and stemcache's status-bar message are mac-only too (`windows-optional` hooks) |
 | autocue, genres | on, tested on the PC: autocue wrote 220 cues there (2026-11-13), genres' style model runs on the GPU through DirectML (a demo track in 1.0 s, `detect <file>` in command-genres; 2026-11-17). autocue's Claude Code option (`plat::run` in plat_win.cpp, finding claude.exe / claude.cmd) compiles but has not run on Windows yet |
 | tidymenu | on (2026-11-19), tested on the PC in 7.2.19 and 7.2.20 (tools/win/verify/tidymenu.out.json): the same juce functions as on mac (`PopupMenu::addItem(Item)` 0x142bb0700, `addSubMenu(String, PopupMenu, bool)` 0x142baef90, `Item`'s copy constructor 0x142bb0810 and destructor 0x140fba300, `~PopupMenu` 0x142bb0be0). MSVC's `PopupMenu::Item` is 0x90 bytes (its `std::function` is 0x40), `isEnabled` +0x84, `isSeparator` +0x86 (mac 0x70 / +0x64 / +0x66); a by-value Item, String or PopupMenu is destroyed by the function called, so the mod doesn't destroy them after `addItem` / `addSubMenu` there. The scanner finds all of it in 7.2.20 (unchanged code). Run with `tidymenu_log=1` on a Spotify track: 13 of 23 items shown, the *platendoos* submenu with the six window items; its *Genres window* (7.2.19) and *Stems window* (7.2.20) opened on the one track, *Re-analyze track* re-analysed it, rekordbox's own items from the copy work (*Laden* > *Deck1* loaded the track); `tidymenu_group=0` gives the flat long items again |
+| xfadelock | on (2026-11-20), built and checked offline, not yet run on the PC (tools/win/verify/xfadelock.out.json); its emulator test (`tools/win/emu`: the slot search, the fields, lock and pickup) passes on 7.2.19 and 7.2.20. MSVC gives the three methods the mod swaps no slot in the primary vtable: each overrides a virtual of a secondary base and sits only in that base's vtable, taking that subobject as `this` (mac's `__ZThn<N>_` thunks). `DjMixerUnit::setCrossFaderPosition` 0x142da6770 is slot 13 of the mixer control interface's vtable (subobject 344; mac 384), `CrossFaderComp::eventAbsoluteValueChanged` 0x14186bd40 slot 3 of the device listener's (256), `sliderValueChanged` 0x14186b580 slot 1 of the Slider::Listener's (240); `handleAsyncUpdate` 0x14186bf30 (504; mac 552) names the field recipes, `DjEngineIF::setCrossFader` 0x14253ec50. The mod finds each slot at run time: the method's address in rekordbox's `.rdata`, taken only in the vtable whose RTTI locator (the word before the vtable) names that class and the subobject offset the table's `adj` line gives (each address is in exactly one slot in 7.2.19 and 7.2.20). Fields of the whole object: the crossfader's DeviceComponent +0x298 (mac 0x2c8), its Slider +0x230 (0x260), the position it last set +0x2d8 (0x308). The button is a child window of rekordbox's main window drawn with GDI+ (mods/xfadelock_win.cpp). The scanner finds all of it in 7.2.20 (the same code and offsets) |
 | fontcache, midipoll, screeninfo | mac-only: fixes for macOS APIs (Core Text, CoreMIDI, NSScreen) |
 | outputsync | mac-only for now (Core Audio device latencies) |
 
@@ -426,6 +439,7 @@ installed 7.2.19, with a test install in `C:\rb\platendoos720`.
   112 fields, the same 27 mods. Its four names are verified in 7.2.19 too since the same night (tools/win/verify/tidymenu.out.json: the same code), so jucethread is on there as well and the scanner finds them in 7.2.20 (the .add lines went); all mods load.
 - 2026-11-19 late: tidymenu ported (see its row above). Both builds then: 28 mods (the 27 + tidymenu), 104 hooks in
   place, 378 addresses, 115 fields; the 7.2.20 table is the scan (14064 of 14082 parts) + 11 hand-checked lines.
+- 2026-11-20: xfadelock ported (see its row above): 5 addresses, 3 fields and 4 `adj` lines more in both editions' 7.2.19 tables; the scanner finds all 12 in 7.2.20 (14072 of 14090 parts, full edition), no hand-checked lines needed.
 - spotifystart (the 7.2.19 start-up stall) does nothing on 7.2.20 ("not this rekordbox build, nothing patched"),
   and isn't needed: 4 plain and 9 modded starts of 7.2.20 all had "SDK Initialization successful" about 0.3 s
   after `createClient`, no "timed out waiting for client initialization" (plain 7.2.19 stalled 2 of 4).

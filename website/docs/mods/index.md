@@ -50,7 +50,7 @@ patcher); a restart of rekordbox applies that. Mods marked <span class="pd-tag">
 | [tidymenu](./tidymenu) | A calmer track menu: no greyed-out items, and the mods' items in one *platendoos* submenu. |
 | [multisort](./multisort) | Sort the track list by several columns at once. |
 | [keycolumn](./keycolumn) | A **Key @ Master** column: each track's key as it would sound at the master deck's tempo. |
-| [xfadelock](./xfadelock) <span class="pd-tag">mac</span> | A lock button that holds the crossfader exactly in the middle. |
+| [xfadelock](./xfadelock) | A lock button that holds the crossfader exactly in the middle. |
 | [outputsync](./outputsync) <span class="pd-tag">mac</span> | Lines up speakers and headphones when rekordbox plays to two devices, e.g. Bluetooth speakers and a controller. |
 | [fontcache](./fontcache) <span class="pd-tag">mac</span> | Makes drawing text a lot cheaper, so scrolling feels lighter. |
 

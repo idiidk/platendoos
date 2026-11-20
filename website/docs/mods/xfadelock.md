@@ -1,8 +1,8 @@
-# xfadelock <span class="pd-tag">mac</span>
+# xfadelock
 
 A small lock button next to the on-screen crossfader holds the crossfader exactly in the middle.
 
-<ModInfo name="xfadelock" platform="mac" group="Browsing and playing" />
+<ModInfo name="xfadelock" group="Browsing and playing" />
 
 <figure class="shot mid"><img src="/img/xfadelock-open.webp" alt="The on-screen crossfader with an open grey padlock to its right"><figcaption>Unlocked: the grey open padlock right of the crossfader.</figcaption></figure>
 
@@ -29,7 +29,8 @@ Handy when you mix with the channel faders only and don't want a knocked crossfa
 
 ## Windows
 
-macOS only for now: the Windows tables don't have these classes, and the button is a macOS view.
+The same lock since 0.3.2 (rekordbox 7.2.19 and 7.2.20): the button is a small window of its own on rekordbox's
+window, drawn like the Mac's. Pictures above are from the Mac.
 
 ## Related
 

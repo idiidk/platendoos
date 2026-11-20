@@ -80,7 +80,7 @@ Open analysis window in any playlist's menu analyses that playlist, Spotify ones
 | `analyze_import` | `1` | direct mode: import a Spotify playlist track that isn't in the collection yet (like playing it does), since rekordbox only analyses collection tracks; 0: such tracks fail |
 | `analyze_import_timeout` | `20` | seconds to wait for an imported track to show up in the collection |
 | `analyze_live` | `1` | tracks analysed at once while a deck is playing (0: the run waits for the decks to stop) |
-| `analyze_min_free_gb` | `5` | stop a run when the disk has less free space than this (at most 1 when no Spotify audio is kept on disk) |
+| `analyze_min_free_gb` | `5` | stop a run when the disk has less free space than this, in GB (at most 1: a run writes only rekordbox's analysis files) |
 | `analyze_parallel` | `6` | tracks analysed at once in direct mode (6 is fastest on a 10-core Mac) |
 | `analyze_reopen` | `1` | open the playlist analysed last after a restart (analyze_playlist, saved when a run starts) |
 | `analyze_start_timeout` | `15` | seconds before a track whose analysis never starts is retried |
@@ -92,7 +92,7 @@ Open analysis window in any playlist's menu analyses that playlist, Spotify ones
 
 ### artcache
 
-Remembers far more cover art, and keeps Spotify covers on disk, so scrolling and loading decks don't download the same images over and over. [More →](/mods/artcache)
+Remembers far more cover art (256 MB in memory instead of rekordbox's 26), so scrolling and loading decks don't download the same images over and over. [More →](/mods/artcache)
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -414,9 +414,9 @@ Logs how long each step of an analysis takes. [More →](/mods/timing)
 |---|---|---|
 | `timing` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 
-### xfadelock <span class="pd-tag">mac</span>
+### xfadelock
 
-A small lock button next to the on-screen crossfader holds the crossfader exactly in the middle (macOS). [More →](/mods/xfadelock)
+A small lock button next to the on-screen crossfader holds the crossfader exactly in the middle. [More →](/mods/xfadelock)
 
 | Option | Default | Meaning |
 |---|---|---|

@@ -1,0 +1,37 @@
+[
+ {
+  "item": "__ZN11DjMixerUnit21setCrossFaderPositionEf", "kind": "sym", "verdict": "ok", "win": "0x142da6770", "confidence": "high",
+  "why": "xfadelock (7.2.19). Only in DjMixerUnit's vtable for the mixer control interface subobject (COL offset 344, 54 slots: deleting dtor, then mac's __ZThn384_ list from enableTrim in the same order, no overloads; this one slot 13, after setChannelFaderPosition / selectChannelFaderCurve, before selectCrossFaderCurve); MSVC gives the override no primary-vtable slot (the primary vtable has 76 slots, none of them this), so `this` is the subobject (adj 344). Body as mac's 0x102de6b00: loops over the inputs vector [this+0x158..0x160] (mac [rdi+0x2d8..0x2e0]) calling each input graph's setCrossFaderPosition (vcall slot 1 of its subobject +0x420; mac [rax+0x2d8]) with the float in xmm1 (Windows: second argument), result in esi (1 when empty); then position * constant to int, the flag byte [this+0xf0] (mac +0x270) and MultiTimer::startTimer(0, 0x12c) / stopTimer(0) on [this+0x38] (mac +0x1b8); returns the last input's int. DjEngineIF::setCrossFader 0x14253ec50 calls it as vcall [vptr+0x68] (slot 13) on getMixerControl's result, which is this subobject"
+ },
+ {
+  "item": "__ZN8djengine10DjEngineIF13setCrossFaderEd", "kind": "sym", "verdict": "ok", "win": "0x14253ec50", "confidence": "high",
+  "why": "xfadelock (7.2.19; matched in m8.pkl). __FUNCTION__ string \"djengine::DjEngineIF::setCrossFader\" in its error branch; as mac 0x1009cb2f0: [this+0xb8] (mac +0xc8) -> rbxfrm::DjUnitAudioGraph::getMixerControl(0) (rva 2cd7490), double xmm1 -> float, vcall [vptr+0x68] = DjMixerUnit::setCrossFaderPosition's slot in the control interface vtable (mac +0x70: one more destructor), a non-zero result logged. CrossFaderComp::eventAbsoluteValueChanged 0x14186bd40 calls it with the controller value / 16383"
+ },
+ {
+  "item": "__ZN14CrossFaderComp25eventAbsoluteValueChangedEPN6djplay12DeviceObjectEi", "kind": "sym", "verdict": "ok", "win": "0x14186bd40", "confidence": "high",
+  "why": "xfadelock (7.2.19). Slot 3 of CrossFaderComp's vtable for the subobject at 256 (COL offset 256, 18 slots: dtor, DeviceObject::setParent 0x1414252b0, eventOnChanged 0x14186b9a0, this, then DeviceComponent's defaults; mac __ZThn256_ list: setParent, eventOnChanged, eventAbsoluteValueChanged), not in the 50-slot primary vtable: this = the subobject (adj 256). Body as mac 0x1000f0060: __RTDynamicCast(obj, DeviceObject -> DeviceComponent), compared with [this+0x198] (mac whole object +0x2c8; Windows whole object 0x298) = the crossfader; then DjEngineIF singleton, getDjSystem / isInternalMode, Component::isEnabled on [this+0x130]; value (esi) * 1/16383 into xmm6, the takeover check against [this+0x1d8] (the position it last set: whole 0x2d8, mac 0x308), DjEngineIF::setCrossFader 0x14253ec50(xmm6), MainComponent::getInstance 0x14182a9c0, store [this+0x1d8] = xmm6, AsyncUpdater::triggerAsyncUpdate on [this+0xf8] (= whole +0x1f8, the AsyncUpdater subobject of handleAsyncUpdate 0x14186bf30; mac +0x228). The other branches compare [this+0x1a8] / [this+0x1b0..0x1c8] (assign buttons) and call setCrossFaderAssign 0x14253ee30 with 0/1/2, as mac"
+ },
+ {
+  "item": "__ZN14CrossFaderComp18sliderValueChangedEPN4juce6SliderE", "kind": "sym", "verdict": "ok", "win": "0x14186b580", "confidence": "high",
+  "why": "xfadelock (7.2.19). Slot 1 of CrossFaderComp's vtable for the Slider::Listener subobject at 240 (COL offset 240, 4 slots: dtor, this, two shared empty defaults = sliderDragStarted / sliderDragEnded; mac __ZThn240_ list), not in the primary vtable: this = the subobject (adj 240). Body as mac 0x1000ee590: compares the slider argument (rdx) with [this+0x140] (= whole +0x230, mac +0x260), calls updateSliderValue (rva 186ce30) with rcx = this - 0xf0 (the whole object), MainComponent::getInstance 0x14182a9c0 and [+0xa58] (mac +0xb60), Slider::getValue 0x142b998b0 and the slider's vcall +0x1c0 (mac +0x1d8: valueToProportionOfLength), [this+0x1e8] (= whole 0x2d8, the position) to the video panel"
+ },
+ {
+  "item": "__ZN14CrossFaderComp17handleAsyncUpdateEv", "kind": "sym", "verdict": "ok", "win": "0x14186bf30", "confidence": "high",
+  "why": "xfadelock (7.2.19; named for the slider / position field recipes). Slot 1 of CrossFaderComp's AsyncUpdater vtable (COL offset 504, 2 slots; mac's subobject is at 552, __ZThn552_): this = whole + 0x1f8 (adj 504). As mac 0x1000f0360: the position [this+0xe0] (= whole 0x2d8, mac 0x308) set on the slider [this+0x38] (= whole 0x230, mac 0x260) through the inlined setValue(min + (max-min) * position, dontSendNotification) helper (rva 16e6c00, r8d = 0), then MainComponent::getInstance 0x14182a9c0 [+0xa58], Slider::getValue 0x142b998b0 and vcall +0x1c0 to VideoPanel::updateAudioCrossFaderProportion (rva 1a01070, the same call as in sliderValueChanged)"
+ },
+ {
+  "item": "O_xfDevice", "kind": "offset", "fn": "__ZN14CrossFaderComp25eventAbsoluteValueChangedEPN6djplay12DeviceObjectEi", "kind_recipe": "ldr x19", "nth": 0,
+  "value": "0x298", "verdict": "ok", "confidence": "high",
+  "why": "CrossFaderComp's crossfader DeviceComponent, whole object (mac 0x2c8): eventAbsoluteValueChanged 0x14186bd40 (this = whole + 0x100) compares the dynamic_cast result with [rdi+0x198] first and takes the crossfader branch (DjEngineIF::setCrossFader) when equal; 0x100 + 0x198 = 0x298. The assign buttons follow at +0x2a8 (whole) and +0x2b0..+0x2c8, as mac's +0x2d8 / +0x2e0..+0x2f8 follow 0x2c8"
+ },
+ {
+  "item": "O_xfSlider", "kind": "offset", "fn": "__ZN14CrossFaderComp17handleAsyncUpdateEv", "kind_recipe": "ldr x0", "nth": 0,
+  "value": "0x230", "verdict": "ok", "confidence": "high",
+  "why": "CrossFaderComp's juce::Slider, whole object (mac 0x260): handleAsyncUpdate 0x14186bf30 (this = whole + 0x1f8) loads it from [rcx+0x38] (lea rdi,[rcx+0x38]; mov rdi,[rdi]) and calls Slider::getValue 0x142b998b0 on it; sliderValueChanged 0x14186b580 (this = whole + 0xf0) compares its argument with [rcx+0x140]: 0x1f8 + 0x38 = 0xf0 + 0x140 = 0x230"
+ },
+ {
+  "item": "O_xfAt", "kind": "offset", "fn": "__ZN14CrossFaderComp17handleAsyncUpdateEv", "kind_recipe": "ldr x19", "nth": 0,
+  "value": "0x2d8", "verdict": "ok", "confidence": "high",
+  "why": "the crossfader position (double, 0..1) CrossFaderComp last set (mac 0x308): handleAsyncUpdate 0x14186bf30 reads vmovsd xmm1,[rcx+0xe0] (whole + 0x1f8 + 0xe0) for the slider; eventAbsoluteValueChanged 0x14186bd40 stores it at [rdi+0x1d8] (0x100 + 0x1d8) after DjEngineIF::setCrossFader; sliderValueChanged reads [rsi+0x1e8] (0xf0 + 0x1e8): all 0x2d8"
+ }
+]

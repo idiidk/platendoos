@@ -1,6 +1,6 @@
 # Windows notes
 
-platendoos runs on rekordbox for Windows (x64) with the same mods as on macOS, minus the seven macOS-only ones. This
+platendoos runs on rekordbox for Windows (x64) with the same mods as on macOS, minus the six macOS-only ones. This
 page is what's different for you; how it works inside is in [Windows internals](/internals/windows).
 
 ## How it starts
@@ -16,9 +16,9 @@ The mods' windows need **WebView2**, which Windows 11 has built in.
 | | Mods |
 |---|---|
 <!--@public windows-mods-->
-| On Windows (27) | analyzer, artcache, autocue, badge, bettergrid, betterkey, betterstems, fastwave, flx4, framerate, genres, keepmaster, keycolumn, multisort, parallel, quickdeck, spotifyapi, spotifyaudio, spotifydl, spotifyfix, spotifylog, spotifystart, stemcache, streamio, tfpool, tidymenu, timing |
+| On Windows (28) | analyzer, artcache, autocue, badge, bettergrid, betterkey, betterstems, fastwave, flx4, framerate, genres, keepmaster, keycolumn, multisort, parallel, quickdeck, spotifyapi, spotifyaudio, spotifydl, spotifyfix, spotifylog, spotifystart, stemcache, streamio, tfpool, tidymenu, timing, xfadelock |
 <!--@/public-->
-| macOS only (7) | audiomem, betterfx, outputsync, xfadelock (not ported yet); fontcache, screeninfo, midipoll (fix macOS calls Windows doesn't have) |
+| macOS only (6) | audiomem, betterfx, outputsync (not ported yet); fontcache, screeninfo, midipoll (fix macOS calls Windows doesn't have) |
 | Windows only | spotifystart (rekordbox 7.2.19 for Windows) |
 
 Smaller differences: the collection BPM following bettergrid's grid is macOS only; tfpool's warm-up is macOS only;

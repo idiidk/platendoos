@@ -7,6 +7,8 @@ installed platendoos in place (see [Installation](./installation#after-a-rekordb
 
 ## 0.3.2 (unreleased)
 
+- **xfadelock on Windows**: the crossfader lock button next to the on-screen crossfader now works in rekordbox for
+  Windows too, 7.2.19 and 7.2.20.
 - **bettergrid: bars start on the first kick; a grid on the off-beats is moved onto the kicks.** Some tracks had
   their first kick on beat 3 or 4: where rekordbox and Beat This! disagree on the bar start, the beat where the kick
   comes in now counts. And a track whose kicks sat clearly between rekordbox's beats, but where Beat This! wasn't
