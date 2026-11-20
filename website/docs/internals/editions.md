@@ -47,7 +47,7 @@ RBM_EDITION=public ./compile.sh       # the public edition
 RBM_EDITION=public ./install.sh ~/Applications/platendoos.app   # swap the public dylib into an app
 RBM_EDITION=public tools/build/patcher_mac.sh                   # the public macOS patcher
 RBM_EDITION=public tools/win/build.sh                           # the public Windows package
-tools/build/release.sh 0.3.2          # builds and uploads the public edition
+tools/build/release.sh 0.4.0          # builds and uploads the public edition
 ```
 
 For C++ the build scripts set `RBM_PUBLIC=1` for the public edition (`rbm::kPublicEdition` in `core/rbmod.h`).

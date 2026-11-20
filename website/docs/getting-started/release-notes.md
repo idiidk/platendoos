@@ -5,7 +5,7 @@ What changed per release, for people using platendoos. Downloads are on the
 installed platendoos in place (see [Installation](./installation#after-a-rekordbox-update)).
 
 
-## 0.3.2 (unreleased)
+## 0.4.0 (2026-11-20)
 
 - **xfadelock on Windows**: the crossfader lock button next to the on-screen crossfader now works in rekordbox for
   Windows too, 7.2.19 and 7.2.20.

@@ -3,7 +3,7 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
-## 0.3.2 (unreleased)
+## 0.4.0 (2026-11-20)
 
 - **Spotify audio stays off the disk.** platendoos no longer keeps Spotify tracks' audio on disk, decoded or as
   stems: what the mods need of a Spotify track is read from the stream into memory, as rekordbox itself plays it,
