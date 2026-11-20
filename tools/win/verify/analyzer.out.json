@@ -1,0 +1,16 @@
+[
+ {"item": "analyzer win:info slot keyById", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:info slot keyById", "nth": 0, "value": "0xa8", "verdict": "ok", "confidence": "high",
+  "why": "mov r8, [rax+0xa8] on the track-info interface's vtable in analyze() (0x141213840); mac slot 0xb0, MSVC has one destructor slot"},
+ {"item": "analyzer win:info slot keyFromInfo", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:info slot keyFromInfo", "nth": 0, "value": "0x188", "verdict": "ok", "confidence": "high",
+  "why": "mov r8, [rax+0x188] on the same vtable; mac 0x190"},
+ {"item": "analyzer win:param key", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:param key", "nth": 0, "value": "0x2c68", "verdict": "ok", "confidence": "high",
+  "why": "movzx edx, byte [r13+0x2c68] passed to the job manager's key setter (mov [rcx+9], dl)"},
+ {"item": "analyzer win:param phrase", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:param phrase", "nth": 0, "value": "0x2c69", "verdict": "ok", "confidence": "high",
+  "why": "movzx edx, byte [r13+0x2c69] passed to the phrase setter (mov [rcx+0xa], dl)"},
+ {"item": "analyzer win:param vocal", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:param vocal", "nth": 0, "value": "0x2c6a", "verdict": "ok", "confidence": "high",
+  "why": "movzx edx, byte [r13+0x2c6a] passed to the vocal setter (mov [rcx+0xb], dl)"},
+ {"item": "analyzer win:job key", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:job key", "nth": 0, "value": "0x2c89", "verdict": "ok", "confidence": "high",
+  "why": "cmp byte [r13+0x2c89], 0: the job manager (+0x2c80) key flag (+9)"},
+ {"item": "analyzer win:embedding", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:embedding", "nth": 0, "value": "0x29a", "verdict": "ok", "confidence": "high",
+  "why": "movzx edx, byte [r15+0x29a] copied to +0x2a9 before the job manager calls"}
+]

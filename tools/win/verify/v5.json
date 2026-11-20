@@ -1,0 +1,919 @@
+[
+ {
+  "kind": "hook",
+  "name": "header_restore1",
+  "caller": "__ZN6browse10ListViewer17changeTableHeaderEb",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6browse19BrowseHeaderManager17restoreHeaderInfoENS0_8ViewTypeEPN4juce20TableHeaderComponentERKNS_14BrowsePropertyERNS_13ArtworkStatusE",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "column_index1",
+  "caller": "__ZN6browse10ListViewer22getColumnAutoSizeWidthEi",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZNK6browse19BrowseHeaderManager18getColumnIndexByIDEi",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "paint_getString",
+  "caller": "__ZN6browse10ListViewer9paintCellERN4juce8GraphicsEiiiib",
+  "nth": 0,
+  "count": 2,
+  "target": "__ZNK6browse10ListViewer9getStringERKN2db12RowDataTrackEi",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "sorter_setCompFunc",
+  "caller": "__ZN6browse14ListViewSorterC2EbiRNS_10ListViewerERKN4juce6StringES6_",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6browse14ListViewSorter11setCompFuncEi",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "stem_sep7",
+  "caller": "__ZN6rbxfrm22MultiPagingAudioSource4loadERKN4juce6StringERKNS_18AudioReaderFactoryEPNS_20IAudioSourceListenerE",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "stem_init",
+  "caller": "__ZN6rbxfrm9audiopart16AudioPartLibrary4loadEv",
+  "nth": 0,
+  "count": 8,
+  "target": "__ZN4juce14DynamicLibrary11getFunctionERKNS_6StringE",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "an_streamCD",
+  "caller": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv",
+  "nth": 2,
+  "count": 3,
+  "target": "__ZN8analyzer18CBeatAnalyzeThread11getStreamAtEPN6rbxfrm17PcmReaderTemplateINS1_6Float2EEEmPsS6_mPfS7_m",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "an_yield0",
+  "caller": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv",
+  "nth": 0,
+  "count": 6,
+  "target": "__ZN4juce6Thread5yieldEv",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "an_yield1",
+  "caller": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv",
+  "nth": 1,
+  "count": 6,
+  "target": "__ZN4juce6Thread5yieldEv",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "an_yield2",
+  "caller": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv",
+  "nth": 2,
+  "count": 6,
+  "target": "__ZN4juce6Thread5yieldEv",
+  "hookkind": -1
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN13MainComponent12browseResizeEv",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x141a66350",
+    2.71,
+    9,
+    0.01
+   ],
+   [
+    "0x141613110",
+    2.27,
+    5,
+    0.77
+   ],
+   [
+    "0x141613530",
+    2.19,
+    5,
+    0.69
+   ],
+   [
+    "0x141613250",
+    2.16,
+    5,
+    0.66
+   ],
+   [
+    "0x1416131b0",
+    1.91,
+    4,
+    0.71
+   ],
+   [
+    "0x141841c80",
+    1.57,
+    4,
+    0.37
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN13MainComponent12changeLayoutE10CommandIDs",
+  "win": "0x14182e360",
+  "how": "key",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN13MainComponent13getBrowseRectEv",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x141843270",
+    4.36,
+    13,
+    0.46
+   ],
+   [
+    "0x1418434e0",
+    3.57,
+    11,
+    0.27
+   ],
+   [
+    "0x1419c4360",
+    3.05,
+    9,
+    0.35
+   ],
+   [
+    "0x1418712f0",
+    3.04,
+    9,
+    0.34
+   ],
+   [
+    "0x141874330",
+    3.02,
+    9,
+    0.32
+   ],
+   [
+    "0x141ce7e40",
+    3.0,
+    9,
+    0.3
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN13MainComponent14showMixerPanelEb",
+  "win": "0x14182f740",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db16DatabaseMediator12modifyRemoveERN4juce5ArrayIPNS_12RowDataTrackENS1_20DummyCriticalSectionELi0EEERNS2_IjS5_Li0EEEPNS1_24ThreadWithProgressWindowEb",
+  "win": "0x141fef300",
+  "how": "key",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db16DatabaseMediator13executeImportERN4juce10OwnedArrayINS_12RowDataTrackENS1_20DummyCriticalSectionEEERNS2_INS_16ListDataPlaylistES4_EERNS2_INS_15RowDataPlaylistES4_EERKNS0_10ImportInfoERNS1_5ArrayINS0_19TrackAdditionResultES4_Li0EEEPNSG_INS_6IDsSetES4_Li0EEEb",
+  "win": "0x141fd8520",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db16DatabaseMediator16mainDBControllerEv",
+  "win": "0x142020260",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db16DatabaseMediator17mod_analysis_lockERKN4juce5ArrayIjNS1_20DummyCriticalSectionELi0EEEbPNS1_24ThreadWithProgressWindowE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x141ff3810",
+    5.74,
+    17,
+    0.64
+   ],
+   [
+    "0x141f5d6d0",
+    3.31,
+    10,
+    0.31
+   ],
+   [
+    "0x142565d80",
+    3.17,
+    10,
+    0.17
+   ],
+   [
+    "0x141fee0a0",
+    3.05,
+    9,
+    0.35
+   ],
+   [
+    "0x141ff7a20",
+    2.9,
+    9,
+    0.2
+   ],
+   [
+    "0x141f4dff0",
+    2.87,
+    9,
+    0.17
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce15SingletonHolderIN9streaming16StreamingManagerENS_15CriticalSectionELb1EE3getEv",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x14110e5f0",
+    44.06,
+    146,
+    0.26
+   ],
+   [
+    "0x142a65810",
+    36.13,
+    120,
+    0.13
+   ],
+   [
+    "0x1414306a0",
+    17.11,
+    57,
+    0.01
+   ],
+   [
+    "0x142bb01b0",
+    5.83,
+    19,
+    0.13
+   ],
+   [
+    "0x14304e970",
+    5.73,
+    19,
+    0.03
+   ],
+   [
+    "0x141f73630",
+    4.02,
+    12,
+    0.42
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce17ComponentAnimator6fadeInEPNS_9ComponentEi",
+  "win": "0x142bf3df0",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce17MemoryInputStreamC1EPKvmb",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x140fad860",
+    1.56,
+    4,
+    0.36
+   ],
+   [
+    "0x141062880",
+    0.83,
+    2,
+    0.23
+   ],
+   [
+    "0x140eec5f0",
+    0.78,
+    2,
+    0.18
+   ],
+   [
+    "0x142c73120",
+    0.77,
+    2,
+    0.17
+   ],
+   [
+    "0x142c13630",
+    0.76,
+    2,
+    0.16
+   ],
+   [
+    "0x14299f460",
+    0.66,
+    2,
+    0.06
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce19NSViewComponentPeer14AsyncRepainter17handleAsyncUpdateEv",
+  "win": null,
+  "how": null,
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6browse10ListViewer9paintCellERN4juce8GraphicsEiiiib",
+  "win": "0x1414b3f10",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6browse14ListViewSorter11setCompFuncEi",
+  "win": null,
+  "how": null,
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6browse14ListViewSorter32setCompareFuncWithArtistAndAlbumEMS0_FiPN2db12RowDataTrackES3_Eb",
+  "win": null,
+  "how": null,
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6browse14ListViewSorterC2EbiRNS_10ListViewerERKN4juce6StringES6_",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x1414f77a0",
+    0.65,
+    1,
+    0.35
+   ],
+   [
+    "0x1414e44f0",
+    0.59,
+    1,
+    0.29
+   ],
+   [
+    "0x141ad8570",
+    0.58,
+    1,
+    0.28
+   ],
+   [
+    "0x14148e0e0",
+    0.58,
+    1,
+    0.28
+   ],
+   [
+    "0x14148e280",
+    0.56,
+    1,
+    0.26
+   ],
+   [
+    "0x14148dac0",
+    0.55,
+    1,
+    0.25
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6djplay14WidgetWaveView14initializeWaveEllPNS_8SongInfoEPNS_8WaveDataENS_8WaveTypeENS_9ColorTypeENS_8PartFlagEPNS_8BeatInfoEbN8djengine15EnPlayerChannelENS_17WaveNormalizeCoefE",
+  "win": "0x141a16490",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6djplay14WidgetWaveView19setWavePartSelectedEbbbb",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142c1ae00",
+    0.74,
+    1,
+    0.44
+   ],
+   [
+    "0x141a17f20",
+    0.69,
+    1,
+    0.39
+   ],
+   [
+    "0x142aff850",
+    0.65,
+    1,
+    0.35
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6djplay15DeviceComponent18operateGetPropertyEiRN4juce6StringERKNS1_10IdentifierERNS_13DeviceVariantE",
+  "win": "0x1423a9700",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6djplay15DeviceComponentC1EiN4juce6StringEb",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x14248e180",
+    453.4,
+    1511,
+    0.1
+   ],
+   [
+    "0x141424070",
+    313.56,
+    1045,
+    0.06
+   ],
+   [
+    "0x1423c84b0",
+    139.86,
+    466,
+    0.06
+   ],
+   [
+    "0x1424c1f50",
+    32.42,
+    108,
+    0.02
+   ],
+   [
+    "0x140ef8bd0",
+    27.1,
+    90,
+    0.1
+   ],
+   [
+    "0x142abf220",
+    15.39,
+    51,
+    0.09
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6rbxfrm9audiopart25AudioPartSeparatorManager13isInitializedENS0_5MODELE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142d051a0",
+    1.06,
+    3,
+    0.16
+   ],
+   [
+    "0x142a86a30",
+    0.64,
+    2,
+    0.04
+   ],
+   [
+    "0x14110e450",
+    0.51,
+    1,
+    0.21
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6rbxfrm9audiopart25AudioPartSeparatorManager19syncRequestSeparateERKN4juce6StringENS0_5MODELE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x141ebba70",
+    3.94,
+    11,
+    0.64
+   ],
+   [
+    "0x141ebb850",
+    3.94,
+    11,
+    0.64
+   ],
+   [
+    "0x141e647b0",
+    3.84,
+    11,
+    0.54
+   ],
+   [
+    "0x141eff240",
+    3.82,
+    11,
+    0.52
+   ],
+   [
+    "0x141e888a0",
+    3.71,
+    11,
+    0.41
+   ],
+   [
+    "0x141c06f90",
+    3.71,
+    11,
+    0.41
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6rbxfrm9audiopart25AudioPartSeparatorManager20asyncRequestSeparateEiRKN4juce6StringENS0_5MODELENS2_13WeakReferenceINS0_26AudioPartProgressInterfaceENS2_22ReferenceCountedObjectEEE",
+  "win": "0x142d04b40",
+  "how": "key",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6rbxfrm9audiopart9AudioPart14isStreamingUriERKN4juce6StringE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142cdbb80",
+    1.87,
+    3,
+    0.97
+   ],
+   [
+    "0x142cdbaa0",
+    1.85,
+    3,
+    0.95
+   ],
+   [
+    "0x141415de0",
+    0.72,
+    1,
+    0.42
+   ],
+   [
+    "0x14118e2c0",
+    0.7,
+    1,
+    0.4
+   ],
+   [
+    "0x1414294f0",
+    0.7,
+    1,
+    0.4
+   ],
+   [
+    "0x142e112f0",
+    0.7,
+    1,
+    0.4
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming12StreamingLog3runEv",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x1419bac80",
+    1.82,
+    6,
+    0.02
+   ],
+   [
+    "0x141b1c6a0",
+    1.77,
+    4,
+    0.57
+   ],
+   [
+    "0x141f39d90",
+    1.75,
+    4,
+    0.55
+   ],
+   [
+    "0x14163c890",
+    1.74,
+    4,
+    0.54
+   ],
+   [
+    "0x1416153a0",
+    1.73,
+    4,
+    0.53
+   ],
+   [
+    "0x141f7caf0",
+    1.73,
+    4,
+    0.53
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming4Play11getMediaUrnEib",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x141e35c50",
+    1.72,
+    4,
+    0.52
+   ],
+   [
+    "0x141eecdf0",
+    1.7,
+    4,
+    0.5
+   ],
+   [
+    "0x141e73b80",
+    1.7,
+    4,
+    0.5
+   ],
+   [
+    "0x1423bbf50",
+    1.69,
+    4,
+    0.49
+   ],
+   [
+    "0x141919160",
+    1.64,
+    4,
+    0.44
+   ],
+   [
+    "0x141bd7730",
+    1.63,
+    4,
+    0.43
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming7spotify7Service20setClientTokenDirectERKN4juce6StringE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x1423cc590",
+    1.73,
+    4,
+    0.53
+   ],
+   [
+    "0x1423cf6e0",
+    1.73,
+    4,
+    0.53
+   ],
+   [
+    "0x1424be5b0",
+    1.72,
+    5,
+    0.22
+   ],
+   [
+    "0x142380e30",
+    1.71,
+    4,
+    0.51
+   ],
+   [
+    "0x1423d0ca0",
+    1.67,
+    4,
+    0.47
+   ],
+   [
+    "0x1423d0bc0",
+    1.67,
+    4,
+    0.47
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming7spotify7Service21isAvailablePlayOnDeckERKN4juce6StringEi",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x141b22c10",
+    2.12,
+    4,
+    0.92
+   ],
+   [
+    "0x141f2f200",
+    2.11,
+    4,
+    0.91
+   ],
+   [
+    "0x141f2eb70",
+    2.1,
+    4,
+    0.9
+   ],
+   [
+    "0x141f2ea00",
+    2.1,
+    4,
+    0.9
+   ],
+   [
+    "0x141b22da0",
+    2.08,
+    4,
+    0.88
+   ],
+   [
+    "0x141b52fd0",
+    2.05,
+    4,
+    0.85
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK6browse14CustomTreeView15getSelectedItemEi",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x1414306b0",
+    13.85,
+    46,
+    0.05
+   ],
+   [
+    "0x1414306a0",
+    10.55,
+    35,
+    0.05
+   ],
+   [
+    "0x141624460",
+    9.73,
+    32,
+    0.13
+   ],
+   [
+    "0x142bb01b0",
+    9.62,
+    32,
+    0.02
+   ],
+   [
+    "0x1414306c0",
+    6.95,
+    23,
+    0.05
+   ],
+   [
+    "0x142bae8c0",
+    5.72,
+    19,
+    0.02
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK6browse15BrowseBasicView13getListViewerEv",
+  "win": "0x141514010",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK6browse16BrowseTreeViewer13getListViewerEv",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x141502680",
+    0.41,
+    1,
+    0.11
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK6browse18CustomTreeViewItem10getSubItemEi",
+  "win": "0x141432180",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__hb_coretext_shaper_font_data_create",
+  "win": null,
+  "how": null,
+  "cands": []
+ },
+ {
+  "kind": "offset",
+  "name": "O_devName",
+  "file": "flx4.mm",
+  "fn": "__ZN6djplay10DeviceUnitC2EiN4juce6StringEb",
+  "recipe": "add x19",
+  "nth": 0,
+  "mac_value": "0x10",
+  "win_fn": "0x1423c84b0",
+  "line": "static const Offset O_devName{0x10, \"__ZN6djplay10DeviceUnitC2EiN4juce6StringEb\", \"add x19\", 0};  // DeviceObject: name (juce::String)"
+ },
+ {
+  "kind": "offset",
+  "name": "O_outHelper",
+  "file": "flx4.mm",
+  "fn": "__ZN6djplay10DeviceMidi23handleOutputMidiMessageERKN4juce11MidiMessageERKNS1_6StringEi",
+  "recipe": "ldr x20",
+  "nth": 2,
+  "mac_value": "0x460",
+  "win_fn": null,
+  "line": "static const Offset O_outHelper{0x460, \"__ZN6djplay10DeviceMidi23handleOutputMidiMessageERKN4juce11MidiMessageERKNS1_6StringEi\", \"ldr x20\", 2};  // DeviceMidi: MidiOutputHelper*"
+ },
+ {
+  "kind": "offset",
+  "name": "O_output",
+  "file": "flx4.mm",
+  "fn": "__ZN6djplay16MidiOutputHelper3runEv",
+  "recipe": "ldr x20",
+  "nth": 8,
+  "mac_value": "0x1d8",
+  "win_fn": null,
+  "line": "static const Offset O_output{0x1d8, \"__ZN6djplay16MidiOutputHelper3runEv\", \"ldr x20\", 8};  // MidiOutputHelper: juce::MidiOutput*"
+ }
+]

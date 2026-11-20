@@ -1,0 +1,60 @@
+[
+ {
+  "item": "__ZNK6browse10ListViewer24getSelectedRowDataTracksERN4juce5ArrayIPN2db12RowDataTrackENS1_20DummyCriticalSectionELi0EEE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1414af380",
+  "confidence": "high",
+  "why": "matched; same body as mac: CustomListBox at this+0x220 (mac +0x238), its SparseSet of selected ranges summed, rows from this+0x250 (mac +0x268) bounded by +0x240 / sort map +0x228/+0x234, appended to the Array (data +0, allocated +8, used +0xc) with the usual growth. Called by TreeViewer::isActiveCommand 0x14157f708 right before RowDataTrack::isSpotifyFile, as on mac"
+ },
+ {
+  "item": "list_showMenu",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1414dcdb0",
+  "sites": ["0x1414dce0d"],
+  "target": "0x1416071a0",
+  "confidence": "high",
+  "why": "ListViewer::showPopupMenu (matched) calls BrowsePopupMenuManager::showListViewPopupMenu (matched) once, after getAttribute/getNumSelectedRows, as on mac"
+ },
+ {
+  "item": "list_popupShow",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1416071a0",
+  "sites": ["0x14160928e"],
+  "target": "0x142bad710",
+  "confidence": "high",
+  "why": "the only juce::PopupMenu::show (verified v3) call in showListViewPopupMenu, as on mac (one call)"
+ },
+ {
+  "item": "load_askSettings0",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141f8b730",
+  "sites": ["0x141f8b7b6"],
+  "target": "0x141db66c0",
+  "confidence": "high",
+  "why": "analyzeCollectionLoad, streaming branch: after isAnalyzedOldVer (load_isAnalyzedOld site 0x141f8b79f), flags +0x3f8 bit 1 clear -> show(cl=1, edx=0), test eax: mac's show(true,false) #0. 0x141db66c0 = AnalysisSettingWindow::show: SettingFile isContainsKey/getBoolValue like mac; called by analyzeCollectionStart, analyzeCollectionTrack, addAnalysis"
+ },
+ {
+  "item": "load_askSettings1",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141f8b730",
+  "sites": ["0x141f8b867"],
+  "target": "0x141db66c0",
+  "confidence": "high",
+  "why": "analyzeCollectionLoad, local branch (+0x400 & 0x800 test, isAnalyzedOldVer, bit 1 of +0x3f8) -> show(1,0): mac's call #1"
+ },
+ {
+  "item": "sp_rateLimited0",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x14118e780",
+  "sites": ["0x14118e8a9"],
+  "target": "0x14118edb0",
+  "confidence": "high",
+  "why": "the only reference to \"Connection: DOWNLOAD_ERROR_RATE_LIMITED: \" (and \" remainingSec=\") is in 0x14118edb0, MSVC's copy of SP_LOG<const char*, String, const char*, int> with the strings built in: (rcx, rdx, r8 = String*, r9, [rsp+0x28] = int seconds). Its one caller is 0x14118e780, a helper DownloadConnectionJob::run (0x14118d2e0) calls twice (mac: two SP_LOG calls inlined in run). Windows-only signature in analyzer.cpp"
+ }
+]

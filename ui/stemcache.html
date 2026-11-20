@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Stem Separation</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  #app { display: flex; flex-direction: column; height: 100%; padding: 14px 20px 12px; }
+  #top { display: flex; align-items: center; gap: 10px; }
+  #headline { flex: 1; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #detail { color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+  #prog { margin: 8px 0 2px; }
+  #note { color: var(--orange); margin: 6px 0 2px; }
+  #wrap { flex: 1; min-height: 0; overflow: auto; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th { position: sticky; top: 0; background: var(--bg); text-align: left; font-weight: 500; color: var(--fg2); padding: 3px 6px; border-bottom: 1px solid var(--line); }
+  td { padding: 0 6px; height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  tr:nth-child(even) td { background: rgba(255,255,255,.035); }
+  .waiting { color: var(--fg3); } .separating { color: var(--orange); } .done { color: var(--green); }
+  .fromdisk { color: rgba(48,209,88,.45); } .separated { color: rgba(48,209,88,.7); } .unsupported { color: var(--fg2); }
+  .needsfile { color: var(--yellow); } .gaveup { color: var(--red); }
+  #foot { display: flex; align-items: center; gap: 8px; padding-top: 10px; }
+  #foot .sp { flex: 1; }
+</style></head>
+<body>
+<div id="app">
+  <div id="top"><div id="headline"></div><button id="fetch" style="display:none"></button><button id="separate" class="primary">Separate stems</button></div>
+  <div id="detail"></div>
+  <div id="prog" class="progress"><div></div></div>
+  <div id="note"></div>
+  <div id="wrap"><table>
+    <colgroup><col style="width:44px"><col style="width:42%"><col><col style="width:150px"><col style="width:64px"></colgroup>
+    <thead><tr><th>#</th><th>Track</th><th>Artist</th><th>Status</th><th>Time</th></tr></thead>
+    <tbody id="rows"></tbody></table></div>
+  <div id="foot"><button id="stop">Stop</button><span class="sp"></span><button id="close">Close</button></div>
+</div>
+<script src="common.js"></script>
+<script>
+  var $ = function (id) { return document.getElementById(id); }, lastActive = -1;
+  rbm.onState = function (s) {
+    $('headline').textContent = s.headline;
+    $('detail').textContent = s.detail;
+    $('note').textContent = s.note;
+    $('note').style.display = s.note ? '' : 'none';
+    $('prog').style.display = s.progressShown ? '' : 'none';
+    $('prog').firstChild.style.width = (100 * s.progressValue / s.progressMax) + '%';
+    $('stop').disabled = !s.stopEnabled;
+    $('separate').disabled = !s.separateEnabled;
+    $('fetch').style.display = s.fetchShown ? '' : 'none';
+    $('fetch').textContent = s.fetchLabel;
+    var active = -1;
+    s.tracks.forEach(function (t, i) { if (active < 0 && t.cls === 'separating') active = i; });
+    rbm.syncRows($('rows'), s.tracks, function (t) {  // rows are reused: only the cells that changed are touched
+      return '<tr><td class="muted">' + t.row + '</td><td>' + rbm.esc(t.title) + '</td><td>' + rbm.esc(t.artist) + '</td>' +
+        '<td class="' + t.cls + '">' + rbm.esc(t.state) + '</td><td class="muted">' + rbm.esc(t.time) + '</td></tr>';
+    });
+    if (!s.running) lastActive = -1;
+    if (s.running && active >= 0 && active !== lastActive) {  // bring the track in progress into view, once per track
+      lastActive = active;                                    // (on every update the list couldn't be scrolled)
+      var row = $('rows').children[Math.min(active + 3, s.tracks.length - 1)];
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    }
+  };
+  ['stop', 'separate', 'fetch', 'close'].forEach(function (id) {
+    $(id).onclick = function () { rbm.send({ cmd: id }); };
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') rbm.send({ cmd: 'close' }); });
+  rbm.ready();
+</script>
+</body></html>

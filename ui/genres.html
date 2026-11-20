@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Genres</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  #app { display: flex; flex-direction: column; height: 100%; padding: 14px 20px 12px; }
+  #top { display: flex; align-items: center; gap: 8px; }
+  #headline { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  button { white-space: nowrap; flex: none; }
+  button.primary:hover:not(:disabled) { background: #2b95ff; } button.primary:active:not(:disabled) { background: #0070e0; }
+  #detect { min-width: 112px; }  /* (Detect genres / Stop: the buttons beside it stay put) */
+  #detail { color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+  #prog { margin: 8px 0 2px; }
+  #notice { margin-top: 6px; padding-left: 15px; text-indent: -15px; color: var(--fg2); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  #notice b { font-weight: inherit; color: var(--fg); }
+  #bar { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; white-space: nowrap; }
+  .sp { flex: 1; }
+  #wrap { flex: 1; min-height: 0; overflow: auto; }
+  #empty { flex: 1; color: var(--fg2); font-size: 13px; margin-top: 24px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th { position: sticky; top: 0; background: var(--bg); text-align: left; font-weight: 500; color: var(--fg2); padding: 3px 6px; border-bottom: 1px solid var(--line); z-index: 1; }
+  td { padding: 0 6px; height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  tr:nth-child(even) td { background: rgba(255,255,255,.035); }
+  tr.active td { background: rgba(10,132,255,.22) !important; }
+  tr.active td:first-child { box-shadow: inset 3px 0 0 #0a84ff; }
+  th.k, td.k { padding: 0; text-align: center; text-overflow: clip; }
+  .k input { vertical-align: middle; }
+  td.old { color: var(--fg3); text-decoration: line-through; }  /* the Genre that Apply replaces */
+  /* Suggestion: what Apply writes is bright, what it leaves alone is grey; a status has a dot (as in the other windows) */
+  td.s { color: var(--fg2); } td.s.new { color: var(--fg); } td.s.quiet { color: var(--fg3); }
+  td.s.same { color: rgba(48,209,88,.7); } .ok { display: inline-block; width: 14px; } td.s .ok + select { width: calc(100% - 8px); max-width: 212px; }
+  td.s select { -webkit-appearance: none; appearance: none; font: inherit; color: inherit; outline: none; height: 18px; margin: 0 0 0 -6px; padding: 0 18px 0 5px;
+    width: calc(100% + 6px); max-width: 226px; text-overflow: ellipsis; vertical-align: middle; border: 1px solid transparent; border-radius: 5px;
+    background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%23a0a0a4' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 5px center; }
+  td.s select:hover, td.s select:focus { background-color: #3a3a3c; border-color: #4a4a4d; }
+  td.s option { background: var(--bg3); color: var(--fg); }
+  th.c, td.c { text-align: right; padding-right: 10px; } td.c { color: var(--fg2); font-variant-numeric: tabular-nums; }
+  .meter { display: inline-block; width: 36px; height: 4px; margin-right: 8px; border-radius: 2px; background: #3a3a3c; vertical-align: middle; overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 2px; background: #8e8e93; }
+  .meter.hi i { background: var(--green); } .meter.lo i { background: var(--orange); } td.c.lo { color: var(--orange); }
+  #model { color: var(--fg3); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 8px; }
+  #foot { display: flex; align-items: center; gap: 8px; padding-top: 10px; white-space: nowrap; }
+  #status { flex: 1; min-width: 0; text-align: right; color: var(--fg2); overflow: hidden; text-overflow: ellipsis; }
+  #replaceBox { margin: 0 4px 0 8px; }
+  #apply { min-width: 118px; }  /* (Apply / Apply 12 genres) */
+  #removeAll.confirm { background: #5a1d1d; border-color: var(--red); }
+</style></head>
+<body>
+<div id="app">
+  <div id="top"><div id="headline"></div>
+    <button id="fetch" style="display:none"></button>
+    <button id="detect" title="Listen to the tracks and suggest a genre for each (a second or two per track)">Detect genres</button></div>
+  <div id="detail"></div>
+  <div id="prog" class="progress"><div></div></div>
+  <div id="notice"></div>
+  <div id="bar"><span class="muted">Suggest</span>
+    <div class="seg" id="suggest"><button data-v="style" title="The specific style, like Liquid Funk or Deep House">Specific style</button><button data-v="broad" title="A broad genre, like Drum &amp; Bass or House">Broad genre</button></div>
+    <span class="sp"></span><label class="check" id="onAnalyseBox"><input type="checkbox" id="onAnalyse"> Fill empty genres on analysis</label></div>
+  <div id="wrap"><table>
+    <colgroup><col style="width:30px"><col><col style="width:19%"><col style="width:15%"><col style="width:24%"><col style="width:104px"></colgroup>
+    <thead><tr><th class="k"><input type="checkbox" id="all" title="Tick or untick every suggestion"></th><th>Track</th><th>Artist</th><th>Genre now</th><th>Suggestion</th>
+      <th class="c" title="How sure the model is of the suggestion. Under 20% it's often wrong (those aren't ticked); from 30% it's usually right.">Confidence</th></tr></thead>
+    <tbody id="rows"></tbody></table></div>
+  <div id="empty"></div>
+  <div id="model" title="The model listens to the music and knows 400 Discogs styles, best with electronic music. Unsure guesses (under 20%) aren't ticked. Discogs-EffNet by MTG (Essentia), CC BY-NC-SA 4.0: non-commercial use.">Discogs-EffNet style model by MTG (Essentia), CC BY-NC-SA 4.0: non-commercial use. Knows 400 Discogs styles, best with electronic music.</div>
+  <div id="foot"><button id="removeAll" title="Empties the Genre field of every track in this window (Undo puts them back)">Remove genres</button>
+    <span id="status"></span><button id="undo" title="Puts back the Genre fields as they were before the last Apply or Remove">Undo</button>
+    <label class="check" id="replaceBox" title="Also overwrite Genre fields that are filled"><input type="checkbox" id="replace"> Replace existing</label>
+    <button id="apply" title="Writes the ticked suggestions to the tracks' Genre fields">Apply</button><button id="close">Close</button></div>
+</div>
+<script src="common.js"></script>
+<script>
+  var $ = function (id) { return document.getElementById(id); }, esc = rbm.esc;
+  function show(el, on) { el.style.display = on ? '' : 'none'; }
+  function count(n, one, more) { return n + ' ' + (n === 1 ? one : more); }
+  var drawn = [], last = null, picked = false;  // drawn: each row's markup as it is shown; last: the state shown
+  // A row of the table. The Suggestion cell is the row's status (a dot and why there's nothing to pick) or the model's
+  // guesses: a dropdown when there is more than one, bright when Apply writes it.
+  function rowHtml(r, s) {
+    var has = r.options.length, cls = 's', tip = '', sug = '', p = Math.round(r.score * 100);
+    if (!has) {
+      var listening = r.state === 'Listening', text = listening ? 'Listening…' : r.done ? r.state || 'No guess' : s.listening ? 'Waiting' : '';
+      var dot = listening ? 'analysing' : r.waiting ? 'retry' : !r.done || !r.state || r.notIn ? '' : 'failed';
+      if (!r.done && !listening) cls += ' quiet';
+      tip = r.waiting && s.missingState && r.state === s.missingState ? s.missingTip : r.done ? text : '';
+      if (text) sug = '<span class="dot ' + dot + '"></span>' + esc(text);
+    } else {
+      var same = r.genre && r.choice === r.genre;
+      cls += r.writes ? ' new' : same ? ' same' : '';
+      tip = r.writes ? 'Apply writes this' : same ? 'The Genre field has this already' : r.genre && !s.replace ? 'Genre is filled: tick Replace existing to overwrite it'
+        : p < 20 ? 'The model is unsure: tick it to write it anyway' : '';
+      sug = has === 1 ? esc(r.choice) : '<select data-i="' + r.i + '">' + r.options.map(function (o) {
+        return '<option' + (o.n === r.choice ? ' selected' : '') + ' value="' + esc(o.n) + '">' + esc(o.n) + (o.n === r.genre && !same ? '  (now)' : '') + '</option>';
+      }).join('') + '</select>';
+      if (same) sug = '<span class="ok">✓</span>' + sug;
+    }
+    return '<tr' + (r.state === 'Listening' ? ' class="active"' : '') + '><td class="k">' + (has ? '<input type="checkbox" data-i="' + r.i + '"' + (r.tick ? ' checked' : '') + '>' : '') + '</td>' +
+      '<td title="' + esc(r.title) + '">' + esc(r.title) + '</td><td class="muted" title="' + esc(r.artist) + '">' + esc(r.artist) + '</td>' +
+      '<td' + (r.writes && r.genre ? ' class="old"' : '') + '>' + esc(r.genre) + '</td><td class="' + cls + '" title="' + esc(tip) + '"' + (has ? '' : ' colspan="2"') + '>' + sug + '</td>' +  // (a status may run on under Confidence)
+      (has ? '<td class="c' + (p < 20 ? ' lo' : '') + '"><span class="meter' + (p < 20 ? ' lo' : p >= 30 ? ' hi' : '') + '"><i style="width:' + Math.min(100, p) + '%"></i></span>' + p + '%</td>' : '') + '</tr>';
+  }
+  rbm.onState = function (s) {
+    var todo = 0, guessed = 0, ticked = 0;
+    s.rows.forEach(function (r) { if (!r.done) todo++; if (r.options.length) guessed++; if (r.tick) ticked++; });
+    var busy = s.listening || s.waitingForFiles;  // (waiting: goes on as tracks get their local files)
+    $('headline').textContent = 'Genres' + (s.name ? ' · ' + s.name : '');
+    $('headline').title = s.name || '';
+    $('detail').textContent = !s.total ? '' : s.listening ? 'Listening · ' + (s.done - s.waiting) + ' of ' + s.total
+      : s.waitingForFiles ? s.waitingText
+      : count(s.total, 'track', 'tracks') + (guessed ? ' · ' + guessed + ' with a suggestion' : '') + (todo ? ' · ' + todo + ' not listened to yet' : '');
+    $('prog').firstChild.style.width = (s.total ? 100 * (s.done - s.waiting) / s.total : 0) + '%';  // (a track waiting for its audio isn't done)
+    // The note about Spotify tracks: with the fetch button beside it the first sentence says enough (the rest is its tooltip).
+    var note = s.spotifyNote || '', first = /^(.*?[.!?])\s+(.+)$/.exec(note);
+    $('notice').innerHTML = !note ? '' : '<span class="dot retry"></span>' + (first ? '<b>' + esc(first[1]) + '</b>' + (s.canFetch ? '' : ' ' + esc(first[2])) : '<b>' + esc(note) + '</b>');
+    $('notice').title = note;
+    show($('notice'), note);
+    show($('fetch'), s.canFetch);
+    if (s.canFetch) { $('fetch').textContent = s.fetchLabel; $('fetch').title = s.fetchTip; }
+    [].forEach.call($('suggest').children, function (b) { b.className = b.getAttribute('data-v') === s.detail ? 'on' : ''; });
+    $('replace').checked = s.replace;
+    $('onAnalyse').checked = s.onAnalyse && s.onAnalyseOk;
+    $('onAnalyse').disabled = !s.onAnalyseOk;
+    $('onAnalyseBox').className = 'check' + (s.onAnalyseOk ? '' : ' muted');
+    $('onAnalyseBox').title = s.onAnalyseOk ? 'When rekordbox analyses a track (on import or by hand), an empty Genre field gets the best guess, if the model is sure enough. Filled fields are never changed. The same switch as Genre first in the analysis window.'
+      : 'Not available with this rekordbox version';
+    show($('prog'), s.total); show($('bar'), s.total); show($('wrap'), s.total); show($('empty'), !s.total);
+    $('empty').textContent = s.total ? '' : s.status;  // (no tracks: the status says why)
+    $('status').textContent = $('status').title = s.total ? s.status : '';
+    $('undo').disabled = !s.canUndo;
+    withGenre = s.withGenre;
+    $('removeAll').disabled = !s.withGenre;
+    if (armed && !s.withGenre) disarm();  // nothing left to remove
+    else $('removeAll').textContent = armed ? armLabel() : 'Remove genres';  // the count shown is the count removed
+    $('detect').disabled = !busy && !todo && !s.canFetch;
+    $('detect').textContent = busy ? 'Stop' : 'Detect genres';
+    listening = busy;
+    $('apply').disabled = !s.toWrite;
+    $('apply').textContent = s.toWrite ? 'Apply ' + count(s.toWrite, 'genre', 'genres') : 'Apply';
+    // One blue button: the next step (fetch, then detect, then apply).
+    var next = s.toWrite ? 'apply' : busy ? '' : todo ? 'detect' : s.canFetch ? 'fetch' : '';
+    ['fetch', 'detect', 'apply'].forEach(function (id) { $(id).className = id === next ? 'primary' : ''; });
+    $('all').checked = guessed && ticked === guessed;
+    $('all').indeterminate = ticked && ticked < guessed;
+    $('all').style.visibility = guessed ? '' : 'hidden';
+    // Rows are reused (rbm.syncRows): only the cells that changed are rewritten, so the list keeps its scroll position.
+    // The row with an open dropdown is left as it is until its pick is sent.
+    var a = document.activeElement, open = a && a.tagName === 'SELECT' && a.dataset.i !== undefined ? +a.dataset.i : -1;
+    if (last && last.name !== s.name) open = -1;  // (another playlist's rows)
+    last = s;
+    drawn.length = s.rows.length;
+    rbm.syncRows($('rows'), s.rows, function (r, i) { return i === open && drawn[i] ? drawn[i] : (drawn[i] = rowHtml(r, s)); });
+    // (a tick or a pick the mod didn't take: the markup is unchanged, the control is put back)
+    for (var i = 0, tr = $('rows').firstElementChild; tr; tr = tr.nextElementSibling, i++) {
+      var r = s.rows[i], box = tr.cells[0].firstChild, sel = tr.cells[4].lastChild;
+      if (box && box.checked !== r.tick) box.checked = r.tick;
+      if (i !== open && sel && sel.tagName === 'SELECT' && sel.value !== r.choice) sel.value = r.choice;
+    }
+  };
+  $('rows').addEventListener('change', function (e) {
+    var i = e.target.dataset.i;
+    if (i === undefined) return;
+    if (e.target.tagName === 'SELECT') { rbm.send({ cmd: 'choice', i: i, value: e.target.value }); picked = true; e.target.blur(); picked = false; }
+    else rbm.send({ cmd: 'tick', i: i, on: e.target.checked });
+  });
+  // A dropdown closed without a pick: its row catches up with what came in meanwhile.
+  $('rows').addEventListener('focusout', function (e) {
+    if (e.target.tagName === 'SELECT' && !picked) setTimeout(function () { if (last) rbm.onState(last); }, 0);
+  });
+  $('all').onchange = function () { rbm.send({ cmd: 'all', on: $('all').checked }); };
+  $('suggest').onclick = function (e) {
+    var b = e.target.closest('button');
+    if (b && b.className !== 'on') rbm.send({ cmd: 'detail', value: b.getAttribute('data-v') });
+  };
+  $('replace').onchange = function () { rbm.send({ cmd: 'replace', on: $('replace').checked }); };
+  $('onAnalyse').onchange = function () { rbm.send({ cmd: 'onAnalyse', on: $('onAnalyse').checked }); };
+  // Remove asks twice: the first click says how many, the second removes them.
+  var withGenre = 0, armed = null;
+  function armLabel() { return 'Remove ' + withGenre + ' genre' + (withGenre === 1 ? '' : 's') + '?'; }  // kept current by onState while armed
+  function disarm() { clearTimeout(armed); armed = null; $('removeAll').classList.remove('confirm'); $('removeAll').textContent = 'Remove genres'; }
+  $('removeAll').onclick = function () {
+    if (armed) { disarm(); rbm.send({ cmd: 'removeAll' }); return; }
+    $('removeAll').classList.add('confirm');
+    armed = setTimeout(disarm, 4000);
+    $('removeAll').textContent = armLabel();
+  };
+  ['apply', 'undo', 'close', 'fetch'].forEach(function (id) { $(id).onclick = function () { rbm.send({ cmd: id }); }; });
+  var listening = false;
+  $('detect').onclick = function () { rbm.send({ cmd: listening ? 'stop' : 'detect' }); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') rbm.send({ cmd: 'close' }); });
+  rbm.ready();
+</script>
+</body></html>

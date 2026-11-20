@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>platendoos patcher</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  #app { display: flex; flex-direction: column; height: 100%; padding: 18px 20px 14px; gap: 12px; }
+  #head { display: flex; align-items: center; gap: 14px; }
+  .chip { display: inline-flex; align-items: center; height: 40px; width: 225px; background: #303030; border-radius: 8px; overflow: hidden; flex: none; }
+  .chip .icon { width: 40px; height: 40px; background: #2978eb; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .chip .name { flex: 1; text-align: center; font-weight: 700; font-size: 22px; letter-spacing: 1.5px; color: #e0e0e0; }
+  #intro { color: var(--fg2); font-size: 12px; }
+  #intro b { color: var(--fg); font-weight: 600; }
+  .card { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .card h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--fg2); margin: 0 0 6px; display: flex; align-items: center; }
+  .card h2 .sp { flex: 1; }
+  .card h2 .count { text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .row { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
+  .row .ic { width: 14px; flex: none; text-align: center; font-weight: 700; }
+  .row .lbl { flex: none; min-width: 92px; font-weight: 500; }
+  .row .det { color: var(--fg2); overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+  .ok .ic { color: var(--green); } .warn .ic { color: var(--orange); } .fail .ic { color: var(--red); } .off .ic { color: var(--fg3); }
+  .off .lbl, .off .det { color: var(--fg3); }
+  .warn .det { color: #e5b46a; } .fail .det { color: #ff8a80; }
+  #rbHead { display: flex; align-items: center; gap: 12px; }
+  #rbHead .grow { flex: 1; min-width: 0; }
+  #rbName { font-size: 14px; font-weight: 600; }
+  #rbPath { color: var(--fg3); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: text; -webkit-user-select: text; }
+  #status { flex: none; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  #status.ready { background: rgba(48,209,88,.15); color: var(--green); }
+  #status.blocked { background: rgba(255,69,58,.15); color: #ff8a80; }
+  #status.busy { background: rgba(10,132,255,.15); color: #6cb4ff; }
+  #notes:not(:empty) { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  #notes .row { padding: 3px 0; }
+  #notes .det { color: var(--fg); }
+  #main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+  #modsCard { flex: 1; min-height: 120px; display: flex; flex-direction: column; }
+  #mods { flex: 1; overflow: auto; min-height: 0; }
+  #mods .lbl { min-width: 92px; }
+  #mods .row.mod { cursor: default; align-items: flex-start; }
+  #mods .row.mod .ic { display: flex; justify-content: center; padding-top: 2px; }
+  #mods .row.unchecked .lbl, #mods .row.unchecked .det { color: var(--fg3); }
+  button.link { background: none; border: 0; min-width: 0; padding: 0 0 0 10px; color: var(--accent); font-size: 11px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+  button.link:hover:not(:disabled) { background: none; text-decoration: underline; }
+  #options { display: flex; gap: 18px; flex-wrap: wrap; }
+  #work { display: none; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+  #work .progress { height: 8px; }
+  #log { flex: 1; min-height: 80px; overflow: auto; font: 11.5px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--fg2);
+    user-select: text; -webkit-user-select: text; white-space: pre-wrap; }
+  #log div.cur { color: var(--fg); }
+  #log div.cur::after { content: " …"; }
+  #banner { display: none; border-radius: 8px; padding: 10px 12px; font-weight: 500; user-select: text; -webkit-user-select: text; }
+  #banner.fail { display: block; background: rgba(255,69,58,.14); border: 1px solid rgba(255,69,58,.5); color: #ffb3ad; }
+  #banner.done { display: block; background: rgba(48,209,88,.12); border: 1px solid rgba(48,209,88,.45); color: #b9f5c8; }
+  #banner .sub { font-weight: 400; color: var(--fg2); margin-top: 3px; }
+  #foot { display: flex; gap: 8px; align-items: center; }
+  #foot button { white-space: nowrap; flex: none; }
+  #foot .ver { flex: 1; min-width: 0; color: var(--fg3); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  button.danger { color: #ff8a80; }
+  .hidden { display: none !important; }
+  .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--fg3); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin-right: 6px; vertical-align: -1px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style></head>
+<body>
+<div id="app">
+  <div id="head">
+    <div class="chip">
+      <div class="icon"><svg width="29" height="29" viewBox="0 0 40 40" fill="none" stroke="#fff">
+        <circle cx="20" cy="20" r="12.4" stroke-width="3"/><circle cx="20" cy="20" r="6.8" stroke-width="1.5"/>
+        <circle cx="20" cy="20" r="2.5" fill="#fff" stroke="none"/></svg></div>
+      <div class="name">PLATENDOOS</div>
+    </div>
+    <div id="intro"></div>
+  </div>
+
+  <div id="banner"></div>
+
+  <div id="main">
+    <div class="card" id="rbCard">
+      <div id="rbHead"><div class="grow"><div id="rbName"></div><div id="rbPath"></div></div><span id="status"></span></div>
+      <div id="notes"></div>
+    </div>
+    <div class="card" id="modsCard"><h2>Mods<span class="sp"></span><span class="count" id="modCount"></span><button class="link" id="allOn">All on</button><button class="link" id="allOff">All off</button></h2><div id="mods"></div></div>
+    <div class="card" id="optCard"><h2>Options</h2><div id="options">
+      <label class="check" id="optFlx4"><input type="checkbox" data-opt="flx4"> DDJ-FLX4 mapping (decks 3/4 and stems; needs the flx4 mod)</label>
+      <label class="check" id="optDesktop"><input type="checkbox" data-opt="desktop"> Desktop shortcut</label>
+    </div></div>
+    <div class="card" id="work"><h2>Progress</h2><div class="progress"><div id="bar" style="width:0"></div></div><div id="log"></div></div>
+  </div>
+
+  <div id="foot">
+    <button id="uninstall" class="danger">Uninstall</button>
+    <button id="again">Check again</button>
+    <span class="ver" id="ver"></span>
+    <button id="close">Close</button>
+    <button id="reveal" class="hidden"></button>
+    <button id="open" class="primary hidden">Start platendoos</button>
+    <button id="install" class="primary">Install</button>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var icons = { ok: '✓', warn: '!', fail: '✕', off: '–' };
+  function rows(list) {
+    return list.map(function (c) {
+      return '<div class="row ' + rbm.esc(c.state) + '"><span class="ic">' + (icons[c.state] || '') + '</span><span class="lbl">' +
+        rbm.esc(c.label) + '</span><span class="det">' + rbm.esc(c.detail) + '</span></div>';
+    }).join('');
+  }
+  var lastSteps = 0;
+  rbm.onState = function (s) {
+    var mac = s.platform === 'macOS';
+    var finding = s.phase === 'finding', working = s.phase === 'working';
+    $('intro').innerHTML = 'Installs <b>platendoos</b> for the rekordbox on this ' + (mac ? 'Mac' : 'PC') + '. ' +
+      (mac ? 'rekordbox itself stays as it is: platendoos is a patched copy next to it, in ~/Applications.'
+           : 'rekordbox\'s own files stay as they are: platendoos starts it with the mods.');
+    $('ver').textContent = 'patcher ' + s.patcher + ' · ' + s.platform;
+
+    $('rbName').textContent = finding ? 'Looking for rekordbox…' : s.found ? 'rekordbox ' + s.version : 'rekordbox not found';
+    $('rbPath').textContent = finding ? '' : s.app;
+    var st = $('status');
+    st.className = finding || working ? 'busy' : s.supported ? 'ready' : s.notes.some(function (n) { return n.state === 'fail'; }) ? 'blocked' : '';
+    st.innerHTML = finding ? '<span class="spin"></span>Checking' : working ? 'Installing' :
+      s.supported ? (s.installed ? 'Ready to update' : 'Ready to install') : st.className === 'blocked' ? 'Can\'t install' : '';
+    $('notes').innerHTML = finding ? '' : s.notes.map(function (n) {
+      return '<div class="row ' + rbm.esc(n.state) + '"><span class="ic">' + (icons[n.state] || '') + '</span><span class="det">' + rbm.esc(n.detail) + '</span></div>';
+    }).join('');
+    // a checkbox per mod this platform has: all on unless turned off (saved in the config on install)
+    var off = {};
+    (s.off || []).forEach(function (n) { off[n] = true; });
+    var scroll = $('mods').scrollTop;
+    $('mods').innerHTML = s.mods.map(function (m) {
+      var na = m.state === 'off', on = !na && !off[m.label];
+      return '<label class="row mod ' + rbm.esc(m.state) + (na || on ? '' : ' unchecked') + '"><span class="ic">' +
+        (na ? icons.off : '<input type="checkbox" data-mod="' + rbm.esc(m.label) + '"' + (on ? ' checked' : '') + (working ? ' disabled' : '') + '>') +
+        '</span><span class="lbl">' + rbm.esc(m.label) + '</span><span class="det">' +
+        (m.state === 'warn' || m.state === 'fail' ? icons[m.state] + ' ' : '') + rbm.esc(m.detail) + '</span></label>';
+    }).join('');
+    $('mods').scrollTop = scroll;
+    document.querySelectorAll('[data-mod]').forEach(function (cb) {
+      cb.onchange = function () { rbm.send({ cmd: 'mod', name: cb.dataset.mod, on: cb.checked }); };
+    });
+    var here = s.mods.filter(function (m) { return m.state !== 'off'; });
+    var nOn = here.filter(function (m) { return !off[m.label]; }).length;
+    $('modCount').textContent = finding || !s.mods.length ? '' : nOn + ' of ' + here.length + ' on' +
+      (here.length < s.mods.length ? ' · ' + (s.mods.length - here.length) + (s.mods.length - here.length == 1 ? ' is' : ' are') + (mac ? ' Windows only' : ' macOS only') : '');
+    $('allOn').disabled = $('allOff').disabled = working;
+
+    $('optDesktop').classList.toggle('hidden', mac);
+    document.querySelectorAll('[data-opt]').forEach(function (cb) { cb.checked = !!s[cb.dataset.opt]; cb.disabled = working; });
+
+
+    var showWork = working || s.phase === 'done' || s.phase === 'failed' || s.phase === 'removed';
+    $('work').style.display = showWork ? 'flex' : 'none';
+    $('modsCard').classList.toggle('hidden', showWork);
+    $('optCard').classList.toggle('hidden', showWork);
+    $('bar').style.width = Math.round(s.progress * 100) + '%';
+    $('bar').style.background = s.phase === 'failed' ? 'var(--red)' : s.phase === 'done' ? 'var(--green)' : '';
+    $('log').innerHTML = s.steps.map(function (t, i) {
+      return '<div' + (working && i === s.steps.length - 1 ? ' class="cur"' : '') + '>' + rbm.esc(t) + '</div>';
+    }).join('');
+    if (s.steps.length !== lastSteps) { $('log').scrollTop = 1e9; lastSteps = s.steps.length; }
+
+    var b = $('banner');
+    b.className = '';
+    if (s.phase === 'failed') { b.className = 'fail'; b.innerHTML = 'It didn\'t work: ' + rbm.esc(s.error) + '<div class="sub">Nothing of rekordbox\'s own was changed. The log above says how far it got.</div>'; }
+    else if (s.phase === 'done') { b.className = 'done'; b.innerHTML = 'platendoos is installed.' + '<div class="sub">' +
+      (mac ? 'Start it as "platendoos" from ~/Applications (or with the button). Your rekordbox library and settings are shared with rekordbox.'
+           : 'Start it as "platendoos" from the Start menu (or with the button). Your rekordbox library and settings are shared with rekordbox.') + '</div>'; }
+    else if (s.phase === 'removed') { b.className = 'done'; b.innerHTML = 'platendoos is uninstalled.'; }
+
+    var done = s.phase === 'done';
+    $('install').classList.toggle('hidden', done);
+    $('install').disabled = !s.supported || working || finding;
+    $('install').innerHTML = working ? '<span class="spin"></span>Installing' : rbm.esc(s.installed ? 'Update' : 'Install');
+    $('open').classList.toggle('hidden', !(done && s.installed));
+    $('reveal').classList.toggle('hidden', !s.installed || working);
+    $('reveal').textContent = mac ? 'Show in Finder' : 'Show in Explorer';
+    $('uninstall').classList.toggle('hidden', !s.installed || working || done);
+    $('again').classList.toggle('hidden', working);
+    $('again').disabled = finding;
+    $('close').disabled = working;
+  };
+  document.querySelectorAll('[data-opt]').forEach(function (cb) {
+    cb.onchange = function () { rbm.send({ cmd: 'option', name: cb.dataset.opt, on: cb.checked }); };
+  });
+  $('allOn').onclick = function () { rbm.send({ cmd: 'allmods', on: true }); };
+  $('allOff').onclick = function () { rbm.send({ cmd: 'allmods', on: false }); };
+  ['install', 'uninstall', 'again', 'close', 'open', 'reveal'].forEach(function (id) {
+    $(id).onclick = function () { rbm.send({ cmd: id }); };
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') rbm.send({ cmd: 'close' }); });
+  rbm.ready();
+</script>
+</body></html>

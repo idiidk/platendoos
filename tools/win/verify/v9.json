@@ -1,0 +1,102 @@
+[
+ {
+  "kind": "offset",
+  "name": "O_trackKey",
+  "file": "columns.cpp",
+  "fn": "__ZN2db15TrackListSorter10compareKeyEPNS_12RowDataTrackES2_",
+  "recipe": "ldr x1",
+  "nth": 0,
+  "mac_value": "0x210",
+  "win_fn": "0x1423a4c10",
+  "line": "static const Offset O_trackKey{0x210, \"__ZN2db15TrackListSorter10compareKeyEPNS_12RowDataTrackES2_\", \"ldr x1\", 0};  // RowDataTrack: key text (compareKey)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_viewerHeader",
+  "file": "columns.cpp",
+  "fn": "__ZNK6browse10ListViewer14getTableHeaderEv",
+  "recipe": "ldr x0",
+  "nth": 0,
+  "mac_value": "0x2a8",
+  "win_fn": "0x1414cc310",
+  "line": "static const Offset O_viewerHeader{0x2a8, \"__ZNK6browse10ListViewer14getTableHeaderEv\", \"ldr x0\", 0};  // ListViewer: BrowseListHeader* (a juce::TableHeaderComponent)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_trackPath",
+  "file": "core.cpp",
+  "fn": "__ZNK2db12RowDataTrack13isSpotifyFileEv",
+  "recipe": "add x0",
+  "nth": 0,
+  "mac_value": "0x98",
+  "win_fn": "0x141f3e6f0",
+  "line": "static const Offset O_trackPath{0x98, \"__ZNK2db12RowDataTrack13isSpotifyFileEv\", \"add x0\", 0};  // RowDataTrack: file path / streaming URI (juce::String)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_lvBrowseProp",
+  "file": "core.cpp",
+  "fn": "__ZNK6browse10ListViewer14canPlayPreviewEv",
+  "recipe": "add x0",
+  "nth": 0,
+  "mac_value": "0xf0",
+  "win_fn": "0x1414d43a0",
+  "line": "static const Offset O_lvBrowseProp{0xf0, \"__ZNK6browse10ListViewer14canPlayPreviewEv\", \"add x0\", 0};  // browse::ListViewer: its BrowseProperty",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_uiPlayerDeck",
+  "file": "analyzer.cpp",
+  "fn": "__ZN6djplay8UiPlayer17onBeatGridChangedEPN6rbxfrm14IControlClientERKNS1_14IDjPlayerStateE",
+  "recipe": "ldr x0",
+  "nth": 1,
+  "mac_value": "0x450",
+  "win_fn": "0x1425a07a0",
+  "line": "static const Offset O_uiPlayerDeck{0x450, \"__ZN6djplay8UiPlayer17onBeatGridChangedEPN6rbxfrm14IControlClientERKNS1_14IDjPlayerStateE\", \"ldr x0\", 1};  // djplay::UiPlayer: deck (ePlayerID)",
+  "prior": null
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce11MemoryBlock10replaceAllEPKvm",
+  "win": null,
+  "how": "missing",
+  "prior": "inlined",
+  "cands": []
+ },
+ {
+  "kind": "offset",
+  "name": "O_total",
+  "file": "artcache.cpp",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "recipe": "ldr x19",
+  "nth": 0,
+  "mac_value": "0x3d8",
+  "win_fn": "0x1415fdfa0",
+  "line": "static const Offset O_total{0x3d8, kAdd, \"ldr x19\", 0};   // ArtworkCache::Pimpl: bytes held (int)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_readerOwner",
+  "file": "betterkey.cpp",
+  "fn": "__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE6unloadEv",
+  "recipe": "add x19",
+  "nth": 1,
+  "mac_value": "0x1d8",
+  "win_fn": "0x141104f90",
+  "line": "static const Offset O_readerOwner{0x1d8, \"__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE6unloadEv\", \"add x19\", 1};  // PcmReaderTemplate: its ReaderOwnerTmpl",
+  "prior": null
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming4Play11getMediaUrnEib",
+  "win": null,
+  "how": "missing",
+  "prior": "inlined",
+  "cands": []
+ }
+]

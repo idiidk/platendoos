@@ -1,0 +1,6 @@
+[
+ {"item": "GetMediaName's table", "kind": "sym", "verdict": "pick", "win": "0x145f67870", "confidence": "high",
+  "why": "GetMediaName 0x141532cb0: cmp r8d,0x15; lea rcx,[rip+0x4a34ba7] (=0x145f67870); lea rdx,[rcx+rax*8]; String copy ctor: the 21-entry juce::String table, as mac"},
+ {"item": "V_lvLoadTrack", "kind": "offset", "verdict": "ok", "fn": "__ZTVN6browse10ListViewerE", "kind_recipe": "vt:__ZN6browse10ListViewer9loadTrackEN6djplay9ePlayerIDEibb", "nth": 0, "value": "0x370", "confidence": "high",
+  "why": "ListViewer vtable 0x1438c44d0: slot 111 = loadTrack(RowDataTrack&,..) (matched), 109/110 the two ePlayerID overloads (Spotify 3-track error strings), MSVC reversed: 110 (0x1414c8f00) takes movsxd r8d row + r9b bool = (ePlayerID,int,bool,bool); 109 takes r9 pointer = (ePlayerID,int,RowDataTrack*,bool,bool)"}
+]

@@ -1,0 +1,4 @@
+[
+ {"item": "sp_init_wait", "kind": "hook", "verdict": "ok", "sites": ["0x142fb105f"], "target": "0x142a445d0", "confidence": "high",
+  "why": "Auth::getClientToken (0x142fb1000, mac 0x103069b50): lea rcx,[rsi+0x3a8]; vmovsd xmm1,10000.0; call 0x142a445d0; test al,al; jne / else SP_LOG 'timed out waiting for client initialization' and an empty String. 0x142a445d0 is juce::WaitableEvent::wait(double) (lock at +8, wait loop on the triggered flag +0xa0; the matcher's Timer::run is wrong); the second call (0x142fb1119, event +0x300) is the token wait, as the mac's two waits."}
+]

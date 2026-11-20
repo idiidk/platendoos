@@ -1,0 +1,301 @@
+// Call sites in rekordbox (arm64) that the patched binary routes into librbmods.dylib, by name, so that a
+// rekordbox update that moves code doesn't break them. Read by patch_binary.py (to patch the binary) and by
+// core (the jump table and the originals); a hook's index is its line order, so after any change here rebuild
+// the app with build.sh (not install.sh).
+//
+//   HOOK(name, caller, nth, count, target, kind)
+//     The call site is the nth (from 0) of the count calls to target inside the function caller (both mangled
+//     symbols; "stub:_x" is the dyld stub of an imported function). If the caller no longer has count such
+//     calls, its code has changed and the patcher leaves the hook out rather than guess.
+//     kind -1: the site is "bl <target>"            -> becomes "bl <stub>"
+//     kind -2: the site is "b <target>" (tail call) -> becomes "b <stub>" (the hook returns to the caller's caller)
+//     kind  n: the site is "adr xn, <target>; nop"  -> becomes "adrp xn, <stub>; add xn, xn, ..."
+// The dylib must define extern "C" rbm_hook_<name> with the target's signature; call the original with
+// RBM_ORIG(name). A hook left out is never called.
+//
+//   HOOK_OR(name, caller, nth, count, target, kind)
+//     Another site for the hook `name` (a HOOK line above it), used when that one isn't found: where a newer
+//     rekordbox has the same call after the code around it moved. It is no hook of its own (no index), the
+//     patchers try a hook's sites in order, and the code that includes this file doesn't see it unless it asks.
+#ifndef HOOK_OR
+#define HOOK_OR(name, caller, nth, count, target, kind)
+#define RBM_HOOK_OR_UNUSED
+#endif
+
+// keycolumn: ListViewer::paintCell -> bl ListViewer::getString (plain-text cells)
+HOOK(paint_getString, "__ZN6browse10ListViewer9paintCellERN4juce8GraphicsEiiiib", 0, 2, "__ZNK6browse10ListViewer9getStringERKN2db12RowDataTrackEi", -1)
+// keycolumn: ListViewSorter::ListViewSorter -> bl ListViewSorter::setCompFunc(int column)
+HOOK(sorter_setCompFunc, "__ZN6browse14ListViewSorterC2EbiRNS_10ListViewerERKN4juce6StringES6_", 0, 1, "__ZN6browse14ListViewSorter11setCompFuncEi", -1)
+// keycolumn: BrowseHeaderManager::restoreHeaderInfo(ViewType, TableHeaderComponent*, ...) callers
+//   (ListViewer::changeTableHeader, BrowseListViewer::visualizeKUVOColumn... x2, restoreHeaderInfo(browse_type))
+HOOK(header_restore1, "__ZN6browse10ListViewer17changeTableHeaderEb", 0, 1, "__ZN6browse19BrowseHeaderManager17restoreHeaderInfoENS0_8ViewTypeEPN4juce20TableHeaderComponentERKNS_14BrowsePropertyERNS_13ArtworkStatusE", -1)
+HOOK(header_restore2, "__ZN6browse16BrowseListViewer39visualizeKUVOColumnForAllBrowseSettingsEv", 0, 2, "__ZN6browse19BrowseHeaderManager17restoreHeaderInfoENS0_8ViewTypeEPN4juce20TableHeaderComponentERKNS_14BrowsePropertyERNS_13ArtworkStatusE", -1)
+HOOK(header_restore3, "__ZN6browse16BrowseListViewer39visualizeKUVOColumnForAllBrowseSettingsEv", 1, 2, "__ZN6browse19BrowseHeaderManager17restoreHeaderInfoENS0_8ViewTypeEPN4juce20TableHeaderComponentERKNS_14BrowsePropertyERNS_13ArtworkStatusE", -1)
+HOOK(header_restore4, "__ZN6browse19BrowseHeaderManager17restoreHeaderInfoENS0_8ViewTypeEPN4juce20TableHeaderComponentEN2db12_browse_typeENS5_10_list_typeERNS_13ArtworkStatusEi", 0, 1, "__ZN6browse19BrowseHeaderManager17restoreHeaderInfoENS0_8ViewTypeEPN4juce20TableHeaderComponentERKNS_14BrowsePropertyERNS_13ArtworkStatusE", -1)
+// keycolumn: BrowseHeaderManager::getColumnIndexByID(id) callers (getColumnAutoSizeWidth,
+//   setXmlSettingHeaderColumn, setAttributeXmlSettingHeaderColumn, addColumn, getColumnName);
+//   id -> row in the name/width tables, -1 = unknown (a saved column with that id is dropped)
+HOOK(column_index1, "__ZN6browse10ListViewer22getColumnAutoSizeWidthEi", 0, 1, "__ZNK6browse19BrowseHeaderManager18getColumnIndexByIDEi", -1)
+HOOK(column_index2, "__ZN6browse19BrowseHeaderManager25setXmlSettingHeaderColumnEPN4juce20TableHeaderComponentEPNS1_10XmlElementEN2db10_list_typeEi", 0, 1, "__ZNK6browse19BrowseHeaderManager18getColumnIndexByIDEi", -1)
+HOOK(column_index3, "__ZN6browse19BrowseHeaderManager34setAttributeXmlSettingHeaderColumnEPN4juce20TableHeaderComponentEPNS1_10XmlElementEN2db10_list_typeEi", 0, 1, "__ZNK6browse19BrowseHeaderManager18getColumnIndexByIDEi", -1)
+HOOK(column_index4, "__ZN6browse19BrowseHeaderManager9addColumnEPN4juce20TableHeaderComponentEPKNS_26browse_column_disp_defaultEiN2db12_browse_typeEb", 0, 1, "__ZNK6browse19BrowseHeaderManager18getColumnIndexByIDEi", -1)
+HOOK(column_index5, "__ZNK6browse19BrowseHeaderManager13getColumnNameEi", 0, 1, "__ZNK6browse19BrowseHeaderManager18getColumnIndexByIDEi", -1)
+// menu: BrowsePopupMenuManager::showTreeViewPopupMenu -> bl juce::PopupMenu::show
+HOOK(tree_popupShow, "__ZN6browse22BrowsePopupMenuManager21showTreeViewPopupMenuERKNS_10TreeViewerERKNS_22FolderListTreeViewItemE", 0, 1, "__ZN4juce9PopupMenu4showEiiiiPNS_21ModalComponentManager8CallbackE", -1)
+// menu: FolderListTreeViewItem::clickEventWithRigthButton -> bl showTreeViewPopupMenu
+HOOK(tree_showMenu, "__ZN6browse22FolderListTreeViewItem25clickEventWithRigthButtonERKN4juce10MouseEventE", 0, 1, "__ZN6browse22BrowsePopupMenuManager21showTreeViewPopupMenuERKNS_10TreeViewerERKNS_22FolderListTreeViewItemE", -1)
+// spotifyfix: juce::operator!=(String, String) revision checks in SpotifyBridge
+//   refreshListTrack_myCollection lambda (refresh check -> destructive reload)
+HOOK(spotify_rev_refresh, "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge29refreshListTrack_myCollectionENS2_10_list_typeEjcRN4juce10OwnedArrayINS2_12RowDataTrackENS5_20DummyCriticalSectionEEEbbE4$_20NS_9allocatorISB_EEFvPNS5_13ThreadPoolJobEEEclEOSF_", 0, 1, "__ZN4juceneERKNS_6StringES2_", -1)
+//   getNewPlaylistsAndSetCache (library sync)
+HOOK(spotify_rev_library, "__ZN2db13SpotifyBridge26getNewPlaylistsAndSetCacheERKN4juce5ArrayIjNS1_20DummyCriticalSectionELi0EEE", 7, 8, "__ZN4juceneERKNS_6StringES2_", -1)
+//   refreshListItem lambda (sidebar quick check / track cache wipe), two sites
+HOOK(spotify_rev_item1, "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge15refreshListItemEvE4$_21NS_9allocatorIS4_EEFvPN4juce13ThreadPoolJobEEEclEOS9_", 4, 6, "__ZN4juceneERKNS_6StringES2_", -1)
+HOOK(spotify_rev_item2, "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge15refreshListItemEvE4$_21NS_9allocatorIS4_EEFvPN4juce13ThreadPoolJobEEEclEOS9_", 5, 6, "__ZN4juceneERKNS_6StringES2_", -1)
+// spotifyfix: Client::onRequestClientTokenCallback -> bl Service::setClientTokenDirect (the new client token; runs
+//   with the Client's lock held, and takes the Service's token lock: the other order from Auth::getClientToken)
+HOOK(spotify_token_set, "__ZN9streaming7spotify6Client28onRequestClientTokenCallbackEPKc15DJDownloadError", 0, 1, "__ZN9streaming7spotify7Service20setClientTokenDirectERKN4juce6StringE", -1)
+// analyzer: PlayHistoryManager::timerCallback -> bl DatabaseIF::addTrackToPlayHistory(id)
+//   (x19 = the PlayHistoryManager; its +0x28 is the deck)
+HOOK(history_add, "__ZN6djplay8UiPlayer18PlayHistoryManager13timerCallbackEv", 0, 1, "__ZN2db10DatabaseIF21addTrackToPlayHistoryEj", -1)
+// analyzer: DatabaseMediator::analyzeCollectionLoad (deck load, streaming branch)
+//   -> bl RowDataTrack::isAnalyzedOldVer(bool); true makes rekordbox analyse an analysed track again
+HOOK(load_isAnalyzedOld, "__ZN2db16DatabaseMediator21analyzeCollectionLoadERKNS_12RowDataTrackEb", 0, 3, "__ZNK2db12RowDataTrack16isAnalyzedOldVerEb", -1)
+// analyzer: UiPlayer::handleDBMessageTrackStatus -> bl handleDBMessageTrackStatusWhenAnalyzeCompleted
+//   (UiPlayer*, id, long, BigInteger*). Signals "analysis done" for a deck, and is skipped for an
+//   empty deck: rekordbox crashes there when an analysis finishes after its deck was ejected.
+HOOK(analyze_completed, "__ZN6djplay8UiPlayer26handleDBMessageTrackStatusEjlN2db26DBMessageToPlayerParameterE", 0, 1, "__ZN6djplay8UiPlayer46handleDBMessageTrackStatusWhenAnalyzeCompletedEjlN2db26DBMessageToPlayerParameterE", -1)
+// fontcache: _hb_coretext_shaper_font_data_create -> bl create_ct_font(CGFont*, double size)
+//   (JUCE creates a new HarfBuzz font, and with it a new CTFont, for every text run it draws)
+HOOK(font_createCT, "__hb_coretext_shaper_font_data_create", 0, 1, "__ZL14create_ct_fontP6CGFontd", -1)
+// betterkey: CBeatAnalyzeThread::analyze -> bl AnalyzeJobController::SetSepcialInfo(2 = key job, shared_ptr<info>*)
+//   (x20 = the CBeatAnalyzeThread; runs on the analysis thread right before the key job)
+HOOK(key_specialInfo, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 3, 4, "__ZN8analyzer20AnalyzeJobController14SetSepcialInfoENS_11AnalyzeJobsENSt3__110shared_ptrIvEE", -1)
+// betterkey: AnalyzeJobKey::Detect -> bl getKey(beats, bpm, pcm, ...) -> key code 0..23 (-1 failed)
+HOOK(key_getKey, "__ZN8analyzer13AnalyzeJobKey6DetectEv", 0, 1, "__ZN8analyzer13AnalyzeJobKey6getKeyERN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEEfNSt3__110shared_ptrIfEEjbmm", -1)
+// betterkey (diagnostics): CBeatAnalyzeThread::analyze -> bl SetSepcialInfo(3 = beat job, ...) (x20 = thread)
+HOOK(beat_specialInfo, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 2, 4, "__ZN8analyzer20AnalyzeJobController14SetSepcialInfoENS_11AnalyzeJobsENSt3__110shared_ptrIvEE", -1)
+// analyzer: analyzeCollectionLoad -> bl execAnalyzeCollection(thread, ids, type, notAnalysed, oldVer, b, b)
+HOOK(load_execAnalyze, "__ZN2db16DatabaseMediator21analyzeCollectionLoadERKNS_12RowDataTrackEb", 0, 1, "__ZN2db16DatabaseMediator21execAnalyzeCollectionEPNS0_23AnalyzeCollectionThreadERKN4juce5ArrayIjNS3_20DummyCriticalSectionELi0EEENS_15BeatAnalyzeTypeEbbbb", -1)
+// analyzer: DatabaseMediator::execAnalyze -> bl rekordboxDBController::getAnalyzeStatus(id, status&, row*)
+HOOK(exec_analyzeStatus, "__ZN2db16DatabaseMediator11execAnalyzeEPNS_16DBCommandAnalyzeE", 0, 3, "__ZN2db21rekordboxDBController16getAnalyzeStatusEjRNS_14sAnalyzeStatusEPNS_12RowDataTrackE", -1)
+// analyzer: start of CBeatAnalyzeThread::analyze -> bl SingletonHolder<CAnalyzerIF>::get (x20 = the thread)
+HOOK(an_begin, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 12, "__ZN4juce15SingletonHolderIN8analyzer11CAnalyzerIFENS_15CriticalSectionELb0EE3getEv", -1)
+// timing: CBeatAnalyzeThread::analyze -> bl Thread::threadShouldExit in the "wait until the stream is downloaded" loop
+HOOK(an_poll, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 1, 31, "__ZNK4juce6Thread16threadShouldExitEv", -1)
+// timing: analyze -> bl SongStructureAnalyze::Analyze_AB (phrase analysis starts; x20 = thread)
+HOOK(an_phrase, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 1, "__ZN8analyzer20SongStructureAnalyze10Analyze_ABEPKfS2_i", -1)
+// timing: analyze -> bl feature_extractor::embed (similarity embedding starts; x20 = thread)
+HOOK(an_embed, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 1, "__ZN17feature_extractor5embedERKNSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEEibb", -1)
+// timing: analyze -> bl CBeatAnalyzeThread::createSeekTable (last step; x0 = thread)
+HOOK(an_seek, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 1, "__ZN8analyzer18CBeatAnalyzeThread15createSeekTableEv", -1)
+// timing: Thread::sleep(10) while the stream isn't ready yet: analyze() first chunk, getStreamAt() every chunk
+HOOK(an_wait1, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 1, 3, "__ZN4juce6Thread5sleepEi", -1)
+HOOK(an_wait2, "__ZN8analyzer18CBeatAnalyzeThread11getStreamAtEPN6rbxfrm17PcmReaderTemplateINS1_6Float2EEEmPsS6_mPfS7_m", 0, 1, "__ZN4juce6Thread5sleepEi", -1)
+// analyzer: execAnalyzeCollection -> bl CAnalyzerIF::cancel_analyze(id): queuing a newly loaded track cancels
+// the other running analyses whose stored status still says "needs analysis", which then start over
+HOOK(coll_cancel, "__ZN2db16DatabaseMediator21execAnalyzeCollectionEPNS0_23AnalyzeCollectionThreadERKN4juce5ArrayIjNS3_20DummyCriticalSectionELi0EEENS_15BeatAnalyzeTypeEbbbb", 0, 1, "__ZN8analyzer11CAnalyzerIF14cancel_analyzeEl", -1)
+// parallel: CBeatAnalyzeThread::analyze chunk loop -> bl BALibWrapper::SetSample(L, R, n) (beat detector)
+HOOK(an_setSample, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 1, "__ZN8analyzer12BALibWrapper9SetSampleEPfS1_i", -1)
+// parallel: same loop -> bl WaveCreator::readWaveData(L, R, n) (waveforms)
+HOOK(an_readWave, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 1, "__ZN8analyzer11WaveCreator12readWaveDataEPfS1_m", -1)
+// parallel: every exit of the chunk loop -> operator delete[](scratch buffer)
+HOOK(an_loopEnd, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 2, 16, "stub:__ZdaPv", -1)
+// tfpool: madmom::analyze(String, String, float*, float*, int, long long, bool) -> bl TFWrapper::Model::Model (x2)
+HOOK(tf_model1, "__ZN6madmom7analyzeEN4juce6StringES1_PfS2_ixb", 0, 2, "__ZN9TFWrapper5ModelC1ERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEbib", -1)
+HOOK(tf_model2, "__ZN6madmom7analyzeEN4juce6StringES1_PfS2_ixb", 1, 2, "__ZN9TFWrapper5ModelC1ERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEbib", -1)
+// analyzer: SpotifyBridge::timerCallback -> bl DatabaseIF::analyzeCollectionPause (then analyzeCollectionStart)
+HOOK(bridge_pause, "__ZN2db13SpotifyBridge13timerCallbackEi", 0, 1, "__ZN2db10DatabaseIF22analyzeCollectionPauseEv", -1)
+// analyzer: DatabaseMediator::AnalyzeCollectionThread::run -> bl execAnalyzeCollection (auto analysis)
+HOOK(auto_execAnalyze, "__ZN2db16DatabaseMediator23AnalyzeCollectionThread3runEv", 0, 1, "__ZN2db16DatabaseMediator21execAnalyzeCollectionEPNS0_23AnalyzeCollectionThreadERKN4juce5ArrayIjNS3_20DummyCriticalSectionELi0EEENS_15BeatAnalyzeTypeEbbbb", -1)
+// analyzer: DatabaseMediator::modifyRemove (x2) / mod_analysis_lock -> bl CAnalyzerIF::cancel_analyze(long)
+HOOK(rm_cancel1, "__ZN2db16DatabaseMediator12modifyRemoveERN4juce5ArrayIPNS_12RowDataTrackENS1_20DummyCriticalSectionELi0EEERNS2_IjS5_Li0EEEPNS1_24ThreadWithProgressWindowEb", 0, 2, "__ZN8analyzer11CAnalyzerIF14cancel_analyzeEl", -1)
+HOOK(rm_cancel2, "__ZN2db16DatabaseMediator12modifyRemoveERN4juce5ArrayIPNS_12RowDataTrackENS1_20DummyCriticalSectionELi0EEERNS2_IjS5_Li0EEEPNS1_24ThreadWithProgressWindowEb", 1, 2, "__ZN8analyzer11CAnalyzerIF14cancel_analyzeEl", -1)
+HOOK(lock_cancel, "__ZN2db16DatabaseMediator17mod_analysis_lockERKN4juce5ArrayIjNS1_20DummyCriticalSectionELi0EEEbPNS1_24ThreadWithProgressWindowE", 0, 1, "__ZN8analyzer11CAnalyzerIF14cancel_analyzeEl", -1)
+// analyzer: DatabaseMediator::importTrack (with playlists; the bridge import of a Spotify track reaches it through the
+//   other overload) -> bl CAnalyzerIF::cancel_analyze() (no id: cancels every running analysis)
+HOOK(import_cancel, "__ZN2db16DatabaseMediator11importTrackERKN4juce10OwnedArrayINS_12RowDataTrackENS1_20DummyCriticalSectionEEERNS2_INS_16ListDataPlaylistES4_EERNS2_INS_15RowDataPlaylistES4_EERKNS0_10ImportInfoEPNS1_5ArrayINS_6IDsSetES4_Li0EEEb", 0, 1, "__ZN8analyzer11CAnalyzerIF14cancel_analyzeEv", -1)
+// analyzer: DatabaseMediator::execAnalyze -> bl CAnalyzerIF::start_analyze(AnalyzerIfStartAnalyze&)
+HOOK(exec_start, "__ZN2db16DatabaseMediator11execAnalyzeEPNS_16DBCommandAnalyzeE", 0, 1, "__ZN8analyzer11CAnalyzerIF13start_analyzeERNS_22AnalyzerIfStartAnalyzeE", -1)
+// analyzer: DatabaseMediator::execAnalyze -> bl iTunesBridge::isReadingMusinApp() (artwork of tracks without one)
+HOOK(itunes_reading, "__ZN2db16DatabaseMediator11execAnalyzeEPNS_16DBCommandAnalyzeE", 0, 1, "__ZN2db12iTunesBridge17isReadingMusinAppEv", -1)
+// framerate: UiManager::changeLoadStatus -> bl MainComponent::getInstance, just before it tail-calls
+//   MainComponent::changeFrameRate(any deck loaded) (rekordbox resets the UI frame rate)
+HOOK(fr_loadStatus, "__ZN6djplay9UiManager16changeLoadStatusENS_9ePlayerIDEb", 0, 1, "__ZN13MainComponent11getInstanceEv", -1)
+// screeninfo: JUCE's per-vblank repaint -> [[[view window] screen] deviceDescription] (a new dictionary each time)
+HOOK(screen_desc, "__ZN4juce19NSViewComponentPeer14AsyncRepainter17handleAsyncUpdateEv", 0, 1, "_objc_msgSend$deviceDescription", -1)
+// spotifylog: StreamingLog::run -> bl FileLogger::trimFileSize after every batch of lines (rewrites the 1 MB log)
+HOOK(log_trim, "__ZN9streaming12StreamingLog3runEv", 0, 1, "__ZN4juce10FileLogger12trimFileSizeERKNS_4FileEx", -1)
+// artcache: ArtworkCache::Pimpl::addImageToCache -> bl OwnedArray<Item>::removeRange(0, 50) once it holds ~26 MB
+HOOK(art_evict, "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE", 0, 1, "__ZN4juce10OwnedArrayIN12ArtworkCache5Pimpl4ItemENS_20DummyCriticalSectionEE11removeRangeEiib", -1)
+// artcache: ArtworkCache::Pimpl::run_url -> bl URL::readEntireBinaryStream (downloads an artwork image)
+HOOK(art_download, "__ZN12ArtworkCache5Pimpl7run_urlERKN4juce6StringE", 0, 1, "__ZNK4juce3URL22readEntireBinaryStreamERNS_11MemoryBlockEb", -1)
+// artcache: ArtworkCache::getFromURI -> bl rb::URLHelper::createInputStream (a deck's or track info's artwork, on the main thread)
+HOOK(art_stream, "__ZN12ArtworkCache10getFromURIERKN4juce6StringE", 0, 1, "__ZN2rb9URLHelper17createInputStreamERN4juce3URLEbPFbPviiES4_NS1_6StringEiPNS1_15StringPairArrayEPiiS7_S7_S7_", -1)
+// streamio: CBeatAnalyzeThread::getStreamAt -> bl Thread::yield after every 512 frames read
+HOOK(gs_yield, "__ZN8analyzer18CBeatAnalyzeThread11getStreamAtEPN6rbxfrm17PcmReaderTemplateINS1_6Float2EEEmPsS6_mPfS7_m", 0, 1, "__ZN4juce6Thread5yieldEv", -1)
+// streamio: CBeatAnalyzeThread::analyze -> bl CBeatAnalyzeThread::getStreamAt: the audio pass (0), then phrase
+//   analysis' two passes (1: Analyze_AB, 2: Analyze_CD), which each rewind the reader and decode the whole track again
+HOOK(an_streamMain, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 3, "__ZN8analyzer18CBeatAnalyzeThread11getStreamAtEPN6rbxfrm17PcmReaderTemplateINS1_6Float2EEEmPsS6_mPfS7_m", -1)
+HOOK(an_streamAB, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 1, 3, "__ZN8analyzer18CBeatAnalyzeThread11getStreamAtEPN6rbxfrm17PcmReaderTemplateINS1_6Float2EEEmPsS6_mPfS7_m", -1)
+HOOK(an_streamCD, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 2, 3, "__ZN8analyzer18CBeatAnalyzeThread11getStreamAtEPN6rbxfrm17PcmReaderTemplateINS1_6Float2EEEmPsS6_mPfS7_m", -1)
+// streamio: CBeatAnalyzeThread::analyze -> bl Thread::yield (between the stages of each audio block)
+HOOK(an_yield0, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK(an_yield1, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 1, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK(an_yield2, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 2, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK(an_yield3, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 3, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK(an_yield4, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 4, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK(an_yield5, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 5, 6, "__ZN4juce6Thread5yieldEv", -1)
+// midipoll: DeviceServer::timerCallback (every 150 ms, alternating) -> bl MIDI_DeviceCheck (rescans CoreMIDI devices)
+HOOK(midi_check, "__ZN6djplay12DeviceServer13timerCallbackEi", 0, 1, "__ZN6djplay12DeviceServer16MIDI_DeviceCheckEv", -1)
+// flx4: DeviceMidi::run (a controller's MIDI thread) -> bl midiInDataForThread, for every message from the controller
+//   (it handles the time-critical ones, e.g. jog wheels, there; the rest go on to the main thread)
+HOOK(midi_in, "__ZN6djplay10DeviceMidi3runEv", 0, 1, "__ZN6djplay10DeviceMidi19midiInDataForThreadERN4juce11MidiMessageE", -1)
+// flx4: every message to a controller, as it goes out: juce::MidiOutput::sendMessageNow from MidiOutputHelper::run
+//   (its three queues: a repeated message, timed messages e.g. the level meters, the LEDs by priority) and from
+//   MidiOutputBackgroundThread::run (the queues' timed sends, when the device has that thread)
+HOOK(midi_send1, "__ZN6djplay16MidiOutputHelper3runEv", 0, 3, "__ZN4juce10MidiOutput14sendMessageNowERKNS_11MidiMessageE", -1)
+HOOK(midi_send2, "__ZN6djplay16MidiOutputHelper3runEv", 1, 3, "__ZN4juce10MidiOutput14sendMessageNowERKNS_11MidiMessageE", -1)
+HOOK(midi_send3, "__ZN6djplay16MidiOutputHelper3runEv", 2, 3, "__ZN4juce10MidiOutput14sendMessageNowERKNS_11MidiMessageE", -1)
+HOOK(midi_send4, "__ZN6djplay26MidiOutputBackgroundThread3runEv", 0, 1, "__ZN4juce10MidiOutput14sendMessageNowERKNS_11MidiMessageE", -1)
+// flx4: MidiMap::create -> bl MidiMapDDJFLX4's constructor (the FLX4's mapping; the mod adds decks 3/4's jog processors)
+HOOK(flx4_map, "__ZN6djplay7MidiMap6createEiN4juce6StringE", 0, 1, "__ZN6djplay14MidiMapDDJFLX4C2EiN4juce6StringE", -1)
+// spotifyapi: Service::getPlaylistTracks holds Service's API lock (+0x148) around DjAPI::getTracks, the HTTP request
+//   itself, so every Spotify track-list request waits for the one before: lock, unlock, unlock in the unwind path
+HOOK(sp_tracks_enter, "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii", 0, 2, "__ZNK4juce15CriticalSection5enterEv", -1)
+//   7.2.20: the 401 handling with its listener lock moved out to Service::logoutIfUnauthorized, so one lock is left here
+HOOK_OR(sp_tracks_enter, "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii", 0, 1, "__ZNK4juce15CriticalSection5enterEv", -1)
+HOOK(sp_tracks_exit, "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii", 0, 4, "__ZNK4juce15CriticalSection4exitEv", -1)
+HOOK_OR(sp_tracks_exit, "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii", 0, 2, "__ZNK4juce15CriticalSection4exitEv", -1)
+HOOK(sp_tracks_unwind, "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii", 3, 4, "__ZNK4juce15CriticalSection4exitEv", -1)
+HOOK_OR(sp_tracks_unwind, "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii", 1, 2, "__ZNK4juce15CriticalSection4exitEv", -1)
+// spotifyapi: the same in Service::getLookupTracks (tracks by id)
+HOOK(sp_lookup_enter, "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii", 0, 2, "__ZNK4juce15CriticalSection5enterEv", -1)
+HOOK_OR(sp_lookup_enter, "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii", 0, 1, "__ZNK4juce15CriticalSection5enterEv", -1)
+HOOK(sp_lookup_exit, "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii", 0, 4, "__ZNK4juce15CriticalSection4exitEv", -1)
+HOOK_OR(sp_lookup_exit, "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii", 0, 2, "__ZNK4juce15CriticalSection4exitEv", -1)
+HOOK(sp_lookup_unwind, "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii", 3, 4, "__ZNK4juce15CriticalSection4exitEv", -1)
+HOOK_OR(sp_lookup_unwind, "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii", 1, 2, "__ZNK4juce15CriticalSection4exitEv", -1)
+// spotifyapi: SingletonHolder<BridgeThreadPool>::get -> bl ThreadPool::ThreadPool(3 threads, ...): every streaming
+//   service's background jobs share these 3
+HOOK(bridge_pool, "__ZN4juce15SingletonHolderIN15StreamingHelper16BridgeThreadPoolENS_15CriticalSectionELb1EE3getEv", 0, 1, "__ZN4juce10ThreadPoolC2EimNS_6Thread8PriorityE", -1)
+// badge: StatusBarComponent::updateMessageTextVisibility (after a status-bar label changes) -> bl Label::getText on
+//   the message label, just before it's shown or hidden
+// badge: the main-thread part of StatusBarComponent::showMessage -> bl ComponentAnimator::fadeIn (the new message)
+HOOK(status_fade, "__ZNSt3__110__function6__funcIZN6common18StatusBarComponent11showMessageERKN4juce6StringENS2_11MessageTypeEE3$_0NS_9allocatorIS9_EEFvvEEclEv", 0, 1, "__ZN4juce17ComponentAnimator6fadeInEPNS_9ComponentEi", -1)
+HOOK(status_text, "__ZN6common18StatusBarComponent27updateMessageTextVisibilityEv", 1, 2, "__ZNK4juce5Label7getTextEb", -1)
+// stemcache: AudioPartLibrary::load (the STEMS engine plugin) -> bl juce::DynamicLibrary::getFunction for
+//   <engine>Initialize, PreOperation, OperationAtIndexOtherWithBass and OperationAtIndexSeparatedBass
+HOOK(stem_init, "__ZN6rbxfrm9audiopart16AudioPartLibrary4loadEv", 0, 8, "__ZN4juce14DynamicLibrary11getFunctionERKNS_6StringE", -1)
+HOOK(stem_pre, "__ZN6rbxfrm9audiopart16AudioPartLibrary4loadEv", 3, 8, "__ZN4juce14DynamicLibrary11getFunctionERKNS_6StringE", -1)
+HOOK(stem_op3, "__ZN6rbxfrm9audiopart16AudioPartLibrary4loadEv", 6, 8, "__ZN4juce14DynamicLibrary11getFunctionERKNS_6StringE", -1)
+HOOK(stem_op4, "__ZN6rbxfrm9audiopart16AudioPartLibrary4loadEv", 7, 8, "__ZN4juce14DynamicLibrary11getFunctionERKNS_6StringE", -1)
+// bettergrid: CBeatAnalyzeThread::analyze -> bl Array<DetailedBeatInfo>::operator= (the beat job's result into the
+//   analysis' beat list, before the phrase analysis, the saved grid and the key job)
+HOOK(grid_assign, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 1, "__ZN4juce5ArrayIN8analyzer16DetailedBeatInfoENS_20DummyCriticalSectionELi0EEaSERKS4_", -1)
+// bettergrid: CBeatAnalyzeThread::analyze -> bl notifyBeat(Array<DetailedBeatInfo> const&) (the grid to be saved; x2)
+HOOK(grid_notify1, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 2, "__ZN8analyzer18CBeatAnalyzeThread10notifyBeatERKN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEE", -1)
+HOOK(grid_notify2, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 1, 2, "__ZN8analyzer18CBeatAnalyzeThread10notifyBeatERKN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEE", -1)
+// bettergrid: CBeatAnalyzeThread::NotifyResult -> b notifyBeat (tail call: the beat job's beats, to be saved)
+HOOK(grid_save, "__ZN8analyzer18CBeatAnalyzeThread12NotifyResultENS_11AnalyzeJobsEPNS_16AnalyzeJobResultE", 0, 1, "__ZN8analyzer18CBeatAnalyzeThread10notifyBeatERKN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEE", -2)
+// stemcache: callers of AudioPart::isSeparatableUri(uri, model) -> also true for Spotify tracks (rekordbox only
+//   separates streaming tracks it downloaded itself); stem_sep4 also tells stemcache which track a separation is of
+HOOK(stem_sep1, "__ZN6rbxfrm9audiopart9AudioPart25isAvailableSeparatableUriERKN4juce6StringENS0_5MODELE", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE", -1)
+HOOK(stem_sep2, "__ZN6rbxfrm9audiopart9AudioPart25isSeparatedSeparatableUriERKN4juce6StringENS0_5MODELE", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE", -1)
+HOOK(stem_sep3, "__ZN6rbxfrm9audiopart9AudioPart27isSeparatedSeparatableUriAtERKN4juce6StringENS0_5MODELExi", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE", -1)
+HOOK(stem_sep4, "__ZN6rbxfrm9audiopart18AudioPartSeparator5startEv", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE", -1)
+//   7.2.20: the first half of AudioPartSeparator::start is a function of its own
+HOOK_OR(stem_sep4, "__ZN6rbxfrm9audiopart18AudioPartSeparator15checkAndPrepareEv", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE", -1)
+HOOK(stem_sep5, "__ZN6rbxfrm9audiopart25AudioPartSeparatorManager20asyncRequestSeparateEiRKN4juce6StringENS0_5MODELENS2_13WeakReferenceINS0_26AudioPartProgressInterfaceENS2_22ReferenceCountedObjectEEE", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE", -1)
+HOOK(stem_sep6, "__ZN6rbxfrm9audiopart25AudioPartSeparatorManager19syncRequestSeparateERKN4juce6StringENS0_5MODELE", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE", -1)
+HOOK(stem_sep7, "__ZN6rbxfrm22MultiPagingAudioSource4loadERKN4juce6StringERKNS_18AudioReaderFactoryEPNS_20IAudioSourceListenerE", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE", -1)
+// stemcache: AudioPartDataManager::getOutput -> bl AudioPart::isStreamingUri / isInitializedStreamingUri (where the
+//   separated audio of a streaming track goes: memory, if rekordbox has the track downloaded) -> also for those tracks
+HOOK(stem_streaming, "__ZN6rbxfrm9audiopart20AudioPartDataManager9getOutputERKN4juce6StringENS0_5MODELExjRNS0_6RESULTE", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart14isStreamingUriERKN4juce6StringE", -1)
+HOOK(stem_streamingReady, "__ZN6rbxfrm9audiopart20AudioPartDataManager9getOutputERKN4juce6StringENS0_5MODELExjRNS0_6RESULTE", 0, 1, "__ZN6rbxfrm9audiopart9AudioPart25isInitializedStreamingUriERKN4juce6StringE", -1)
+// fastwave: WidgetWaveView::initializeWave -> bl MultiTimer::startTimer(1, 500) (rebuild delay, 2 sites)
+HOOK(fastwave_init0, "__ZN6djplay14WidgetWaveView14initializeWaveEllPNS_8SongInfoEPNS_8WaveDataENS_8WaveTypeENS_9ColorTypeENS_8PartFlagEPNS_8BeatInfoEbN8djengine15EnPlayerChannelENS_17WaveNormalizeCoefE", 0, 3, "__ZN4juce10MultiTimer10startTimerEii", -1)
+HOOK(fastwave_init1, "__ZN6djplay14WidgetWaveView14initializeWaveEllPNS_8SongInfoEPNS_8WaveDataENS_8WaveTypeENS_9ColorTypeENS_8PartFlagEPNS_8BeatInfoEbN8djengine15EnPlayerChannelENS_17WaveNormalizeCoefE", 1, 3, "__ZN4juce10MultiTimer10startTimerEii", -1)
+// fastwave: WidgetWaveView::timerCallback -> bl startTimer(4, 100) (is the build done?) and startTimer(1, 500) (retry)
+//   (its 3 bl startTimer calls: (2, 300), (4, 100), (1, 500); a 4th is a "b" tail call)
+HOOK(fastwave_check, "__ZN6djplay14WidgetWaveView13timerCallbackEi", 1, 3, "__ZN4juce10MultiTimer10startTimerEii", -1)
+HOOK(fastwave_retry, "__ZN6djplay14WidgetWaveView13timerCallbackEi", 2, 3, "__ZN4juce10MultiTimer10startTimerEii", -1)
+// fastwave: WidgetPlayerDJ::operateWavePartUpdateMuted -> bl WidgetWaveView::setWavePartSelected (a stem muted/unmuted;
+//   it ends in resizedFrame) and WidgetWaveView::resizedFrame -> bl MultiTimer::startTimer(1, 500) (rebuild delay)
+HOOK(fastwave_muted, "__ZN6djplay14WidgetPlayerDJ26operateWavePartUpdateMutedEv", 0, 1, "__ZN6djplay14WidgetWaveView19setWavePartSelectedEbbbb", -1)
+HOOK(fastwave_resize, "__ZN6djplay14WidgetWaveView12resizedFrameEv", 0, 1, "__ZN4juce10MultiTimer10startTimerEii", -1)
+// outputsync: CoreAudioInternal::audioIOProc (the HAL's IO callback) -> bl audioCallback, which fills the device's
+//   output buffers; the mod then delays the streams of an aggregate's faster devices (e.g. USB) to its slowest (Bluetooth)
+HOOK(output_sync, "__ZN2rb16CoreAudioClasses17CoreAudioInternal11audioIOProcEjPK14AudioTimeStampPK15AudioBufferListS4_PS5_S4_Pv", 0, 1, "__ZN2rb16CoreAudioClasses17CoreAudioInternal13audioCallbackEPK14AudioTimeStampS4_PK15AudioBufferListPS5_", -1)
+// outputsync: PreferencePageItemComponent::setPageName -> bl ItemPageComponent::setItemList (fills a Preferences page with
+//   its rows); on the Audio page (the one with AudioDevice, type 38) the mod adds its own on/off row after it
+HOOK(prefs_audio_row, "__ZN27PreferencePageItemComponent11setPageNameERKN4juce6StringE", 0, 1, "__ZN17ItemPageComponent11setItemListERKN4juce5ArrayIN14PreferenceItem4TypeENS0_20DummyCriticalSectionELi0EEE", -1)
+// spotifydl: spotify::Client::Client -> adr x8, HttpsHalHelper::getCallback (the SDK's HTTPS GET, used for audio downloads)
+HOOK(sp_https_get, "__ZN9streaming7spotify6ClientC2Ev", 0, 1, "__ZN9streaming7spotify14HttpsHalHelper11getCallbackEPKcPK12SpHTTPHeaderjjPFv14SpNetworkErroriS3_iS6_jPKhjPvESA_SA_", 8)
+// quickdeck: CAnalyzerIF::createMusicAnalyzeFileFromAudioPath -> bl CMusicAnalyzeFile::create_pmai(path, int*): a track's first
+//   analysis creates its ANLZ0000.DAT (on the analysis thread)
+HOOK(qd_create, "__ZN8analyzer11CAnalyzerIF35createMusicAnalyzeFileFromAudioPathENSt3__110shared_ptrINS_10DataSourceEEES4_jb", 0, 1, "__ZN8analyzer17CMusicAnalyzeFile11create_pmaiERKN4juce6StringEPi", -1)
+// quickdeck: DatabaseMediator::getTrackInfo(id, type, long) -> bl DataPath::DataPath(String const&, unsigned) for the track's
+//   analysis file (the row's analysis path; the first of the two is the audio file)
+HOOK(qd_anlzPath, "__ZN2db16DatabaseMediator12getTrackInfoEjNS_12_browse_typeEl", 1, 2, "__ZN8DataPathC1ERKN4juce6StringEj", -1)
+// tfpool: madmom::analyze(String, String, std::string const&, ...) -> bl madmom::analyze(String, String, float*, float*, int,
+//   long long, bool): its arguments are noted for the warm-up at the next launch
+HOOK(tf_madmom, "__ZN6madmom7analyzeEN4juce6StringES1_RKNSt3__112basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEEiibRN8nlohmann10basic_jsonINSB_11ordered_mapENS2_6vectorES8_bxydS6_NSB_14adl_serializerENSE_IhNS6_IhEEEEEE", 0, 1, "__ZN6madmom7analyzeEN4juce6StringES1_PfS2_ixb", -1)
+// multisort: BrowseListHeader::columnClicked -> setSortColumnId(column, forwards), the ordinary columns' call (not #'s menu)
+HOOK(header_sortClick, "__ZN6browse16BrowseListHeader13columnClickedEiRKN4juce12ModifierKeysE", 1, 3, "__ZN4juce20TableHeaderComponent15setSortColumnIdEib", -1)
+// betterfx: ReverbCore::handleReverbProcessing -> bl processCombFilters(L, R, n) and the two bl ReverbAllPassFilter::processFilter
+//   after it: the new reverb replaces the combs and allpasses (rekordbox's own run on a copy, as the level reference)
+HOOK(bfx_reverbCombs, "__ZN10ReverbCore22handleReverbProcessingEPfS0_i", 0, 1, "__ZN10ReverbCore18processCombFiltersEPfS0_i", -1)
+HOOK(bfx_reverbAp1, "__ZN10ReverbCore22handleReverbProcessingEPfS0_i", 0, 2, "__ZN19ReverbAllPassFilter13processFilterEPfS0_i", -1)
+HOOK(bfx_reverbAp2, "__ZN10ReverbCore22handleReverbProcessingEPfS0_i", 1, 2, "__ZN19ReverbAllPassFilter13processFilterEPfS0_i", -1)
+// betterfx: EchoCore::updateAndSetParameter (every block) -> bl DelayModule::setDelayTime(ms, smooth), L and R; and the same
+//   two calls in PitchEchoCore::processEffect: small tempo-driven changes wait until the tempo is steady
+HOOK(bfx_echoDelay1, "__ZN8EchoCore21updateAndSetParameterEv", 0, 2, "__ZN11DelayModule12setDelayTimeEfb", -1)
+HOOK(bfx_echoDelay2, "__ZN8EchoCore21updateAndSetParameterEv", 1, 2, "__ZN11DelayModule12setDelayTimeEfb", -1)
+HOOK(bfx_pitchEchoDelay1, "__ZN13PitchEchoCore13processEffectEPfS0_i", 0, 2, "__ZN11DelayModule12setDelayTimeEfb", -1)
+HOOK(bfx_pitchEchoDelay2, "__ZN13PitchEchoCore13processEffectEPfS0_i", 1, 2, "__ZN11DelayModule12setDelayTimeEfb", -1)
+// betterfx: RollBufferReader::read -> bl SignalGate::close() at the loop end (the second of two): jump at once instead of
+//   fading out first; and every call of RollBufferReader::read (Roll, Reverse Roll: tail calls; Slip Roll: 4), where the
+//   wrap gets its crossfade
+HOOK(bfx_rollWrap, "__ZN16RollBufferReader4readEPfS0_i", 1, 2, "__ZN10SignalGate5closeEv", -1)
+HOOK(bfx_rollRead1, "__ZN8RollCore21processEffectInternalEPfS0_i", 0, 1, "__ZN16RollBufferReader4readEPfS0_i", -2)
+HOOK(bfx_rollRead2, "__ZN15ReverseRollCore21processEffectInternalEPfS0_i", 0, 1, "__ZN16RollBufferReader4readEPfS0_i", -2)
+HOOK(bfx_rollRead3, "__ZN12SlipRollCore21processEffectInternalEPfS0_i", 0, 4, "__ZN16RollBufferReader4readEPfS0_i", -1)
+HOOK(bfx_rollRead4, "__ZN12SlipRollCore21processEffectInternalEPfS0_i", 1, 4, "__ZN16RollBufferReader4readEPfS0_i", -1)
+HOOK(bfx_rollRead5, "__ZN12SlipRollCore21processEffectInternalEPfS0_i", 2, 4, "__ZN16RollBufferReader4readEPfS0_i", -1)
+HOOK(bfx_rollRead6, "__ZN12SlipRollCore21processEffectInternalEPfS0_i", 3, 4, "__ZN16RollBufferReader4readEPfS0_i", -1)
+// stemcache: StatusBar::showMessageInEveryMode -> bl StatusBarComponent::showMessage: the "STEMS function is
+//   unavailable for Spotify tracks" message becomes the track's caching progress (macOS)
+HOOK(stem_banner, "__ZN6common9StatusBar22showMessageInEveryModeERKN4juce6StringENS_11MessageTypeEb", 0, 1, "__ZN6common18StatusBarComponent11showMessageERKN4juce6StringENS_11MessageTypeE", -1)
+// menu: ListViewer::showPopupMenu -> bl BrowsePopupMenuManager::showListViewPopupMenu (remembers the track list)
+HOOK(list_showMenu, "__ZN6browse10ListViewer13showPopupMenuEv", 0, 1, "__ZN6browse22BrowsePopupMenuManager21showListViewPopupMenuERNS_15BrowseBasicViewERNS_10ListViewerEii", -1)
+// menu: BrowsePopupMenuManager::showListViewPopupMenu -> bl juce::PopupMenu::show (mods append track items)
+HOOK(list_popupShow, "__ZN6browse22BrowsePopupMenuManager21showListViewPopupMenuERNS_15BrowseBasicViewERNS_10ListViewerEii", 0, 1, "__ZN4juce9PopupMenu4showEiiiiPNS_21ModalComponentManager8CallbackE", -1)
+// analyzer: DatabaseMediator::analyzeCollectionLoad -> bl AnalysisSettingWindow::show (the "Analysis Setting" dialog a
+//   never analysed track asks first; the Spotify branch and the local-file one): not for tracks this mod queues
+HOOK(load_askSettings0, "__ZN2db16DatabaseMediator21analyzeCollectionLoadERKNS_12RowDataTrackEb", 0, 2, "__ZN6djplay21AnalysisSettingWindow4showEbb", -1)
+HOOK(load_askSettings1, "__ZN2db16DatabaseMediator21analyzeCollectionLoadERKNS_12RowDataTrackEb", 1, 2, "__ZN6djplay21AnalysisSettingWindow4showEbb", -1)
+HOOK(sp_rateLimited0, "__ZN9streaming7spotify21DownloadConnectionJob3runEv", 0, 2, "__Z6SP_LOGIJPKcN4juce6StringES1_iEEvDpT_", -1)
+HOOK(sp_rateLimited1, "__ZN9streaming7spotify21DownloadConnectionJob3runEv", 1, 2, "__Z6SP_LOGIJPKcN4juce6StringES1_iEEvDpT_", -1)
+// audiomem: rekordbox's FX history buffers (RingBuffer: one new float[n] + bzero for both channels) where they are
+//   allocated and freed (the two constructor bodies, getMemory's reallocation, the two destructor bodies), to pin
+//   them in memory: the audio thread writes them all the time
+HOOK(ring_zero0, "__ZN10RingBufferC2Eii", 0, 1, "stub:_bzero", -1)
+HOOK(ring_zero1, "__ZN10RingBufferC1Eii", 0, 1, "stub:_bzero", -1)
+HOOK(ring_zero2, "__ZN10RingBuffer9getMemoryEib", 0, 1, "stub:_bzero", -1)
+HOOK(ring_free0, "__ZN10RingBufferD2Ev", 0, 1, "stub:__ZdaPv", -1)
+HOOK(ring_free1, "__ZN10RingBufferD1Ev", 0, 1, "stub:__ZdaPv", -1)
+HOOK(ring_free2, "__ZN10RingBuffer9getMemoryEib", 0, 1, "stub:__ZdaPv", -1)
+// audiomem: a deck's audio (rbxfrm::PageBuffer<Float4>: numPages chunks of pageSize * 16 bytes). The three places
+//   that build one (PagingAudioSource's two constructor bodies, setReader), and inside the constructor each
+//   chunk's new[] and bzero, and its delete[] in the destructor
+HOOK(pagebuf_ctor0, "__ZN6rbxfrm17PagingAudioSourceC2EiiiPNS_17BufferingStrategyEiN4juce6Thread8PriorityEib", 0, 1, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", -1)
+HOOK(pagebuf_ctor1, "__ZN6rbxfrm17PagingAudioSourceC1EiiiPNS_17BufferingStrategyEiN4juce6Thread8PriorityEib", 0, 1, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", -1)
+HOOK(pagebuf_ctor2, "__ZN6rbxfrm17PagingAudioSource9setReaderENS_18RefCountedObjExPtrINS_14AbstractReaderEEEPNS_20IAudioSourceListenerE", 0, 1, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", -1)
+HOOK(pagebuf_new, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", 0, 2, "stub:__Znam", -1)
+HOOK(pagebuf_zero, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", 0, 1, "stub:_bzero", -1)
+HOOK(pagebuf_free, "__ZN6rbxfrm10PageBufferINS_6Float4EiED2Ev", 0, 1, "stub:__ZdaPv", -1)
+#ifdef RBM_HOOK_OR_UNUSED
+#undef HOOK_OR
+#undef RBM_HOOK_OR_UNUSED
+#endif

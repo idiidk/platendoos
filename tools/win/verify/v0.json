@@ -1,0 +1,897 @@
+[
+ {
+  "kind": "hook",
+  "name": "art_stream",
+  "caller": "__ZN12ArtworkCache10getFromURIERKN4juce6StringE",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN2rb9URLHelper17createInputStreamERN4juce3URLEbPFbPviiES4_NS1_6StringEiPNS1_15StringPairArrayEPiiS7_S7_S7_",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "art_evict",
+  "caller": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN4juce10OwnedArrayIN12ArtworkCache5Pimpl4ItemENS_20DummyCriticalSectionEE11removeRangeEiib",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "art_download",
+  "caller": "__ZN12ArtworkCache5Pimpl7run_urlERKN4juce6StringE",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZNK4juce3URL22readEntireBinaryStreamERNS_11MemoryBlockEb",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "prefs_audio_row",
+  "caller": "__ZN27PreferencePageItemComponent11setPageNameERKN4juce6StringE",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN17ItemPageComponent11setItemListERKN4juce5ArrayIN14PreferenceItem4TypeENS0_20DummyCriticalSectionELi0EEE",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "status_text",
+  "caller": "__ZN6common18StatusBarComponent27updateMessageTextVisibilityEv",
+  "nth": 1,
+  "count": 2,
+  "target": "__ZNK4juce5Label7getTextEb",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "midi_in",
+  "caller": "__ZN6djplay10DeviceMidi3runEv",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6djplay10DeviceMidi19midiInDataForThreadERN4juce11MidiMessageE",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "midi_check",
+  "caller": "__ZN6djplay12DeviceServer13timerCallbackEi",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6djplay12DeviceServer16MIDI_DeviceCheckEv",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "fastwave_muted",
+  "caller": "__ZN6djplay14WidgetPlayerDJ26operateWavePartUpdateMutedEv",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6djplay14WidgetWaveView19setWavePartSelectedEbbbb",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "stem_sep1",
+  "caller": "__ZN6rbxfrm9audiopart9AudioPart25isAvailableSeparatableUriERKN4juce6StringENS0_5MODELE",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "stem_sep2",
+  "caller": "__ZN6rbxfrm9audiopart9AudioPart25isSeparatedSeparatableUriERKN4juce6StringENS0_5MODELE",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "stem_sep3",
+  "caller": "__ZN6rbxfrm9audiopart9AudioPart27isSeparatedSeparatableUriAtERKN4juce6StringENS0_5MODELExi",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN6rbxfrm9audiopart9AudioPart16isSeparatableUriERKN4juce6StringENS0_5MODELE",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "key_getKey",
+  "caller": "__ZN8analyzer13AnalyzeJobKey6DetectEv",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN8analyzer13AnalyzeJobKey6getKeyERN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEEfNSt3__110shared_ptrIfEEjbmm",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "sp_lookup_enter",
+  "caller": "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii",
+  "nth": 0,
+  "count": 2,
+  "target": "__ZNK4juce15CriticalSection5enterEv",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "sp_lookup_exit",
+  "caller": "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii",
+  "nth": 0,
+  "count": 4,
+  "target": "__ZNK4juce15CriticalSection4exitEv",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "sp_lookup_unwind",
+  "caller": "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii",
+  "nth": 3,
+  "count": 4,
+  "target": "__ZNK4juce15CriticalSection4exitEv",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "sp_tracks_enter",
+  "caller": "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii",
+  "nth": 0,
+  "count": 2,
+  "target": "__ZNK4juce15CriticalSection5enterEv",
+  "hookkind": -1
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN27PreferencePageItemComponent11setPageNameERKN4juce6StringE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x141da8ff0",
+    0.96,
+    1,
+    0.66
+   ],
+   [
+    "0x141da8d20",
+    0.35,
+    1,
+    0.05
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db10DatabaseIF11getListItemENS_12_browse_typeElNS_10_list_typeEjRN4juce10OwnedArrayINS_16ListDataPlaylistENS3_20DummyCriticalSectionEEE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x14304e970",
+    4.51,
+    15,
+    0.01
+   ],
+   [
+    "0x141f34220",
+    2.53,
+    8,
+    0.13
+   ],
+   [
+    "0x142a61fb0",
+    0.95,
+    3,
+    0.05
+   ],
+   [
+    "0x141430700",
+    0.95,
+    3,
+    0.05
+   ],
+   [
+    "0x1414306a0",
+    0.95,
+    3,
+    0.05
+   ],
+   [
+    "0x142b2bac0",
+    0.69,
+    2,
+    0.09
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db10DatabaseIF13refreshBridgeENS_12_browse_typeE",
+  "win": "0x141f33e80",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db10DatabaseIF16isCollectionSongERKN4juce6StringERNS_12RowDataTrackE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x1414306b0",
+    17.15,
+    57,
+    0.05
+   ],
+   [
+    "0x1414306c0",
+    16.85,
+    56,
+    0.05
+   ],
+   [
+    "0x1414306a0",
+    16.55,
+    55,
+    0.05
+   ],
+   [
+    "0x141430700",
+    7.55,
+    25,
+    0.05
+   ],
+   [
+    "0x142bb01b0",
+    5.42,
+    18,
+    0.02
+   ],
+   [
+    "0x1414306d0",
+    4.85,
+    16,
+    0.05
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db21rekordboxDBController16modAnalyzeStatusEjRNS_14sAnalyzeStatusEPNS_12RowDataTrackEbb",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x14216fbc0",
+    2.38,
+    6,
+    0.58
+   ],
+   [
+    "0x14217f690",
+    2.37,
+    6,
+    0.57
+   ],
+   [
+    "0x142176620",
+    2.37,
+    6,
+    0.57
+   ],
+   [
+    "0x142196700",
+    2.37,
+    6,
+    0.57
+   ],
+   [
+    "0x142195d70",
+    2.37,
+    6,
+    0.57
+   ],
+   [
+    "0x1421819d0",
+    2.36,
+    6,
+    0.56
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2rb16CoreAudioClasses17CoreAudioInternal11audioIOProcEjPK14AudioTimeStampPK15AudioBufferListS4_PS5_S4_Pv",
+  "win": null,
+  "how": null,
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2rb16CoreAudioClasses17CoreAudioInternal13audioCallbackEPK14AudioTimeStampS4_PK15AudioBufferListPS5_",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x14136eb70",
+    1.71,
+    4,
+    0.51
+   ],
+   [
+    "0x14136c770",
+    1.63,
+    4,
+    0.43
+   ],
+   [
+    "0x14136ec00",
+    1.63,
+    4,
+    0.43
+   ],
+   [
+    "0x141aa0850",
+    1.61,
+    4,
+    0.41
+   ],
+   [
+    "0x1413f9db0",
+    1.59,
+    4,
+    0.39
+   ],
+   [
+    "0x141c37900",
+    1.58,
+    4,
+    0.38
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2rb9URLHelper17createInputStreamERN4juce3URLEbPFbPviiES4_NS1_6StringEiPNS1_15StringPairArrayEPiiS7_S7_S7_",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x140eea780",
+    20.74,
+    69,
+    0.04
+   ],
+   [
+    "0x142165950",
+    12.66,
+    42,
+    0.06
+   ],
+   [
+    "0x1423b8800",
+    12.55,
+    41,
+    0.25
+   ],
+   [
+    "0x1412914d0",
+    12.53,
+    41,
+    0.23
+   ],
+   [
+    "0x141e63ad0",
+    12.52,
+    41,
+    0.22
+   ],
+   [
+    "0x141202b60",
+    12.5,
+    41,
+    0.2
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce6Slider18setTextValueSuffixERKNS_6StringE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142380a40",
+    1.06,
+    2,
+    0.46
+   ],
+   [
+    "0x1416e7210",
+    1.0,
+    1,
+    0.7
+   ],
+   [
+    "0x1413d7290",
+    0.99,
+    1,
+    0.69
+   ],
+   [
+    "0x141f37790",
+    0.96,
+    1,
+    0.66
+   ],
+   [
+    "0x141b381a0",
+    0.94,
+    1,
+    0.64
+   ],
+   [
+    "0x141f72000",
+    0.94,
+    2,
+    0.34
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce6Slider25setDoubleClickReturnValueEbdNS_12ModifierKeysE",
+  "win": "0x142b99830",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce6Slider25valueToProportionOfLengthEd",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x14269d950",
+    1.26,
+    1,
+    0.96
+   ],
+   [
+    "0x141197930",
+    1.23,
+    1,
+    0.93
+   ],
+   [
+    "0x14101f0e0",
+    1.2,
+    1,
+    0.9
+   ],
+   [
+    "0x140efbfd0",
+    1.18,
+    1,
+    0.88
+   ],
+   [
+    "0x1411e1820",
+    1.18,
+    1,
+    0.88
+   ],
+   [
+    "0x1411eced0",
+    1.1,
+    1,
+    0.8
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce6Slider5Pimpl17handleAsyncUpdateEv",
+  "win": "0x140fc9030",
+  "how": "vt",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6browse19BrowseHeaderManager9addColumnEPN4juce20TableHeaderComponentEPKNS_26browse_column_disp_defaultEiN2db12_browse_typeEb",
+  "win": "0x141490f90",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6browse22BrowsePopupMenuManager21showTreeViewPopupMenuERKNS_10TreeViewerERKNS_22FolderListTreeViewItemE",
+  "win": "0x141609320",
+  "how": "key",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6browse22FolderListTreeViewItem25clickEventWithRigthButtonERKN4juce10MouseEventE",
+  "win": "0x141575dc0",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6common18StatusBarComponent27updateMessageTextVisibilityEv",
+  "win": "0x1419e53c0",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6djplay8UiPlayer18PlayHistoryManager13timerCallbackEv",
+  "win": "0x1425a2130",
+  "how": "vt",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6djplay8UiPlayer18PlayHistoryManagerC1Ei",
+  "win": "0x1425a2070",
+  "how": "key",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6djplay8UiPlayer26handleDBMessageTrackStatusEjlN2db26DBMessageToPlayerParameterE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142565c20",
+    3.86,
+    10,
+    0.86
+   ],
+   [
+    "0x142565670",
+    3.39,
+    10,
+    0.39
+   ],
+   [
+    "0x141dc45d0",
+    2.65,
+    7,
+    0.55
+   ],
+   [
+    "0x141dc4390",
+    2.62,
+    7,
+    0.52
+   ],
+   [
+    "0x141dc4730",
+    2.58,
+    7,
+    0.48
+   ],
+   [
+    "0x142565d80",
+    2.5,
+    8,
+    0.1
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6djplay8UiPlayer46handleDBMessageTrackStatusWhenAnalyzeCompletedEjlN2db26DBMessageToPlayerParameterE",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142565d80",
+    8.75,
+    28,
+    0.35
+   ],
+   [
+    "0x1419bac80",
+    3.97,
+    13,
+    0.07
+   ],
+   [
+    "0x1417398e0",
+    3.67,
+    12,
+    0.07
+   ],
+   [
+    "0x1419ceb10",
+    3.67,
+    12,
+    0.07
+   ],
+   [
+    "0x14174e7e0",
+    3.62,
+    11,
+    0.32
+   ],
+   [
+    "0x1419c7a70",
+    3.57,
+    11,
+    0.27
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN6rbxfrm9audiopart9AudioPart6unloadEi",
+  "win": "0x1425748f0",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN8analyzer11CAnalyzerIF13start_analyzeERNS_22AnalyzerIfStartAnalyzeE",
+  "win": "0x141203bb0",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN8analyzer11CAnalyzerIF14cancel_analyzeEl",
+  "win": "0x141204750",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN8analyzer11CAnalyzerIF14cancel_analyzeEv",
+  "win": "0x141204520",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK4juce20TableHeaderComponent18getIndexOfColumnIdEib",
+  "win": "0x142b97c20",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK4juce3URL22readEntireBinaryStreamERNS_11MemoryBlockEb",
+  "win": null,
+  "how": null,
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK4juce3URL8toStringEb",
+  "win": "0x142a43110",
+  "how": "call",
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK4juce5Label7getTextEb",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142b9f660",
+    18.11,
+    60,
+    0.11
+   ],
+   [
+    "0x142abf220",
+    9.81,
+    32,
+    0.21
+   ],
+   [
+    "0x142ba05d0",
+    4.39,
+    14,
+    0.19
+   ],
+   [
+    "0x142b9fd00",
+    3.92,
+    13,
+    0.02
+   ],
+   [
+    "0x1419196c0",
+    3.45,
+    11,
+    0.15
+   ],
+   [
+    "0x141617290",
+    3.04,
+    10,
+    0.04
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK6rbxfrm15ReaderOwnerTmplINS_6Float2EE13getChannelNumEv",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142a61fb0",
+    9.31,
+    31,
+    0.01
+   ],
+   [
+    "0x1411f0540",
+    6.35,
+    21,
+    0.05
+   ],
+   [
+    "0x14304e970",
+    3.34,
+    11,
+    0.04
+   ],
+   [
+    "0x140ee8980",
+    2.5,
+    8,
+    0.1
+   ],
+   [
+    "0x1412b3cd0",
+    2.41,
+    8,
+    0.01
+   ],
+   [
+    "0x1429a1890",
+    1.85,
+    6,
+    0.05
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK6rbxfrm15ReaderOwnerTmplINS_6Float2EE17getFileSampleRateEv",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x142a61fb0",
+    9.31,
+    31,
+    0.01
+   ],
+   [
+    "0x1411f0540",
+    6.35,
+    21,
+    0.05
+   ],
+   [
+    "0x14304e970",
+    3.34,
+    11,
+    0.04
+   ],
+   [
+    "0x140ee8980",
+    2.5,
+    8,
+    0.1
+   ],
+   [
+    "0x1412b3cd0",
+    2.41,
+    8,
+    0.01
+   ],
+   [
+    "0x1429a1890",
+    1.85,
+    6,
+    0.05
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK6rbxfrm16LocalSyncManager28shouldChangeMasterByPriorityEv",
+  "win": null,
+  "how": null,
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZNK6rbxfrm18AudioReaderFactory15createReaderForERKN4juce6StringEb",
+  "win": null,
+  "how": null,
+  "cands": [
+   [
+    "0x1420e5a40",
+    4.12,
+    12,
+    0.52
+   ],
+   [
+    "0x1420e7fe0",
+    4.07,
+    12,
+    0.47
+   ],
+   [
+    "0x141ce6980",
+    3.99,
+    11,
+    0.69
+   ],
+   [
+    "0x1416a81a0",
+    3.95,
+    12,
+    0.35
+   ],
+   [
+    "0x1421bab20",
+    3.94,
+    12,
+    0.34
+   ],
+   [
+    "0x1416a8300",
+    3.94,
+    12,
+    0.34
+   ]
+  ]
+ },
+ {
+  "kind": "offset",
+  "name": "O_cfxBehavior",
+  "file": "flx4.mm",
+  "fn": "__ZN9effectGui8CFXPanelC2EP8DjSystemPNS_14RbxEffectPanelE",
+  "recipe": "str x19",
+  "nth": 1,
+  "mac_value": "0x168",
+  "win_fn": "0x1416ce950",
+  "line": "static const Offset O_cfxBehavior{0x168, \"__ZN9effectGui8CFXPanelC2EP8DjSystemPNS_14RbxEffectPanelE\", \"str x19\", 1};  // CFXPanel: RbxCfxControlBehavior*"
+ },
+ {
+  "kind": "offset",
+  "name": "O_rowAnalysisPath",
+  "file": "autocue.cpp",
+  "fn": "__ZNK2db12RowDataTrack22getExtAnalysisFilePathEv",
+  "recipe": "ldr x0",
+  "nth": 0,
+  "mac_value": "0x3f0",
+  "win_fn": "0x141f3f800",
+  "line": "const Offset O_rowAnalysisPath{0x3f0, \"__ZNK2db12RowDataTrack22getExtAnalysisFilePathEv\", \"ldr x0\", 0};"
+ },
+ {
+  "kind": "offset",
+  "name": "O_rowStatusLow",
+  "file": "analyzer.cpp",
+  "fn": "__ZN2db21rekordboxDBController16getAnalyzeStatusEjRNS_14sAnalyzeStatusEPNS_12RowDataTrackE",
+  "recipe": "ldr x20",
+  "nth": 2,
+  "mac_value": "0x3fc",
+  "win_fn": "0x14217ec80",
+  "line": "static const Offset O_rowStatusLow{0x3fc, \"__ZN2db21rekordboxDBController16getAnalyzeStatusEjRNS_14sAnalyzeStatusEPNS_12RowDataTrackE\", \"ldr x20\", 2};  // RowDataTrack: analyse status, low byte (signed: < 0 = streaming data)"
+ }
+]

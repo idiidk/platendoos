@@ -1,0 +1,35 @@
+[
+ {
+  "item": "__ZNK8djengine10DjEngineIF8getTempoENS_15EnPlayerChannelE",
+  "kind": "sym", "verdict": "ok", "win": "0x14253bd50", "confidence": "high",
+  "why": "matched; same body: [this+0xb8] (mac +0xc8) DjUnitAudioGraph::getPlayerControl(0) and (channel), vcalls +0x2a8/+0x18 and +0x2a8/+0x140 (mac +0x2b0/+0x20/+0x148: MSVC's single destructor slot), (cur - base) / base * const. Called by UiPlayer::eventAbsoluteValueChanged and setPlayingInfo as on mac"
+ },
+ {
+  "item": "O_tempoRange", "kind": "offset", "fn": "__ZNK6djplay8UiPlayer20getTempoSelectStatusEv", "kind_recipe": "ldr x0", "nth": 0,
+  "value": "0x50c", "confidence": "high",
+  "why": "getTempoSelectStatus (mac x86 mov eax,[rdi+0x51c]; arm64 recipe ldr x0) is inlined on Windows; UiPlayer::deviceTempoRange 0x14257cc00 stores the range there: mov dword [rcx+0x50c], 6 / 0xa / 0x10 / 0x64 where mac writes [r12+0x51c]"
+ },
+ {
+  "item": "O_tempoFader", "kind": "offset", "fn": "__ZN6djplay8UiPlayer25eventAbsoluteValueChangedEPNS_12DeviceObjectEi", "kind_recipe": "add x19", "nth": 0,
+  "win_fn": "0x14257cb80", "value": "0x5d4", "confidence": "high",
+  "why": "the tempo fader position rekordbox remembers for a deck (14-bit value - 0x2000, an atomic 32-bit int; mac +0x604). Windows eventAbsoluteValueChanged (rva 25756c0, this = UiPlayer+0x2e0) has the tempo fader's part out of line in 0x14257cb80 (UiPlayer, component, value): the component is [rcx+0x5f8] (mac +0x628), xchg tempoSliderPosition[deck&1], value; lea ecx,[r8-0x2000]; xchg dword [r9+0x5d4],ecx; triggerAsyncUpdate([r9+0x11c8]) (mac +0x1210). Read by getCurrentHwTempoValue 0x142588b70 (mov eax,[rcx+0x5d4]; nop, four times): value * getTempoSelectStatus ([rcx+0x50c]) * 1/8191 above zero (float 0x39000400), * 1/8192 below, as mac. AsyncTempoUpdater::handleAsyncUpdate (rva 2586620, vtable slot 1) is mac's: returns for a sync slave with Ableton Link, [player+0x11f0] (mac +0x1238) or DVS; deviceUpdateTakeOverStatus(getTempo); state [player+0x11c0] == 5 (mac +0x1208): getCurrentHwTempoValue into the lambda at rva 258cad0, which calls DjEngineIF::setTempo (rva 253bc90) unless isSyncSlave. UiPlayer::initializeDevice (rva 2577350) calls onLodedTrackChangedDevice (rva 2575c30) when DjEngineIF::isLoaded: state = 5 at rva 25761ca, then, when the side's tempoSliderPosition was ever set, AutoMixIF::getPlayerStatus is 0 and Ableton Link is off: tempoSliderPosition[deck&1] = [rdi+0x5d4] + 0x2000, the field stored back, triggerAsyncUpdate (rva 2576369; a posted message: lock cmpxchg the flag, MessageBase::post). 7.2.20 (6AFC1795): the same code and the same offsets (store rva 261a8ec, getCurrentHwTempoValue rva 2626880, handleAsyncUpdate rva 2624330, trigger rva 2614079, constants 1/8191 and 1/8192); the three xchg [r+0x5d4] and six atomic reads of it are the only ones in either image"
+ },
+ {
+  "item": "O_labelFont", "kind": "offset", "fn": "__ZNK4juce5Label7getFontEv", "kind_recipe": "add x0", "nth": 0,
+  "value": "0x210", "confidence": "high",
+  "why": "juce::Label's Font member: Label::setFont 0x142b9f690 compares and assigns [rcx+0x210] (refcount at +8 of the shared font, as Font's copy ctor); mac x86 getFont copies from +0x1e8, arm64 add x1,x0,#0x1b0"
+ },
+ {
+  "item": "__ZN4juce4FontC1ERKS0_", "kind": "sym", "verdict": "ok", "win": "0x142abf330", "confidence": "high",
+  "why": "matched; identical: copy the SharedFontInternal pointer, lock inc [ptr+8], clear the byte at +8, return this"
+ },
+ {
+  "item": "__ZNK4juce4Font9getHeightEv", "kind": "sym", "verdict": "ok", "win": "0x142abde20", "confidence": "high",
+  "why": "matched; same: font->height (+0x4c) if > 0, else ascent+descent from the typeface times +0x50"
+ },
+ {
+  "item": "__ZN6browse17BrowseLookAndFeel21drawTableHeaderColumnERN4juce8GraphicsERNS1_20TableHeaderComponentERKNS1_6StringEiiibbi",
+  "kind": "sym", "verdict": "ok", "win": "0x1416047d0", "confidence": "high",
+  "why": "slot 2 of BrowseLookAndFeel's vtable for the subobject at +152 (COL offset 152, 3 entries: dtor, drawTableHeaderBackground 0x1416046f0, this; mac's thunk is __ZThn152_), the same entry in DarkFixedBrowseLookAndFeel's. Body as mac: Graphics::getCurrentFont, the inlined BrowseHeaderManager lookup and isSortableColumn 0x141490130, CacheManager::getFont, Graphics::setFont, LookAndFeel findColour/setColour, drawText, Drawable::drawAt for the arrow"
+ }
+]

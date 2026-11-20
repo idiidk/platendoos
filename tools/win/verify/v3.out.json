@@ -1,0 +1,445 @@
+[
+ {
+  "item": "lock_cancel",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141ff3810",
+  "sites": [
+   "0x141ff393a"
+  ],
+  "target": "0x141204750",
+  "confidence": "high",
+  "why": "mod_analysis_lock unmatched in matcher; found as 0x141ff3810 (same RowDataTrack ctor, getAnalyzeStatus vtbl call, flag test then CAnalyzerIF::get + cancel_analyze); only call to cancel_analyze in it"
+ },
+ {
+  "item": "load_isAnalyzedOld",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141f8b730",
+  "sites": [
+   "0x141f8b79f"
+  ],
+  "target": "0x141f949a0",
+  "confidence": "high",
+  "why": "analyzeCollectionLoad = 0x141f8b730 (isAnalyzeRestrictionFile then [rdi+0x3f8] bit1 then isAnalyzedOldVer); nth0 call at 0x141f8b79f; MSVC has 3 calls too (0x141f8b79f,0x141f8b84d,0x141f8b88x); isAnalyzedOldVer body verified (fields 0x3fc/0x400/0x50/0x3d8)"
+ },
+ {
+  "item": "load_execAnalyze",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141f8b730",
+  "sites": [
+   "0x141f8b818"
+  ],
+  "target": "0x141f89f70",
+  "confidence": "medium",
+  "why": "mac has 1 exec call (restriction-file branch, with array of track id, 1 elem); win has 2 exec calls: 0x141f8b818 in the same branch (restriction file) and 0x141f8b969 in the non-restriction path where analyzeCollection() was inlined (mac calls analyzeCollection there). 0x141f8b818 corresponds"
+ },
+ {
+  "item": "coll_cancel",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141f89f70",
+  "sites": [
+   "0x141f8a534"
+  ],
+  "target": "0x141204750",
+  "confidence": "high",
+  "why": "only cancel_analyze call in execAnalyzeCollection; precedes pause_analyze call at 0x141f8a5b5 like mac"
+ },
+ {
+  "item": "midi_send4",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1424bdcb0",
+  "sites": [
+   "0x1424bdd4c"
+  ],
+  "target": "0x142c7ccd0",
+  "confidence": "high",
+  "why": "run()'s only call to a function that does mov rcx,[rcx+0x228]; mov rax,[rcx]; jmp [rax+0x18] = MidiOutput::sendMessageNow (mac: [rdi+0x1e8]->vcall); rcx=[rbx+0x250] output, rdx=message, followed by ~MidiMessage"
+ },
+ {
+  "item": "flx4_map",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1424bfbd0",
+  "sites": [
+   "0x1424c04e1"
+  ],
+  "target": "0x1424d30b0",
+  "confidence": "high",
+  "why": "MidiMap::create matches DDJFLX4 by matchDeviceName then operator new(0x80d20)+ctor(this,int,String copy ptr in r8); only call to the ctor"
+ },
+ {
+  "item": "history_add",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1425a2130",
+  "sites": [
+   "0x1425a2175"
+  ],
+  "target": "0x141f33bf0",
+  "confidence": "high",
+  "why": "PlayHistoryManager::timerCallback: RowDataTrack ctor, DatabaseIF::get, mov edx,[rbx+0x2c], call; target is DatabaseIF thunk 'mov rcx,[rcx]; test; jne DatabaseMediator::addTrackToPlayHistory' same shape as mac"
+ },
+ {
+  "item": "analyze_completed",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x142565c20",
+  "sites": [
+   "0x142565d4e"
+  ],
+  "target": "0x142565d80",
+  "confidence": "high",
+  "why": "handleDBMessageTrackStatus = 0x142565c20 (setKeySync, MusicKey ctor, BigInteger copy, then call WhenAnalyzeCompleted 0x142565d80; matches mac sequence). NB 0x142565670 is a different larger fn that also calls 0x142565d80"
+ },
+ {
+  "item": "an_embed",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141213840",
+  "sites": [
+   "0x141218ce0"
+  ],
+  "target": "0x141238d10",
+  "confidence": "high",
+  "why": "embed(sret=rcx,string,rdx; r8=ebx count; r9b=1; [rsp+0x20]=0) matches mac (ebx,1,0); preceded by SQLite Database ctor + toStdString like mac"
+ },
+ {
+  "item": "an_seek",
+  "kind": "hook",
+  "verdict": "inlined",
+  "win": "0x141213840",
+  "sites": [
+   "0x141219838"
+  ],
+  "target": "0x141223050",
+  "confidence": "medium",
+  "why": "createSeekTable inlined into analyze(): guarded by [r15+0x2a8]!=0 && [r13+0x2c91]==0 at 0x141219803; inline body = FlacAnalyzeManager ctor 0x141219838 (call 0x141223050), createSeekTable(0x190) call 0x14121984a (0x1412232c0), getSeekTable 0x141219861 (0x141223520, mislabelled), getTotalSamples (0x141223540), vcall [rcx+0x58]. To suppress: hook the call at 0x14121984a (returns int<=0 => skipped) "
+ },
+ {
+  "item": "an_wait1",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141213840",
+  "sites": [
+   "0x141214c97"
+  ],
+  "target": "0x142a45a40",
+  "confidence": "medium",
+  "why": "Thread::sleep(int) on Windows is 0x142a45a40 (mov eax,ecx; cmp 10; ...tail jmp to Sleep) - matcher mislabels it threadShouldExit. Windows analyze() has only 2 sleep(10) calls (0x141213c7f, 0x141214c97) vs 3 on mac; mac nth1 = loop 'vcall[+0x58]; test; jne; sleep(10); jmp' <-> 0x141214c97 (same shape, same relative position); the 3rd mac sleep (after SetSample) has no sleep call on win"
+ },
+ {
+  "item": "an_setSample",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141213840",
+  "sites": [
+   "0x141216c43"
+  ],
+  "target": "0x1411db540",
+  "confidence": "high",
+  "why": "call after CuePointPredictor::setData block, rcx=[r15+0x2cd0] (BALibWrapper), rdx,r8=buffers, r9d=count"
+ },
+ {
+  "item": "__ZN11DetailTidalC2Ev",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141d061f0",
+  "confidence": "high",
+  "why": "PreferenceBaseItem ctor + DetailTidal vtable, strings 'Tidal'/'TIDAL'"
+ },
+ {
+  "item": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1415fdfa0",
+  "confidence": "high",
+  "why": "isValid, new 0x20 + Image ctor + String ctor, hashCode64, Image::operator=; identical flow"
+ },
+ {
+  "item": "__ZN12ArtworkCache10getFromURIERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1415fcc80",
+  "confidence": "high",
+  "why": "cache lookup inlined (Pimpl::get 0x1415fe200, lookup 0x1415fe3c0), file branch (File ctor+ImageFileFormat::loadFrom(File)) and URL branch (isProbablyAWebsiteURL, URL ctor, createInputStream, loadFrom(InputStream)) with rescale to 200 and addImageToCache; matches mac structure"
+ },
+ {
+  "item": "__ZN12ArtworkCache5Pimpl7run_urlERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1415feba0",
+  "confidence": "high",
+  "why": "URL ctor, MemoryBlock, readEntireBinaryStream(0x142a40470), MemoryInputStream, loadFrom(InputStream), rescale, addImageToCache; same sequence as mac run_url (run_file is 0x1415fe9f0)"
+ },
+ {
+  "item": "__ZN2db12iTunesBridge17isReadingMusinAppEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141ec66c0",
+  "confidence": "high",
+  "why": "Windows build has stub 'xor al,al; ret' (iTunes bridge is mac-only); called at 0x141f8e24d in execAnalyze right after hasArtwork and before 'browseTypeFrom' var lookup + isiTunesProtocol (0x141ec66d0), exactly the mac sequence"
+ },
+ {
+  "item": "__ZN2db15TrackListSorter10compareBPMEPNS_12RowDataTrackES2_",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1423a4910",
+  "confidence": "high",
+  "why": "leaf (no unwind info): mov eax,[rdx+0x3a8]; sub eax,[r8+0x3a8]; ret. Win sig: rcx=this, rdx/r8=tracks (same +0x3a8 as mac); neighbours 0x1423a4930=compareTrackNo(+0x350)"
+ },
+ {
+  "item": "__ZN2db15TrackListSorter10compareKeyEPNS_12RowDataTrackES2_",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1423a4c10",
+  "confidence": "high",
+  "why": "string at +0x210, empty-check, String[0] isDigit, numBytes==length, then 0xa string compare path; same as mac compareKey"
+ },
+ {
+  "item": "__ZN2db15TrackListSorter12compareTitleEPNS_12RowDataTrackES2_",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1423a4580",
+  "confidence": "high",
+  "why": "StringToCompare{&track+0x20, type 1, id|(+0x50<<32)} x2 then call compareJuceString (0x1423a3e20); artist=0x1423a45f0(type2), album=0x1423a46b0(3), genre=0x1423a4770(4) in same order as mac"
+ },
+ {
+  "item": "__ZN4juce12ToggleButtonC1ERKNS_6StringE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142c1a240",
+  "confidence": "high",
+  "why": "Button ctor (mislabelled ListenerList), ToggleButton vtable, flag byte set to 1 at [+0x232] (mac +0x212: Button layout is +0x20 on Windows)"
+ },
+ {
+  "item": "__ZN4juce14DynamicLibrary11getFunctionERKNS_6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142a45830",
+  "confidence": "high",
+  "why": "leaf thunk: mov rcx,[rcx]; test; je ->xor eax; mov rdx,[rdx]; jmp [GetProcAddress]; used by tf_utils::LoadGraph with 'TF_DeleteStatus' etc (matcher labels it BlowFish ctor)"
+ },
+ {
+  "item": "__ZN4juce15SingletonHolderIN15StreamingHelper16BridgeThreadPoolENS_15CriticalSectionELb1EE3getEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141e86d60",
+  "confidence": "high",
+  "why": "ThreadPool(3,0,0) + DeletedAtShutdown + BridgeThreadPool vtable; NOTE Windows get() takes no argument (holder is a global, instance ptr read rip-relative), mac passes holder in rdi"
+ },
+ {
+  "item": "__ZN4juce15SingletonHolderIN6common9StatusBarENS_15CriticalSectionELb0EE3getEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1413e0420",
+  "confidence": "high",
+  "why": "same double-checked pattern, new(0x2b8)+common::StatusBar::StatusBar(0x1419e0da0); no argument on Windows"
+ },
+ {
+  "item": "__ZN4juce9PopupMenu12addSeparatorEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142bae8c0",
+  "confidence": "high",
+  "why": "called first in Windows addStreamingOfflineMenu (0x14160e920, rcx=PopupMenu&) exactly where mac calls addSeparator; body: if last item exists & isn't separator, builds Item and appends. NB PopupMenu::Item is 0x90 bytes on Windows (mac 0x80); 0x142bb01b0 (top cand) is addItem(itemID,...), not the separator"
+ },
+ {
+  "item": "__ZN4juce9PopupMenu4showEiiiiPNS_21ModalComponentManager8CallbackE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142bad710",
+  "confidence": "high",
+  "why": "builds Options (mouse position, max columns, item height), calls showWithOptionalCallback (0x142badd70) then Options dtor vcalls"
+ },
+ {
+  "item": "__ZN4juce9PopupMenu7addItemENS_6StringENSt3__18functionIFvvEEE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142bb0650",
+  "confidence": "high",
+  "why": "called in Windows ChangeKeyButton::clicked (0x141033ec0) where mac calls addItem(String,function); body: copies std::function (impl ptr at +0x38, MSVC std::function 64 bytes), calls full addItem(String,enabled,ticked,fn) 0x142bb03e0, destroys fn. Args: rcx=this, rdx=String* (moved from), r8=std::function*"
+ },
+ {
+  "item": "__ZN4juceneERKNS_6StringES2_",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142a6d110",
+  "confidence": "high",
+  "why": "pointer-equal shortcut then compare (0x140efaa50 is the char-compare), setne"
+ },
+ {
+  "item": "__ZN6djplay12JogProcessorC2EiN4juce6StringEPN12DjController31IControllerPerformanceProcessorE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142412270",
+  "confidence": "high",
+  "why": "DeviceUnit ctor(0x1423c84b0), JogProcessor vtable, DeviceComponent ctor, DeviceVariant+MemoryBlock; note performance-processor ptr stored at +0xa0 on Windows (mac +0xb8)"
+ },
+ {
+  "item": "__ZN6djplay12PlayerLayout15isDj4DeckLayoutENS0_10LayoutModeE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1419108a0",
+  "confidence": "high",
+  "why": "leaf; mac masks to {0x14,0x114,0x1004,0x1014}, windows compares same four values"
+ },
+ {
+  "item": "__ZN6djplay13DeviceManager17connectMidiDeviceEN4juce6StringE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1423be290",
+  "confidence": "high",
+  "why": "same call sequence (equalsIgnoreCase, matchDeviceName, startsWith, SettingFile getStringValue, DeviceLog::printf)"
+ },
+ {
+  "item": "__ZN6djplay14MidiMapDDJFLX418operateValueChangeEiRN4juce6StringEh",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142525900",
+  "confidence": "high",
+  "why": "looks up control by name (0x1424594d0), compares to 5 member controls (0xb4/0xb5 w/ 0x19/0x1a check, MidiMessage(0xbf,0x55)), else tail-calls DeviceUnit::operateValueChange 0x1423c8f00; same constants as mac. Win member offsets differ (80c78..80cc0, 80d38, output ptr 0x809e0)"
+ },
+ {
+  "item": "__ZN6rbxfrm17PagingAudioSource4loadERKN4juce6StringERKNS_18AudioReaderFactoryEPNS_20IAudioSourceListenerE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142cfe330",
+  "confidence": "high",
+  "why": "found via vtable: PagingAudioSource win vtable 0x1457d3c60 slot 35 (mac slot 37, MSVC has one dtor slot). Body: releases readers at +0x1b8/+0x1c0 (mac +0x1b0/+0x1b8, +8 shift on Windows), RefCounted magic 0x52434f58, then iterates AudioReaderFactory array ([r8+0x18] data,[r8+0x24] count) calling vcall [+8] createReader, then setReader 0x142cfc530"
+ },
+ {
+  "item": "__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE11getStreamAtEiPfS3_i",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142ccfd60",
+  "confidence": "high",
+  "why": "non-virtual wrapper: vcall [this+0x218 subobject vtbl+0x18](pos,buf=[this+0x2a0],n) then deinterleave Float2 into two float arrays; Win sig rcx=this,edx=pos,r8=L,r9=R,[rsp+0x28]=n (stack slot at entry+0x28); called from load_audio 0x14123c6e0 at 0x14123c970/0x14123cadf. Buffer ptr at +0x2a0 (mac +0x270)"
+ },
+ {
+  "item": "__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EEC1ERKN4juce6StringEiNS3_6Thread8PriorityEiiPKNS_18AudioReaderFactoryE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141104be0",
+  "confidence": "high",
+  "why": "builds thread name 'PcmReaderTemplate:'+hex, Thread ctor; called from feature_extractor::load_audio (Win 0x14123c6e0) at 0x14123c881 with same args order as mac (this,String,int,prio=-1,0xd55,0,0). Win has this in rcx, args 5.. on stack"
+ },
+ {
+  "item": "__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE6unloadEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141104f90",
+  "confidence": "medium",
+  "why": "vtable slot 2 of the AbstractReader vtable (0x1457cfef0, +592): mac slot 4 (D1,D0,run,load,unload) -> Win idx 2. It is an adjuster+body: this=subobject at +0x250; calls 0x141104fc0 (this-0x250: clears running flag [+0x289], stopThread(5000), waits via Sleep/WaitForSingleObject, zeroes [+0x26c..0x288]; isThreadRunning/waitForThreadToExit inlined), then 0x1411044a0 (=unregisterMyself on this-0x38, mislabelled getDefaultInstance) and [this-0x18]=0. Same vtable slot is shared with PcmReaderTemplate<short> (identical code folded)"
+ },
+ {
+  "item": "__ZN8analyzer20AnalyzeJobController14SetSepcialInfoENS_11AnalyzeJobsENSt3__110shared_ptrIvEE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x14121f570",
+  "confidence": "high",
+  "why": "called from Windows analyze() at 0x141215390 (rcx=[r15+0x2cc8] controller, edx=0 job, r8=&shared_ptr{ptr,ctrl}) right before SetJobs/GetResult as on mac; body iterates vector at this+0x60 with stride 0x18 and job id compare like mac; top cand 0x142a61fb0 was wrong (that is Thread::threadShouldExit)"
+ },
+ {
+  "item": "__ZN8analyzer18CBeatAnalyzeThread15createSeekTableEv",
+  "kind": "sym",
+  "verdict": "inlined",
+  "win": "0x141213840",
+  "confidence": "high",
+  "why": "inlined into analyze(): block at 0x141219803-0x1412198b1: FlacAnalyzeManager ctor 0x141223050 (call 0x141219838), createSeekTable(0x190) 0x1412232c0 (call 0x14121984a), getSeekTable 0x141223520, getTotalSamples 0x141223540, then vcall [[this+0x2c0]+0x58]; cands (0x142a61fb0 etc.) are wrong"
+ },
+ {
+  "item": "__ZNK4juce9Component17getChildComponentEi",
+  "kind": "sym",
+  "verdict": "wrong",
+  "win": "0x142c128c0",
+  "confidence": "high",
+  "why": "leaf: bounds-check edx vs [rcx+0x64], load [[rcx+0x58]+idx*8], else 0. The matcher has this address attached to getNumChildComponents instead; the cand 0x142c128e0 is the num-children getter"
+ },
+ {
+  "item": "__ZNK4juce9Component21getNumChildComponentsEv",
+  "kind": "sym",
+  "verdict": "wrong",
+  "win": "0x142c128e0",
+  "confidence": "high",
+  "why": "leaf: mov eax,[rcx+0x64]; ret. Current match 0x142c128c0 is getChildComponent(int)"
+ },
+ {
+  "item": "__ZNK4juce9Component9isShowingEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142c15550",
+  "confidence": "high",
+  "why": "walks parent chain [+0x30] testing visible flag bit in [+0xe8] (bit 2 here), then peer check; same logic as mac"
+ },
+ {
+  "item": "__ZNK6browse10ListViewer13getRowByIndexEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1414addc0",
+  "confidence": "high",
+  "why": "same two-level index (sparse row map -> row array) with bounds checks; fields shifted -0x18 on Windows (0x250/0x240/0x234/0x228 vs 0x268/0x258/0x24c/0x240)"
+ },
+ {
+  "item": "__ZNK8djengine10DjEngineIF9isLoadingENS_15EnPlayerChannelE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x14253b660",
+  "confidence": "high",
+  "why": "leaf-ish: getPlayerControl(0x142cd74d0)(edx=channel), vcall[+0x2a8] (mac +0x2b0), vcall[+0x60](rdx=&tmp) (mac +0x68), return byte&1; sits among sibling DjEngineIF getters (isPlaying=0x14253b950 uses same chain). Window ordering 0x14253b610 (>>4 flag) is another getter"
+ },
+ {
+  "item": "__ZNK8djengine10DjEngineIF9isPlayingENS_15EnPlayerChannelE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14253b950",
+  "confidence": "high",
+  "why": "num-players bound check, same vcall chain, (flags&0x110)==0x110"
+ },
+ {
+  "item": "__ZNK9effectGui21RbxCfxControlBehavior15getCfxKnobValueEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1416aceb0",
+  "confidence": "high",
+  "why": "log strings 'getCfxKnobValue lowerLimit/upperLimit' identical; array of floats at this+0xd8 on Windows (mac +0xe8), clamped 0..5"
+ },
+ {
+  "item": "__ZNSt3__110__function6__funcIZN6common18StatusBarComponent11showMessageERKN4juce6StringENS2_11MessageTypeEE3$_0NS_9allocatorIS9_EEFvvEEclEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1419e5590",
+  "confidence": "high",
+  "why": "lambda body: setColour(0x1000281/0x1000280) from LookAndFeel findColour 0x3000031/32 or fixed colours (0xbe,0x33,0x34), translate, getDisplayFontFor, Label::setFont/setText; captured this at +0x10, Label ptr at this+0x298 (mac 0x290)"
+ },
+ {
+  "item": "O_compWidth",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN17ItemPageComponent7resizedEv",
+  "kind_recipe": "ldr",
+  "nth": 3,
+  "value": "0x40",
+  "confidence": "medium",
+  "why": "ItemPageComponent::resized has no Windows match; juce::Component::setSize on Windows (0x142c13e60) reads x=[rcx+0x38], y=[rcx+0x3c] and passes them to setBounds before the new w,h, so bounds Rectangle<int> is x@0x38,y@0x3c,w@0x40,h@0x44, same as mac (w@0x40)"
+ },
+ {
+  "item": "__ZN8analyzer18CBeatAnalyzeThread15getSongFilePathEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141213010",
+  "confidence": "high",
+  "why": "returns shared_ptr under CriticalSection (Win: sret in rdx; CS at +0x250, ptr +0x288/ctrl +0x290 vs mac +0x210, +0x260/+0x268)"
+ },
+ {
+  "item": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141213840",
+  "confidence": "high",
+  "why": "contains SetSample, feature_extractor::embed, inlined createSeekTable, same structure; hooks resolved inside it"
+ }
+]

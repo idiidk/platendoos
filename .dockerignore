@@ -1,0 +1,9 @@
+# The Docker build context (website/Dockerfile, docker-compose.yml) is the repository's root, but the docs site is
+# built from website/ alone: everything else stays out (models, recordings, build output, the trailer's videos).
+*
+!website/
+website/node_modules/
+website/.site/
+website/docs/.vitepress/dist*/
+website/docs/.vitepress/cache/
+**/.DS_Store

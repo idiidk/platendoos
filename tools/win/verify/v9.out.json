@@ -1,0 +1,90 @@
+[
+ {
+  "item": "O_trackKey",
+  "kind": "offset",
+  "fn": "__ZN2db15TrackListSorter10compareKeyEPNS_12RowDataTrackES2_",
+  "kind_recipe": "ldr x1",
+  "nth": 0,
+  "value": "0x210",
+  "confidence": "high",
+  "why": "win 1423a4c10 does lea rdi,[rdx+0x210]/lea rsi,[r8+0x210] on the two RowDataTrack args, then String ops (length, toRawUTF8)"
+ },
+ {
+  "item": "O_viewerHeader",
+  "kind": "offset",
+  "fn": "__ZNK6browse10ListViewer14getTableHeaderEv",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "value": "0x290",
+  "confidence": "high",
+  "why": "1414cc310: mov rax,[rcx+0x290]; if null falls back to [[rcx+0x220]+0x180] (mac 0x238 -> 0x220), same shape as mac"
+ },
+ {
+  "item": "O_trackPath",
+  "kind": "offset",
+  "fn": "__ZNK2db12RowDataTrack13isSpotifyFileEv",
+  "kind_recipe": "add x0",
+  "nth": 0,
+  "value": "0x98",
+  "confidence": "high",
+  "why": "141f3e6f0: add rcx,0x98; jmp isSpotifyProtocol (same as mac)"
+ },
+ {
+  "item": "O_lvBrowseProp",
+  "kind": "offset",
+  "fn": "__ZNK6browse10ListViewer14canPlayPreviewEv",
+  "kind_recipe": "add x0",
+  "nth": 0,
+  "value": "0xf0",
+  "confidence": "high",
+  "why": "1414d43a0: lea rbx,[rcx+0xf0] then BrowseProperty::isFolderBrowse/isItunesBrowse/... calls"
+ },
+ {
+  "item": "O_uiPlayerDeck",
+  "kind": "offset",
+  "fn": "__ZN6djplay8UiPlayer17onBeatGridChangedEPN6rbxfrm14IControlClientERKNS1_14IDjPlayerStateE",
+  "kind_recipe": "ldr x0",
+  "nth": 1,
+  "value": "0x458",
+  "confidence": "medium",
+  "why": "win 1425a07a0 is the secondary-base entry (this=UiPlayer+0x400; its caller thunk 1425a07e0 does add rcx,-0x400): reads [this+0x58] as edx = deck; relative to the UiPlayer primary pointer that is 0x400+0x58=0x458. (If the mod's pointer is the sub-object, use 0x58.) Same sub-object chain [this+0x50]->+0xe0->+0x148->+0x478 vs mac 0x448->..0x498"
+ },
+ {
+  "item": "__ZN4juce11MemoryBlock10replaceAllEPKvm",
+  "kind": "sym",
+  "verdict": "inlined",
+  "why": "No separate Windows function (MSVC inlines it). Equivalent: setSize(n,false)=0x142a7c750(MemoryBlock*,size,zero) then memcpy(*(char**)block, src, n); MemoryBlock layout win: data ptr +0, size +8. For n==0: free *block (HeapBlock) and zero it, which setSize(0) also does",
+  "confidence": "high",
+  "win": null,
+  "alt": "0x142a7c750"
+ },
+ {
+  "item": "O_total",
+  "kind": "offset",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "kind_recipe": "ldr x19",
+  "nth": 0,
+  "value": "0x440",
+  "confidence": "high",
+  "why": "1415fdfa0: edx=[rsi+0x440]; add edx,[item+0x10]; store back; compared with 0x1900000 (25MB) like mac; CriticalSection at +0x448, OwnedArray at +0x430"
+ },
+ {
+  "item": "O_readerOwner",
+  "kind": "offset",
+  "fn": "__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE6unloadEv",
+  "kind_recipe": "add x19",
+  "nth": 1,
+  "value": "0x218",
+  "confidence": "high",
+  "why": "141104f90 is the sub-object (+0x250) thunk of unload: add rcx,-0x250 calls main unload; then lea rcx,[rbx-0x38] = obj+0x218 (call mislabeled AudioReaderFactory::getDefaultInstance, really ReaderOwnerTmpl::unregisterMyself 1411044a0) and mov [rbx-0x18]=obj+0x238 =0 (mac 0x1f8=owner+0x20, consistent)"
+ },
+ {
+  "item": "__ZN9streaming4Play11getMediaUrnEib",
+  "kind": "sym",
+  "verdict": "inlined",
+  "why": "Inlined everywhere (e.g. apple_music sendSystemQuitEvent 142ef57e0, spotify isAvailablePlayOnDeck 142f04a40): EnterCriticalSection(Play+0x148); p = 0x14117a050(Play+0x128, idx, key) which returns juce::String const* (find-or-insert in std::map<int,MediaInfo>[2], returns &info.urn at +0x28, nullMediaInfo if missing); copy String; LeaveCriticalSection. idx: mac bool true -> idx 0 (call with edx=0), false -> idx 1 (maps 16 bytes apart: +0x128,+0x138). Call 0x14117a050(Play+0x128, bool?0:1, deck) under the lock Play+0x148 instead (it's a generic template helper, many callers 142f6a450 etc; matcher labels none of it)",
+  "confidence": "medium",
+  "win": null,
+  "alt": "0x14117a050"
+ }
+]

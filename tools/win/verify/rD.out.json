@@ -1,0 +1,108 @@
+[
+ {
+  "item": "O_items",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "kind_recipe": "add x19",
+  "nth": 1,
+  "value": "0x430",
+  "confidence": "high",
+  "why": "Windows addImageToCache 0x1415fdfa0: OwnedArray at [this+0x430] (lea rdi,[rsi+0x430]; numUsed at +0xc, push at 0x1415fe0fd..), passed as rcx to removeRange 0x1415fe680"
+ },
+ {
+  "item": "O_total",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "kind_recipe": "ldr x19",
+  "nth": 0,
+  "value": "0x440",
+  "confidence": "high",
+  "why": "[this+0x440] += item size; compared with 0x1900000 (26 MB, same as mac); the eviction loop subtracts the first 50 items' sizes from it before removeRange"
+ },
+ {
+  "item": "O_itemSize",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "kind_recipe": "str x20",
+  "nth": 1,
+  "value": "0x10",
+  "confidence": "high",
+  "why": "new Item (0x20 bytes): mov [rbx+0x10],edi (width*height*4/3/1 bytes) then [rbx+0x18] the String; the eviction loop does sub edx,[item+0x10]"
+ },
+ {
+  "item": "O_setParent",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZTVN6djplay10DeviceUnitE",
+  "kind_recipe": "vt:__ZN6djplay12DeviceObject9setParentEPS0_",
+  "nth": 0,
+  "value": "0x8",
+  "confidence": "high",
+  "why": "MidiMapDDJFLX4 ctor 0x1424d30b0 at 0x1424d3409-0x1424d3416: new DeviceUnit (ctor 0x1423c84b0), mov rax,[r12]; mov rdx,map; call [rax+8]; mov byte [r12+0x1c],1 = setParent then the flag (mac slot 2 -> Windows slot 1: one dtor slot). Value is from the object's vptr (Windows vptr = vtable start)"
+ },
+ {
+  "item": "Identifier \"Vinyl\"",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x146179598",
+  "confidence": "high",
+  "why": "global juce::Identifier made by static init 0x140e168e0 (Identifier ctor on the string \"Vinyl\" at 0x143dbcfec); passed as r9 (const Identifier&) to DeviceComponent::operateGetProperty 0x1423a9700 at 0x1424d3366 in the MidiMapDDJFLX4 ctor"
+ },
+ {
+  "item": "__ZThn656_N13MainComponent7performERKN4juce24ApplicationCommandTarget14InvocationInfoE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141824840",
+  "confidence": "high",
+  "why": "same as v4: MSVC has no thunk; this is perform itself (slot 4 of the ApplicationCommandTarget subobject's vtable at MainComponent+568). flx4 only compares it with that vtable slot and uses +568"
+ },
+ {
+  "item": "__ZThn392_NK11DjMixerUnit25getChannelLevelMeterValueEib",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142da6520",
+  "confidence": "high",
+  "why": "same as v4: takes the IDjMixerState subobject pointer itself, which is what DjSystem::getMixerState returns (flx4 passes that, adds nothing)"
+ },
+ {
+  "item": "__ZN4juce11MemoryBlock7setSizeEmb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142a7c750",
+  "confidence": "high",
+  "why": "(this=rcx, size_t=rdx, bool zero=r8b): compares [rcx+8] with size, realloc/free of HeapBlock [rcx], sets [rcx+8]; data at +0, size at +8"
+ },
+ {
+  "item": "__ZN4juce17MemoryInputStreamC1ERKNS_11MemoryBlockEb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142a70e30",
+  "confidence": "high",
+  "why": "(this, const MemoryBlock*, bool keepInternalCopy): reads [block] and [block+8], copies into its own MemoryBlock at +0x20 when r8b; vtable = MemoryInputStream's; object size 0x30 (flx4/artcache allocate 64). Also see v10"
+ },
+ {
+  "item": "midi_send1",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x1424be58a"
+  ],
+  "target": "0x142c7ccd0",
+  "confidence": "medium",
+  "why": "replaces v2's 'inlined': MidiOutputHelper's helper 0x1424be460 (both direct-send paths of mac send1 and send3) sends directly only when no background thread ([this+0x358]==0): mov rcx,[rcx+0x218]; call sendMessageNow at 0x1424be58a with rdx = the message untouched since entry. With a background thread the message is queued and sent by midi_send4's site. send3 has no site of its own on Windows (flx4 leaves it undefined there)"
+ },
+ {
+  "item": "fastwave_retry",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x141a1adb4"
+  ],
+  "target": "0x142b2aa80",
+  "confidence": "medium",
+  "why": "timerCallback 0x141a1a8b0 has two copies of startTimer(this,1,500) (0x141a1ad9c reached from the jle at 1ab11/1ab1e, 0x141a1adb4 from three early jle); hooks.def has one entry: only 0x141a1adb4 is hooked, the other retry stays 500 ms (harmless; fastwave still works). Both copies: rcx=rdi timer, edx=1, r8d=0x1f4"
+ }
+]

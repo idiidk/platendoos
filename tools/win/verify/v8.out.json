@@ -1,0 +1,103 @@
+[
+ {
+  "item": "O_trackBpm",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN2db15TrackListSorter10compareBPMEPNS_12RowDataTrackES2_",
+  "kind_recipe": "ldr x1",
+  "nth": 0,
+  "value": "0x3a8",
+  "confidence": "high",
+  "why": "0x1423a4910 is mov eax,[rdx+0x3a8]; sub eax,[r8+0x3a8]; ret (compareBPM). RowDataTrack string field offsets (0xd0 artist, 0x108 album, 0x300 remixer...) equal mac, so layout identical; 0x3a8 only BPM (0x3ac playcount)."
+ },
+ {
+  "item": "O_trackArtist",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN2db15TrackListSorter13compareArtistEPNS_12RowDataTrackES2_",
+  "kind_recipe": "add x1",
+  "nth": 0,
+  "value": "0xd0",
+  "confidence": "high",
+  "why": "Windows compareArtist 0x1423a45f0 (first string comparer, calls compareJuceString 0x1423a3e20): lea rax,[r8+0xd0], [r8+0xb8],[r8+8],[r8+0x50] - identical to mac.",
+  "win_fn": "0x1423a45f0"
+ },
+ {
+  "item": "O_engineChannels",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN8djengine10DjEngineIF6unloadENS_15EnPlayerChannelE",
+  "kind_recipe": "ldr x20",
+  "nth": 0,
+  "value": "0xcc",
+  "confidence": "high",
+  "why": "Win DjEngineIF::unload 0x14253b5b0: cmp ebx,[rdi+0xcc] jae -> else array [rdi+0xc0] (mac 0xdc / 0xd0; both shifted -0x10)."
+ },
+ {
+  "item": "O_trackId",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZNK2db12RowDataTrack5refIDEv",
+  "kind_recipe": "add x0",
+  "nth": 0,
+  "value": "0x8",
+  "confidence": "high",
+  "why": "Windows compareArtist 0x1423a45f0 reads id as [r8+8] / [rdx+8] exactly like mac (refID tiny getter not in function list).",
+  "win_fn": "0x1423a45f0"
+ },
+ {
+  "item": "O_btvBasicView",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZNK6browse16BrowseTreeViewer13getListViewerEv",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "value": "0x148",
+  "confidence": "high",
+  "why": "No separate Win getListViewer; but browse::TreeViewer ctor 0x14157c7c0 stores BrowseBasicView& (rdx) at [this+0x148], same store as mac TreeViewer ctor [rbx+0x148]. BrowseTreeViewer derives from TreeViewer."
+ },
+ {
+  "item": "O_threadSource",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN8analyzer18CBeatAnalyzeThread15getSongFilePathEv",
+  "kind_recipe": "ldr x21",
+  "nth": 0,
+  "value": "0x288",
+  "confidence": "high",
+  "why": "Win getSongFilePath 0x141213010: CS at +0x250 (mac 0x210), shared_ptr ptr at [rdi+0x288], ctrl block [rdi+0x290] (mac 0x260/0x268). Return is shared_ptr in rdx-sret."
+ },
+ {
+  "item": "O_items",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "kind_recipe": "add x19",
+  "nth": 1,
+  "value": "0x430",
+  "confidence": "high",
+  "why": "Win addImageToCache 0x1415fdfa0: items data ptr at [rsi+0x430] (lea rcx,[rsi+0x430] to removeRange), numAllocated 0x438, numUsed 0x43c, totalBytes 0x440, CS 0x448; mac 0x3c8..0x3e0, same relative layout (+0x68)."
+ },
+ {
+  "item": "S_beatInfo",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN8analyzer13AnalyzeJobKey6getKeyERN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEEfNSt3__110shared_ptrIfEEjbmm",
+  "kind_recipe": "movz x14",
+  "nth": 0,
+  "value": "0xc",
+  "confidence": "high",
+  "why": "Win getKey 0x141293560 indexes beat array with lea r,[rcx+rcx*2]; shl r,2 => stride 12 (also [rbx+0xc] = Array numUsed as on mac)."
+ },
+ {
+  "item": "O_jobSpecialInfo",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN8analyzer13AnalyzeJobKey6DetectEv",
+  "kind_recipe": "ldr x19",
+  "nth": 2,
+  "value": "0x60",
+  "confidence": "high",
+  "why": "Win AnalyzeJobKey::Detect 0x141293390: mov rcx,[rdi+0x60]; test; cmp qword [rcx],0; fields +0x38..0x44 as mac; result stored at [rdi+0x58] as mac."
+ }
+]

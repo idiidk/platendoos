@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Playlist Analysis</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  #app { display: flex; height: 100%; }
+  #side { width: 210px; flex: none; overflow-y: auto; background: var(--bg2); border-right: 1px solid var(--line); padding: 6px; }
+  .pl { padding: 5px 8px; border-radius: 6px; height: 40px; overflow: hidden; }
+  .pl.sel { background: #0a4a8f; }
+  .pl .n { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl .s { font-size: 11px; color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 12px 20px 12px 14px; }
+  #top { display: flex; align-items: flex-start; gap: 10px; }
+  #titles { flex: 1; min-width: 0; }
+  #headline { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #detail { color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  #detail.warn { color: var(--orange); white-space: normal; }
+  #headline.jump { cursor: pointer; }
+  #headline.jump:hover { text-decoration: underline; }
+  tr.active td { background: rgba(10,132,255,.22) !important; }
+  tr.active td:first-child { box-shadow: inset 3px 0 0 #0a84ff; }
+  #prog { margin: 10px 0; }
+  #bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  #wrap { flex: 1; min-height: 0; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th { position: sticky; top: 0; background: var(--bg); text-align: left; font-weight: 500; color: var(--fg2); padding: 3px 6px;
+       border-bottom: 1px solid var(--line); z-index: 1; }
+  td { padding: 0 6px; height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  tr:nth-child(even) td { background: rgba(255,255,255,.035); }
+  .r { text-align: right; } .num { font-variant-numeric: tabular-nums; }
+  .differ { color: var(--orange); }
+  .heard { color: var(--fg2); font-style: italic; }
+  #empty { display: none; padding-top: 10px; }
+  #empty p { color: var(--fg2); font-size: 13px; max-width: 560px; }
+  #foot { display: flex; align-items: center; gap: 8px; padding-top: 10px; }
+  #foot .sp { flex: 1; }
+</style></head>
+<body>
+<div id="app">
+  <div id="side"></div>
+  <div id="main">
+    <div id="top">
+      <div id="titles"><div id="headline"></div><div id="detail"></div></div>
+      <button id="analyze" class="primary">Analyze</button>
+      <button id="reanalyze">Re-analyze</button>
+    </div>
+    <div id="prog" class="progress"><div></div></div>
+    <div id="bar">
+      <div class="seg" id="filter"><button data-f="all" class="on">All</button><button data-f="todo">To do</button><button data-f="ok">Done</button><button data-f="problem">Problems</button></div>
+      <label class="check"><input type="checkbox" id="follow" checked> Follow active tracks</label>
+    </div>
+    <div id="wrap">
+      <table>
+        <colgroup id="cols"></colgroup>
+        <thead><tr id="heads"></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div id="empty"><p id="emptyText"></p><button id="show">Show in rekordbox</button></div>
+    <div id="foot">
+      <button id="pause">Pause</button><button id="stop">Stop</button><button id="retry">Retry failed</button>
+      <label class="check" id="fastLabel" title="Skip rekordbox's optional analyses (phrase, vocal detection, similarity) for tracks analysed here. rekordbox adds them later, when you load the track to play it."><input type="checkbox" id="fast"> Fast mode</label>
+      <label class="check" id="optLabel" style="display:none"><input type="checkbox" id="opt"> <span id="optText"></span></label>
+      <label class="check" id="genreLabel" title="The whole flow per track: the genres mod listens to the track first, its genre picks the tempo the beat grid is made at (dubstep at 140, not 70; drum &amp; bass at 174, not 87), and an empty Genre field is filled with it. A genre that is already filled in is used as it is. Off: the genre still picks the tempo, but isn't written."><input type="checkbox" id="genreFirst"> Genre first</label>
+      <span class="sp"></span><button id="close">Close</button>
+    </div>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = rbm.esc;
+  var filter = 'all', last = null, lastSel = null, followed = -1;
+  var rowEls = {}, rowSig = {}, order = [];   // table rows by track row number: updated in place
+
+  function setText(el, t) { if (el.textContent !== t) el.textContent = t; }
+  function setProp(el, p, v) { if (el[p] !== v) el[p] = v; }
+
+  function sidebar(s) {
+    var side = $('side'), sig = JSON.stringify([s.side, s.sel]);
+    if (side._sig === sig) return;
+    side._sig = sig;
+    var html = '';
+    s.side.forEach(function (p) {
+      html += '<div class="pl' + (p.id === s.sel ? ' sel' : '') + '" data-id="' + esc(p.id) + '"><div class="n">' + esc(p.name) +
+              '</div><div class="s">' + esc(p.sub) + '</div></div>';
+    });
+    side.innerHTML = html;
+  }
+
+  // The Genre column is there with the genres mod only.
+  var genres = null;
+  function columns(on) {
+    if (genres === on) return;
+    genres = on;
+    var g = on ? '<col style="width:112px">' : '';
+    $('cols').innerHTML = '<col style="width:40px"><col><col style="width:' + (on ? 21 : 30) + '%"><col style="width:' + (on ? 142 : 150) + 'px">' + g +
+      '<col style="width:62px"><col style="width:' + (on ? 44 : 50) + 'px"><col style="width:74px"><col style="width:' + (on ? 44 : 50) + 'px">';
+    $('heads').innerHTML = '<th class="r">#</th><th>Track</th><th>Artist</th><th>Status</th>' + (on ? '<th>Genre</th>' : '') +
+      '<th class="r">BPM</th><th>Key</th><th>CNN Key</th><th class="r">Time</th>';
+    $('rows').innerHTML = ''; rowEls = {}; rowSig = {}; order = [];
+  }
+
+  function rowHtml(t) {
+    var differ = t.differ ? ' class="differ"' : '';
+    var genre = !genres ? '' : '<td' + (t.heard ? ' class="heard" title="What the genres mod heard; not written in the Genre field"' : '') + '>' + esc(t.genre) + '</td>';
+    return '<td class="r muted">' + (t.row + 1) + '</td><td>' + esc(t.title) + '</td><td class="muted">' + esc(t.artist) +
+      '</td><td><span class="dot ' + t.state + '"></span>' + esc(t.status) + '</td>' + genre + '<td class="r num">' + esc(t.bpm) +
+      '</td><td>' + esc(t.key) + '</td><td' + differ + '>' + esc(t.cnn) + '</td><td class="r num muted">' + esc(t.time) + '</td>';
+  }
+
+  function shown(t) { return filter === 'all' || t[filter]; }
+
+  function table(s) {
+    var body = $('rows');
+    if (lastSel !== s.sel) {   // another playlist: start over
+      body.innerHTML = ''; rowEls = {}; rowSig = {}; order = []; followed = -1; $('wrap').scrollTop = 0;
+      lastSel = s.sel;
+    }
+    var want = s.tracks.filter(shown), seen = {}, prev = null;
+    want.forEach(function (t, i) {
+      var k = t.row, tr = rowEls[k], sig = JSON.stringify(t);
+      seen[k] = true;
+      if (!tr) { tr = rowEls[k] = document.createElement('tr'); tr.innerHTML = rowHtml(t); rowSig[k] = sig; }
+      else if (rowSig[k] !== sig) { tr.innerHTML = rowHtml(t); rowSig[k] = sig; }
+      setProp(tr, 'className', t.active ? 'active' : '');
+      // keep the order without moving rows that are already in place
+      var at = prev ? prev.nextSibling : body.firstChild;
+      if (tr !== at) body.insertBefore(tr, at);
+      prev = tr;
+    });
+    Object.keys(rowEls).forEach(function (k) {
+      if (!seen[k]) { rowEls[k].remove(); delete rowEls[k]; delete rowSig[k]; }
+    });
+    if ($('follow').checked) {
+      for (var i = 0; i < want.length; i++) {
+        if (want[i].active) {
+          if (i !== followed) jumpTo(want[i].row);
+          followed = i;
+          break;
+        }
+      }
+    }
+  }
+
+  // The rows being analysed in the middle of the list (or, when none is, the first still to do).
+  function current() {
+    if (!last || !last.tracks) return -1;
+    var todo = -1;
+    for (var i = 0; i < last.tracks.length; i++) {
+      var t = last.tracks[i];
+      if (t.active) return t.row;
+      if (todo < 0 && t.todo) todo = t.row;
+    }
+    return todo;
+  }
+  function jumpTo(row) {
+    var tr = rowEls[row];
+    if (tr) tr.scrollIntoView({ block: 'center' });
+  }
+
+  function render(s) {
+    last = s;
+    sidebar(s);
+    setText($('headline'), s.headline);
+    setText($('detail'), s.detail);
+    setProp($('detail'), 'className', s.detailWarn ? 'warn' : '');
+    setProp($('headline'), 'className', current() >= 0 && !(s.none || s.empty) ? 'jump' : '');
+    setProp($('headline'), 'title', $('headline').className ? 'Show where the analysis is in the list' : '');
+    var hide = s.none || s.empty;
+    $('prog').style.display = hide ? 'none' : '';
+    $('prog').firstChild.style.width = (100 * Math.min(1, s.progressValue / s.progressMax)) + '%';
+    $('bar').style.display = $('wrap').style.display = hide ? 'none' : '';
+    $('empty').style.display = s.empty ? 'block' : 'none';
+    setText($('emptyText'), s.emptyText);
+    setText($('pause'), s.pauseLabel);
+    setProp($('pause'), 'disabled', !s.pauseEnabled);
+    setProp($('stop'), 'disabled', !s.stopEnabled);
+    setProp($('retry'), 'disabled', !s.retryEnabled);
+    setProp($('analyze'), 'disabled', !s.analyzeEnabled);
+    setProp($('reanalyze'), 'disabled', !s.analyzeEnabled);
+    setProp($('analyze'), 'title', s.analyzeTip);
+    setProp($('reanalyze'), 'title', s.reanalyzeTip);
+    setProp($('fast'), 'checked', s.fast);
+    // (another mod's own checkbox, if one offers it)
+    $('optLabel').style.display = s.option ? '' : 'none';
+    if (s.option) {
+      setProp($('opt'), 'checked', s.option.on);
+      setProp($('optText'), 'textContent', s.option.label);
+      setProp($('optLabel'), 'title', s.option.tip);
+    }
+    setProp($('genreFirst'), 'checked', s.genreFirst);
+    $('genreLabel').style.display = s.hasGenres ? '' : 'none';
+    columns(!!s.hasGenres);
+    if (!hide) table(s);
+  }
+
+  rbm.onState = function (s) { if (s && s.type === 'state') render(s); };
+  $('headline').addEventListener('click', function () {
+    var row = current();
+    if (row < 0) return;
+    if (!rowEls[row]) {  // filtered out: show all
+      filter = 'all';
+      Array.prototype.forEach.call($('filter').children, function (x) { x.className = x.getAttribute('data-f') === 'all' ? 'on' : ''; });
+      table(last);
+    }
+    jumpTo(row);
+  });
+
+  $('side').addEventListener('click', function (e) {
+    var p = e.target.closest('.pl');
+    if (p) rbm.send({ cmd: 'select', id: p.getAttribute('data-id') });
+  });
+  $('filter').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    filter = b.getAttribute('data-f'); followed = -1;
+    Array.prototype.forEach.call($('filter').children, function (x) { x.className = x === b ? 'on' : ''; });
+    if (last && !last.none && !last.empty) table(last);
+  });
+  ['analyze', 'reanalyze', 'show', 'pause', 'stop', 'retry', 'close'].forEach(function (c) {
+    $(c).addEventListener('click', function () { followed = -1; rbm.send({ cmd: c }); });
+  });
+  $('fast').addEventListener('change', function () { rbm.send({ cmd: 'fast', on: $('fast').checked }); });
+  $('opt').addEventListener('change', function () { rbm.send({ cmd: 'option', on: $('opt').checked }); });
+  $('genreFirst').addEventListener('change', function () { rbm.send({ cmd: 'genreFirst', on: $('genreFirst').checked }); });
+  rbm.ready();
+})();
+</script>
+</body></html>

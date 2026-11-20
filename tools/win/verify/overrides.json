@@ -1,0 +1,5 @@
+{
+ "drop": {
+  "grid_assign@0x141217334": "v6 site calls 0x14121f7a0 = AnalyzeJobController::SetTrigger (vector<{int,bool}> push), not Array<DetailedBeatInfo>::operator= (inlined on Windows, v7)"
+ }
+}

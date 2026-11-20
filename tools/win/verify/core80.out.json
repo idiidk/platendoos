@@ -1,0 +1,642 @@
+[
+ {
+  "item": "__ZN4juce10IdentifierC1EPKc",
+  "verdict": "wrong",
+  "win": "0x142a6f560",
+  "confidence": "high",
+  "why": "pooled Identifier(const char*): EnterCriticalSection, pool lookup; 0x142a6e3a0 is a thunk to a wide-char ctor",
+  "prev": "0x142a6e3a0"
+ },
+ {
+  "item": "__ZN4juce6StringD1Ev",
+  "verdict": "wrong",
+  "win": "0x142a6e690",
+  "confidence": "high",
+  "why": "refcount dec vs emptyString, tail to free; 0x14280dfc8 is operator new; 11717 aligned votes",
+  "prev": "0x14280dfc8"
+ },
+ {
+  "item": "__ZN4juce6StringC1EPKc",
+  "verdict": "wrong",
+  "win": "0x142a6e420",
+  "confidence": "medium",
+  "why": "thunk to 0x140ef6200 (real String(const char*)); 4171 aligned votes; 0x1423a8b90 wrong",
+  "prev": "0x1423a8b90"
+ },
+ {
+  "item": "___clang_call_terminate",
+  "verdict": "absent",
+  "win": null,
+  "confidence": "high",
+  "why": "clang terminate helper; 0x142807d78 is actually std::_Xlength_error-style thrower (takes message); MSVC equivalent is terminate()/__std_terminate",
+  "prev": "0x142807d78"
+ },
+ {
+  "item": "__ZN4juce6StringC1ERKS0_",
+  "verdict": "wrong",
+  "win": "0x142a6e660",
+  "confidence": "high",
+  "why": "mov rax,[rdx]; store; lock inc unless emptyString; 0x142a5b890 is var::size",
+  "prev": "0x142a5b890"
+ },
+ {
+  "item": "__ZN4juce6StringC1Ev",
+  "verdict": "wrong",
+  "win": "0x142a6e6c0",
+  "confidence": "high",
+  "why": "stores emptyString+16; 0x142a45d40 is CriticalSection ctor (InitializeCriticalSection)",
+  "prev": "0x142a45d40"
+ },
+ {
+  "item": "__ZN4juce9StringRefC1EPKc",
+  "verdict": "wrong",
+  "win": "0x142a672f0",
+  "confidence": "high",
+  "why": "mov [rcx],rdx; ret ; 0x142a6ceb0 is string compare-equal",
+  "prev": "0x142a6ceb0"
+ },
+ {
+  "item": "__ZNK4juce15CriticalSection4exitEv",
+  "verdict": "wrong",
+  "win": "0x142a45cf0",
+  "confidence": "high",
+  "why": "jmp LeaveCriticalSection; 0x140ee9680 is a length_error thrower",
+  "prev": "0x140ee9680"
+ },
+ {
+  "item": "__ZNK4juce15CriticalSection5enterEv",
+  "verdict": "wrong",
+  "win": "0x142a45d20",
+  "confidence": "high",
+  "why": "jmp EnterCriticalSection (was null)",
+  "prev": null
+ },
+ {
+  "item": "__ZNK4juce6String9toRawUTF8Ev",
+  "verdict": "wrong",
+  "win": "0x142a67690",
+  "confidence": "high",
+  "why": "mov rax,[rcx]; ret; 0x142a67670 is a different getter",
+  "prev": "0x142a67670"
+ },
+ {
+  "item": "__ZN4juce9ComponentD2Ev",
+  "verdict": "ok",
+  "win": "0x142c15980",
+  "confidence": "high",
+  "why": "Component vtable dtor; 381 votes self",
+  "prev": "0x142c15980"
+ },
+ {
+  "item": "__ZN4juce3varD1Ev",
+  "verdict": "ok",
+  "win": "0x142a5c930",
+  "confidence": "high",
+  "why": "vtable+0x58 call on this+8; identical shape",
+  "prev": "0x142a5c930"
+ },
+ {
+  "item": "__ZN4juceplENS_6StringEPKc",
+  "verdict": "ok",
+  "win": "0x142a6be20",
+  "confidence": "medium",
+  "why": "self-voted by aligned callers",
+  "prev": "0x142a6be20"
+ },
+ {
+  "item": "__ZN4juce15CriticalSectionC2Ev",
+  "verdict": "wrong",
+  "win": "0x142a45d40",
+  "confidence": "high",
+  "why": "InitializeCriticalSection wrapper (was null)",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce3varC1Ev",
+  "verdict": "wrong",
+  "win": "0x142a5c950",
+  "confidence": "medium",
+  "why": "stores var void-type pointer in this; 0x142a5bc90 is var::equals",
+  "prev": "0x142a5bc90"
+ },
+ {
+  "item": "__ZN4juce9StringRefC1ERKNS_6StringE",
+  "verdict": "wrong",
+  "win": "0x142a672d0",
+  "confidence": "high",
+  "why": "mov rax,[rdx];mov [rcx],rax; 0x142a65640 is StringPairArray::set",
+  "prev": "0x142a65640"
+ },
+ {
+  "item": "__ZN6rbxfrm6RbxLog5printEN4juce9StringRefE",
+  "verdict": "wrong",
+  "win": "0x142d73070",
+  "confidence": "medium",
+  "why": "mac body is empty ret (log compiled out); win no-op stub 0x142d73070; 0x14112c3f0 is RefCountedObjEx dtor",
+  "prev": "0x14112c3f0"
+ },
+ {
+  "item": "__ZN4juce6ColourC1Ej",
+  "verdict": "wrong",
+  "win": "0x142b149d0",
+  "confidence": "medium",
+  "why": "Colour(uint32) stores 4 bytes; 0x14280dd90 is unrelated",
+  "prev": "0x14280dd90"
+ },
+ {
+  "item": "__ZN4juce78this_will_fail_to_link_if_some_of_your_compile_units_are_built_in_release_modeC1Ev",
+  "verdict": "inlined",
+  "win": null,
+  "confidence": "high",
+  "why": "empty linker-trick ctor; no code",
+  "prev": null
+ },
+ {
+  "item": "__ZN6djplay9SettingIF11getInstanceEv",
+  "verdict": "ok",
+  "win": "0x141dbf8c0",
+  "confidence": "high",
+  "why": "lazy new SettingIF singleton (was null; 1324 votes)",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce6StringaSEOS0_",
+  "verdict": "wrong",
+  "win": "0x142a6e570",
+  "confidence": "high",
+  "why": "swap of pointers (move-assign); 0x142a6e3e0 is thunk to wide ctor",
+  "prev": "0x142a6e3e0"
+ },
+ {
+  "item": "__ZN4juce11StringArrayC1Ev",
+  "verdict": "wrong",
+  "win": "0x142a65e20",
+  "confidence": "high",
+  "why": "zero 2 qwords; 0x142a6e0d0 is a different thunk",
+  "prev": "0x142a6e0d0"
+ },
+ {
+  "item": "__ZNK4juce6String20fromLastOccurrenceOfENS_9StringRefEbb",
+  "verdict": "wrong",
+  "win": "0x142a696c0",
+  "confidence": "high",
+  "why": "calls lastIndexOf/lastIndexOfIgnoreCase with includeSub/ignoreCase(stack) like mac",
+  "prev": "0x142a68750"
+ },
+ {
+  "item": "__ZN6rbxfrm6RbxLog6printfEPKcz",
+  "verdict": "wrong",
+  "win": "0x142d73050",
+  "confidence": "medium",
+  "why": "varargs spill stub, no-op (log compiled out); 0x142a45d00 is TryEnterCriticalSection",
+  "prev": "0x142a45d00"
+ },
+ {
+  "item": "__ZN4juce4File18getSeparatorStringEv",
+  "verdict": "inlined",
+  "win": null,
+  "confidence": "medium",
+  "why": "mac returns pointer to \"/\" constant; win version returns const char*/StringRef constant, inlined; 0x14132c5b0 copies a String member (wrong)",
+  "prev": "0x14132c5b0"
+ },
+ {
+  "item": "__ZN15BaseLookAndFeelD2Ev",
+  "verdict": "ok",
+  "win": "0x1413ebbd0",
+  "confidence": "high",
+  "why": "stores vtable chain, releases 9 Images, tail-jmps LookAndFeel_V4 dtor",
+  "prev": "0x1413ebbd0"
+ },
+ {
+  "item": "__ZN4juce9translateEPKc",
+  "verdict": "wrong",
+  "win": "0x142a6e7c0",
+  "confidence": "high",
+  "why": "String temp from const char*, calls translate(String), dtor temp; 0x142b9f980 is Label::setText",
+  "prev": "0x142b9f980"
+ },
+ {
+  "item": "__ZN4juce6StringaSERKS0_",
+  "verdict": "ok",
+  "win": "0x142a6e5b0",
+  "confidence": "high",
+  "why": "same copy-assign pattern with xchg",
+  "prev": "0x142a6e5b0"
+ },
+ {
+  "item": "__ZN4juce17DeletedAtShutdownD2Ev",
+  "verdict": "ok",
+  "win": "0x142b2d900",
+  "confidence": "high",
+  "why": "DeletedAtShutdown vtable + SpinLock",
+  "prev": "0x142b2d900"
+ },
+ {
+  "item": "__ZN4juceplENS_6StringERKS0_",
+  "verdict": "ok",
+  "win": "0x142a6bec0",
+  "confidence": "medium",
+  "why": "self-voted 486",
+  "prev": "0x142a6bec0"
+ },
+ {
+  "item": "__ZNK4juce11LookAndFeel10findColourEi",
+  "verdict": "ok",
+  "win": "0x142be3120",
+  "confidence": "medium",
+  "why": "self-voted 1507",
+  "prev": "0x142be3120"
+ },
+ {
+  "item": "__ZN4juce11LookAndFeel21getDefaultLookAndFeelEv",
+  "verdict": "wrong",
+  "win": "0x142be2d90",
+  "confidence": "high",
+  "why": "Desktop::instance lazy create then default LAF; 0x142b9f690 is Label::setFont",
+  "prev": "0x142b9f690"
+ },
+ {
+  "item": "__ZN4juce15StringPairArrayC1Eb",
+  "verdict": "wrong",
+  "win": "0x142a642f0",
+  "confidence": "high",
+  "why": "zero 4 qwords, store bool at +0x20",
+  "prev": "0x142a5c350"
+ },
+ {
+  "item": "__ZN4juce4FontD1Ev",
+  "verdict": "wrong",
+  "win": "0x142abf0a0",
+  "confidence": "medium",
+  "why": "ref-counted release of pointer (same code as Image dtor 0x142b00750); 0x142aa81f0 unrelated",
+  "prev": "0x142aa81f0"
+ },
+ {
+  "item": "__ZN6common11SettingFileC1Ev",
+  "verdict": "ok",
+  "win": "0x141e6cd40",
+  "confidence": "high",
+  "why": "SettingFile vtable ctor (was null)",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce14LookAndFeel_V4D2Ev",
+  "verdict": "ok",
+  "win": "0x142bbf760",
+  "confidence": "high",
+  "why": "stores V4 vtable chain; target of BaseLookAndFeel dtor tail jmp (was null)",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce6ColourC1Ehhh",
+  "verdict": "wrong",
+  "win": "0x142b149b0",
+  "confidence": "high",
+  "why": "stores r,g,b + alpha 0xff bytes; 0x14253d5c0 unrelated",
+  "prev": "0x14253d5c0"
+ },
+ {
+  "item": "__ZN4juce9Component9setBoundsEiiii",
+  "verdict": "wrong",
+  "win": "0x142c14060",
+  "confidence": "high",
+  "why": "Component::setBounds(x,y,w,h) with stack arg; 0x140fe6250 is a 1006-byte fn",
+  "prev": "0x140fe6250"
+ },
+ {
+  "item": "__ZN4juce5ImageD1Ev",
+  "verdict": "wrong",
+  "win": "0x142b00750",
+  "confidence": "high",
+  "why": "ref release; confirmed as Image dtor via BaseLookAndFeel dtor calls",
+  "prev": "0x142b047a0"
+ },
+ {
+  "item": "__ZN4jucelsERNS_6StringEPKc",
+  "verdict": "ok",
+  "win": "0x142a6bbb0",
+  "confidence": "medium",
+  "why": "self-voted 555",
+  "prev": "0x142a6bbb0"
+ },
+ {
+  "item": "__ZN4juce9Component9setColourEiNS_6ColourE",
+  "verdict": "ok",
+  "win": "0x142c10690",
+  "confidence": "high",
+  "why": "findColour + NamedValueSet::set; 1405 votes (was null)",
+  "prev": null
+ },
+ {
+  "item": "__ZNK4juce6Colour9withAlphaEf",
+  "verdict": "ok",
+  "win": "0x142b14460",
+  "confidence": "high",
+  "why": "comiss/clamp alpha",
+  "prev": "0x142b14460"
+ },
+ {
+  "item": "__ZN4jucelsERNS_6StringERKS0_",
+  "verdict": "wrong",
+  "win": "0x142a6bb90",
+  "confidence": "high",
+  "why": "jmp String::operator+=(String const&); 0x142a6d6d0 is String(ushort) thunk",
+  "prev": "0x142a6d6d0"
+ },
+ {
+  "item": "__ZN6browse17BrowseLookAndFeelD2Ev",
+  "verdict": "ok",
+  "win": "0x1416058b0",
+  "confidence": "medium",
+  "why": "self-voted",
+  "prev": "0x1416058b0"
+ },
+ {
+  "item": "__ZN4juce11StringArrayD1Ev",
+  "verdict": "unknown",
+  "win": null,
+  "confidence": "low",
+  "why": "Windows loop-destroy+free not located; not 0x142abf220 (that is a Font fn) ",
+  "prev": "0x142abf220"
+ },
+ {
+  "item": "__ZN4juce6StringC1EOS0_",
+  "verdict": "ok",
+  "win": "0x142a6e590",
+  "confidence": "high",
+  "why": "move ctor (was null)",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce15SingletonHolderIN8djengine10DjEngineIFENS_15CriticalSectionELb0EE3getEv",
+  "verdict": "wrong",
+  "win": "0x141424a00",
+  "confidence": "medium",
+  "why": "static-holder singleton get with CS enter/leave, new 0xe8 object, DjEngineIF ctor; 0x142b2bac0 is MessageManagerLock ctor",
+  "prev": "0x142b2bac0"
+ },
+ {
+  "item": "__ZN4juce9Component17addAndMakeVisibleEPS0_i",
+  "verdict": "ok",
+  "win": "0x142c12d00",
+  "confidence": "medium",
+  "why": "self-voted 1438",
+  "prev": "0x142c12d00"
+ },
+ {
+  "item": "__ZN4juce15SingletonHolderIN2db10DatabaseIFENS_15CriticalSectionELb0EE3getEv",
+  "verdict": "ok",
+  "win": "0x141380ab0",
+  "confidence": "medium",
+  "why": "self-voted 213",
+  "prev": "0x141380ab0"
+ },
+ {
+  "item": "__ZN4juce8Graphics9setColourENS_6ColourE",
+  "verdict": "ok",
+  "win": "0x142b08120",
+  "confidence": "medium",
+  "why": "self-voted 678",
+  "prev": "0x142b08120"
+ },
+ {
+  "item": "__ZN4juce11MemoryBlockD1Ev",
+  "verdict": "wrong",
+  "win": "0x142a7c9d0",
+  "confidence": "medium",
+  "why": "mov rcx,[rcx]; jmp free; 0x14280dea0 is security-cookie check",
+  "prev": "0x14280dea0"
+ },
+ {
+  "item": "__ZN4juceplEPKcRKNS_6StringE",
+  "verdict": "ok",
+  "win": "0x142a6bfb0",
+  "confidence": "medium",
+  "why": "self-voted",
+  "prev": "0x142a6bfb0"
+ },
+ {
+  "item": "__ZN4juce6String12formattedRawEPKcz",
+  "verdict": "wrong",
+  "win": "0x142a68130",
+  "confidence": "medium",
+  "why": "varargs spill + format; 0x14304e970 is a jump-table memcpy-like fn",
+  "prev": "0x14304e970"
+ },
+ {
+  "item": "__ZNK4juce4File12getChildFileENS_9StringRefE",
+  "verdict": "ok",
+  "win": "0x142a85870",
+  "confidence": "medium",
+  "why": "self-voted 1112",
+  "prev": "0x142a85870"
+ },
+ {
+  "item": "__ZN4juce6Button14setToggleStateEbNS_16NotificationTypeE",
+  "verdict": "wrong",
+  "win": "0x142c1eb70",
+  "confidence": "high",
+  "why": "thunk r9d=r8d; jmp 3-arg setToggleState; 0x142c0c360 is a different (recursive) fn",
+  "prev": "0x142c0c360"
+ },
+ {
+  "item": "__ZN4juce9Component7repaintEv",
+  "verdict": "ok",
+  "win": "0x142c11ba0",
+  "confidence": "medium",
+  "why": "self-voted",
+  "prev": "0x142c11ba0"
+ },
+ {
+  "item": "__ZNK4juce3varcvbEv",
+  "verdict": "ok",
+  "win": "0x142a5c370",
+  "confidence": "high",
+  "why": "vtable+0x30 call",
+  "prev": "0x142a5c370"
+ },
+ {
+  "item": "__ZN4juceeqERKNS_6StringES2_",
+  "verdict": "ok",
+  "win": "0x142a6d150",
+  "confidence": "medium",
+  "why": "self-voted 152",
+  "prev": "0x142a6d150"
+ },
+ {
+  "item": "__ZN6rbxfrm15RefCountedObjEx32decReferenceCountWithoutDeletingEv",
+  "verdict": "inlined",
+  "win": null,
+  "confidence": "high",
+  "why": "win inlines magic 0x52434f58 check + lock xadd everywhere; 0x1414ca410 is unrelated 737-byte fn",
+  "prev": "0x1414ca410"
+ },
+ {
+  "item": "__ZN4juce9Component7setSizeEii",
+  "verdict": "ok",
+  "win": "0x142c13e60",
+  "confidence": "medium",
+  "why": "self-voted 130",
+  "prev": "0x142c13e60"
+ },
+ {
+  "item": "__ZN4juce15CriticalSectionD1Ev",
+  "verdict": "wrong",
+  "win": "0x142a45d30",
+  "confidence": "high",
+  "why": "jmp DeleteCriticalSection; 0x1410465d0 is a length_error thrower",
+  "prev": "0x1410465d0"
+ },
+ {
+  "item": "__ZN4juce10IdentifierD1Ev",
+  "verdict": "wrong",
+  "win": "0x142a6f6b0",
+  "confidence": "medium",
+  "why": "String-like release (identical code to String dtor); 0x142a5ac00 is NamedValueSet fn",
+  "prev": "0x142a5ac00"
+ },
+ {
+  "item": "__ZNK4juce5Value8getValueEv",
+  "verdict": "ok",
+  "win": "0x142c30280",
+  "confidence": "medium",
+  "why": "self-voted",
+  "prev": "0x142c30280"
+ },
+ {
+  "item": "__ZN4juce9Component14setLookAndFeelEPNS_11LookAndFeelE",
+  "verdict": "ok",
+  "win": "0x142c10ad0",
+  "confidence": "medium",
+  "why": "self-voted 293",
+  "prev": "0x142c10ad0"
+ },
+ {
+  "item": "__ZN4juce15SingletonHolderI15ApplicationModeNS_15CriticalSectionELb1EE3getEv",
+  "verdict": "ok",
+  "win": "0x141373aa0",
+  "confidence": "medium",
+  "why": "self-voted 302",
+  "prev": "0x141373aa0"
+ },
+ {
+  "item": "__ZNSt3__124__put_character_sequenceIcNS_11char_traitsIcEEEERNS_13basic_ostreamIT_T0_EES7_PKS4_m",
+  "verdict": "absent",
+  "win": null,
+  "confidence": "high",
+  "why": "libc++ ostream helper; MSVC uses std::_Insert_string or similar",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce5Label7setTextERKNS_6StringENS_16NotificationTypeE",
+  "verdict": "wrong",
+  "win": "0x142b9f980",
+  "confidence": "high",
+  "why": "Label::hideEditor then compare text; was null (and was mislabeled translate)",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce4FileC1ERKNS_6StringE",
+  "verdict": "ok",
+  "win": "0x142a880b0",
+  "confidence": "medium",
+  "why": "self-voted 373",
+  "prev": "0x142a880b0"
+ },
+ {
+  "item": "__ZSt28__throw_bad_array_new_lengthB6v15006v",
+  "verdict": "absent",
+  "win": null,
+  "confidence": "high",
+  "why": "libc++ throw; MSVC equivalent std::_Xbad_alloc / bad_array_new_length thrower",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce9translateERKNS_6StringE",
+  "verdict": "wrong",
+  "win": "0x142a6e820",
+  "confidence": "medium",
+  "why": "translate(String) with SpinLock cmpxchg; 0x142a65810 is array grow",
+  "prev": "0x142a65810"
+ },
+ {
+  "item": "__ZNK15ApplicationMode6isModeENS_4FlagE",
+  "verdict": "ok",
+  "win": "0x1413736c0",
+  "confidence": "medium",
+  "why": "test [rcx+off],edx; setne; 266 votes (was null)",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce6StringC1Ei",
+  "verdict": "ok",
+  "win": "0x142a6d6f0",
+  "confidence": "medium",
+  "why": "digit formatting into stack buffer",
+  "prev": "0x142a6d6f0"
+ },
+ {
+  "item": "__ZNK4juce8Graphics7fillAllENS_6ColourE",
+  "verdict": "ok",
+  "win": "0x142b05710",
+  "confidence": "medium",
+  "why": "self-voted 381",
+  "prev": "0x142b05710"
+ },
+ {
+  "item": "__ZNK4juce3varixEPKc",
+  "verdict": "ok",
+  "win": "0x142a5ba10",
+  "confidence": "medium",
+  "why": "self-voted 896",
+  "prev": "0x142a5ba10"
+ },
+ {
+  "item": "__ZN4juce5Label7setFontERKNS_4FontE",
+  "verdict": "wrong",
+  "win": "0x142b9f690",
+  "confidence": "medium",
+  "why": "Label::setFont: refcounted Font at +0x210; 577 votes; 0x142abf2b0 is Font ctor",
+  "prev": "0x142abf2b0"
+ },
+ {
+  "item": "__ZN4juce9ComponentC2Ev",
+  "verdict": "wrong",
+  "win": "0x142c15da0",
+  "confidence": "high",
+  "why": "stores Component vtable + emptyStrings; 0x14280e1a8 is different",
+  "prev": "0x14280e1a8"
+ },
+ {
+  "item": "__ZNK4juce3var4sizeEv",
+  "verdict": "wrong",
+  "win": "0x142a5b890",
+  "confidence": "high",
+  "why": "vtable+0x40 call, return [rax+0xc]; 0x142a5b830 is var::operator[](int)",
+  "prev": "0x142a5b830"
+ },
+ {
+  "item": "_TEGetCurrentDB",
+  "verdict": "ok",
+  "win": "0x142672540",
+  "confidence": "high",
+  "why": "same epl_h_current_db logic (was null)",
+  "prev": null
+ },
+ {
+  "item": "__ZN4juce3varixEi",
+  "verdict": "wrong",
+  "win": "0x142a5b830",
+  "confidence": "high",
+  "why": "vtable+0x40, index*16 + [rax]; 0x142a6f600 is a different fn",
+  "prev": "0x142a6f600"
+ },
+ {
+  "item": "__ZN4juce4FontC1Efi",
+  "verdict": "ok",
+  "win": "0x142abf2b0",
+  "confidence": "medium",
+  "why": "Font(float,int): new 0x98; 504 votes (was null)",
+  "prev": null
+ }
+]

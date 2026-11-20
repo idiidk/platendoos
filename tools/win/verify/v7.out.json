@@ -1,0 +1,419 @@
+[
+ {
+  "item": "column_index3",
+  "kind": "hook",
+  "verdict": "inlined",
+  "win": "0x141491510",
+  "confidence": "high",
+  "why": "getColumnIndexByID inlined in Win setAttributeXmlSettingHeaderColumn (0x141491510) as a linear loop at 1414915d0: cmp esi,[rbp+rdi*4+0x38b26c0]; rdi=1..0x36 searching ID table (index=rdi, -1 if not found); no call"
+ },
+ {
+  "item": "column_index4",
+  "kind": "hook",
+  "verdict": "inlined",
+  "win": "0x141490f90",
+  "confidence": "high",
+  "why": "getColumnIndexByID inlined in Win addColumn (0x141490f90) as loop at 141490ff0: cmp r15d,[rcx+rax*4+0x38b26c0] rax=1..0x36, rdx=index or -1; no call"
+ },
+ {
+  "item": "tree_popupShow",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x14160b741"
+  ],
+  "target": "0x142bad710",
+  "confidence": "high",
+  "why": "only PopupMenu::show call in showTreeViewPopupMenu (0x141609320), after isDBPlaylistsFolder; args edx=0,r8=0,r9=0 + stack"
+ },
+ {
+  "item": "tree_showMenu",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x141575e19"
+  ],
+  "target": "0x141609320",
+  "confidence": "high",
+  "why": "E8 call in clickEventWithRigthButton 0x141575dc0 between BrowseMessageHandleLock lock/unlock"
+ },
+ {
+  "item": "stem_streaming",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x142d0653b"
+  ],
+  "target": "0x142cdbb80",
+  "confidence": "high",
+  "why": "Win getOutput is 0x142d06510 (unmatched; first call 0x142cdbb80 = isStreamingUri: isStreamingProtocol/service vcall 0x80/0xc0 || type==1)"
+ },
+ {
+  "item": "stem_streamingReady",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x142d06547"
+  ],
+  "target": "0x142cdbaa0",
+  "confidence": "high",
+  "why": "second call in getOutput 0x142d06510; 0x142cdbaa0 = isInitializedStreamingUri (tail jmp [rax+0x398] = mac vslot 0x3a0)"
+ },
+ {
+  "item": "stem_sep6",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x142d04966"
+  ],
+  "target": "0x142cdbe70",
+  "confidence": "high",
+  "why": "syncRequestSeparate = 0x142d04910 (unmatched; asyncRequestSeparate is 0x142d04b40); sequence AudioPartUri ctor, singleton get, isSeparatableUri matches mac"
+ },
+ {
+  "item": "stem_sep5",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x142d04c0a"
+  ],
+  "target": "0x142cdbe70",
+  "confidence": "high",
+  "why": "only call to 0x142cdbe70 (isSeparatableUri: cmp edx,3; isUriWithModelPart 0x142cdce70) in asyncRequestSeparate 0x142d04b40"
+ },
+ {
+  "item": "grid_notify1",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x14121726d"
+  ],
+  "target": "0x14121af60",
+  "confidence": "high",
+  "why": "call to notifyBeat with empty Array in analyze 0x141213840 (matches mac nth0: zeroed xmm, guarded by flag/[+0x2b0]==0)"
+ },
+ {
+  "item": "grid_notify2",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x141217c2d"
+  ],
+  "target": "0x14121af60",
+  "confidence": "high",
+  "why": "second notifyBeat call in analyze, after the beat-number fixup loop (matches mac nth1)"
+ },
+ {
+  "item": "log_trim",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x141151338"
+  ],
+  "target": "0x142a80af0",
+  "confidence": "high",
+  "why": "StreamingLog::run = 0x1411511c0 (unmatched); call trimFileSize(file=[this+0x230]+8, size=movsxd [this+0x238]) in empty-queue branch"
+ },
+ {
+  "item": "spotify_token_set",
+  "kind": "hook",
+  "verdict": "inlined",
+  "win": "0x142fa7240",
+  "confidence": "high",
+  "why": "setClientTokenDirect inlined into onRequestClientTokenCallback 0x142fa7240 at 142fa72db-142fa7338: dyn_cast Service->[+0xf8] auth; EnterCriticalSection(auth+0x450); String assign auth+0x2f8; WaitableEvent::signal(auth+0x300); Leave. (mac 0x110/0x3a0/0x298/0x2a0)"
+ },
+ {
+  "item": "__ZN17feature_extractor5embedERKNSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEEibb",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141238d10",
+  "confidence": "medium",
+  "why": "866 vs 886 insns, same call sequence start (load_audio, currentThreadShouldExit, getChildFile, Embedder/json ops)"
+ },
+ {
+  "item": "__ZN20ExtensionEnableVideoC2Ev",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141d62040",
+  "confidence": "high",
+  "why": "same ToggleButton/addAndMakeVisible/setColour/setBounds/SettingIF/getBoolValue sequence"
+ },
+ {
+  "item": "__ZN2db17DjPlaylistsWriter12addTrackNodeERNS_18DjPlaylistsElementERNS_12RowDataTrackE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141eb76d0",
+  "confidence": "high",
+  "why": "identical String/setAttribute sequence"
+ },
+ {
+  "item": "__ZN2db17DjPlaylistsWriter19addPositionMarkNodeERNS_18DjPlaylistsElementERN4juce10OwnedArrayIN8analyzer3CueENS3_20DummyCriticalSectionEEE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141eb8710",
+  "confidence": "high",
+  "why": "identical sequence incl. toRawUTF8/formattedRaw/setAttribute"
+ },
+ {
+  "item": "__ZN2db18DjPlaylistsElementD2Ev",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141eb98d0",
+  "confidence": "medium",
+  "why": "tiny dtor, calls ~DjPlaylistsElement (base/body) then 3 String dtors; same shape"
+ },
+ {
+  "item": "__ZN2db21rekordboxDBController16getAnalyzeStatusEjRNS_14sAnalyzeStatusEPNS_12RowDataTrackE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14217ec80",
+  "confidence": "high",
+  "why": "same logic: cached track id check, getCashedDataIndex, [+0x88] array, flags at +0x3fc/+0x400 masked 0x3c86707b"
+ },
+ {
+  "item": "__ZN4juce5ArrayIN8analyzer16DetailedBeatInfoENS_20DummyCriticalSectionELi0EEaSERKS4_",
+  "kind": "sym",
+  "verdict": "inlined",
+  "win": "0x141213840",
+  "confidence": "high",
+  "why": "0x14121f7a0 is WRONG (it is AnalyzeJobController::SetTrigger(jobs,bool)). operator= inlined in analyze() as copy-construct (call 0x14121dc90 at 14121738a) + swap of data/size fields, at 141217376-1412173c7 (after GetResult 0x14121f470)"
+ },
+ {
+  "item": "__ZN4juce6Slider15setTextBoxStyleENS0_20TextEntryBoxPositionEbii",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142b99ac0",
+  "confidence": "high",
+  "why": "same compare-and-set of 4 fields on pimpl then internalRepaintUnchecked + vcall resized"
+ },
+ {
+  "item": "__ZNK4juce20TableHeaderComponent15getSortColumnIdEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142b97520",
+  "confidence": "high",
+  "why": "same loop over [+0x100] columns, test [col+0xf4]&0x60, return [col+0xf0] (at 142b97558)"
+ },
+ {
+  "item": "__ZNK6common9StatusBar12getComponentENS0_15StatusBarWindowE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1419df720",
+  "confidence": "high",
+  "why": "bounds-checked array index [this+0x258][idx]; callers (initBrowseComponent, MainComponent) correspond"
+ },
+ {
+  "item": "__ZNK6djplay12PlayerLayout9getLayoutEv",
+  "kind": "sym",
+  "verdict": "wrong",
+  "win": "0x141910ad0",
+  "confidence": "high",
+  "why": "real getLayout is 'mov eax,[rcx+0x10]; ret' at 0x141910ad0 (called by updateLoopControllerVisibility 0x1418ed940 after PlayerLayout singleton get); 0x142bf5970 is unrelated"
+ },
+ {
+  "item": "__ZNK6djplay9SettingIF23isTrackSeparationEnableEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141defb20",
+  "confidence": "high",
+  "why": "uses _kTrackSeparationEnable string, SettingFile::getBoolValue"
+ },
+ {
+  "item": "__ZN6browse19BrowseHeaderManager17restoreHeaderInfoENS0_8ViewTypeEPN4juce20TableHeaderComponentEN2db12_browse_typeENS5_10_list_typeERNS_13ArtworkStatusEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14148fa70",
+  "confidence": "high",
+  "why": "builds BrowseProperty then calls the property overload (0x14148ed00); same as mac"
+ },
+ {
+  "item": "__ZN6browse19BrowseHeaderManager17restoreHeaderInfoENS0_8ViewTypeEPN4juce20TableHeaderComponentERKNS_14BrowsePropertyERNS_13ArtworkStatusE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14148ed00",
+  "confidence": "high",
+  "why": "getXmlKeyName, 3x BrowseSettingFile::getXmlValue/contains/replace, setXmlSettingHeaderColumn"
+ },
+ {
+  "item": "__ZN6browse19BrowseHeaderManager25setXmlSettingHeaderColumnEPN4juce20TableHeaderComponentEPNS1_10XmlElementEN2db10_list_typeEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141491100",
+  "confidence": "high",
+  "why": "same XmlElement attribute/addColumn/setCurentSortedColumn/setSortColumnId sequence"
+ },
+ {
+  "item": "__ZN6browse19BrowseHeaderManager34setAttributeXmlSettingHeaderColumnEPN4juce20TableHeaderComponentEPNS1_10XmlElementEN2db10_list_typeEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141491510",
+  "confidence": "high",
+  "why": "\"ATTRIBUTE_COLUMN\" tag, id/width/visible attrs, addColumn; getColumnIndexByID inlined"
+ },
+ {
+  "item": "__ZN6djplay8UiPlayer11getSongInfoEv",
+  "kind": "sym",
+  "verdict": "wrong",
+  "win": "0x142560470",
+  "confidence": "high",
+  "why": "real getter 'mov rax,[rcx+0x4d0]; ret' at 0x142560470 (tail-jumped from PlayerAccessor::getSongInfo 0x1416458d0); 0x142eec9e0 is unrelated. Note matcher also mislabels 0x1425e82b0 as MainComponent::getInstance: it is UiManager::getPlayer(mgr,id); getInstance is 0x14182a9c0"
+ },
+ {
+  "item": "__ZN6djplay8UiPlayer14unloadSongFileEbbb",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142591d80",
+  "confidence": "high",
+  "why": "same sequence stopSongFile/enableBeatLoop/isKeySyncing/resetKeySync/setKeySync/unload/resetLoadedTrack/TimeSliceThread"
+ },
+ {
+  "item": "__ZN6djplay8UiPlayer16initializeDeviceERN4juce6StringE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142577350",
+  "confidence": "high",
+  "why": "isMotorizedJogDevice, setTempoSelectStatus, getDeviceNames, getNumStemsButton, onLodedTrackChangedDevice, deviceUpdate* sequence"
+ },
+ {
+  "item": "__ZN6djplay8UiPlayer17onBeatGridChangedEPN6rbxfrm14IControlClientERKNS1_14IDjPlayerStateE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1425a07a0",
+  "confidence": "medium",
+  "why": "virtual only (vtable slot at 0x143ddb388, no callers). Body: rax=[rcx+0x50]->[+0xe0]->[+0x148]->[+0x478] (MixPointLinkComp*) ; edx=[rcx+0x58] (player id); tail jmp 0x141882210 (= MixPointLinkComp::onBeatGridChanged: xor r8d,r8d; jmp cancelMixPointLink 0x1418856b0). rcx is the listener subobject (UiPlayer+0x400), so this is the thunk-style entry; mac offsets 0x448/0x450/0x498 -> win 0x450/0x458?/0x478 rel. to the full object"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart9AudioPart25isInitializedStreamingUriERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142cdbaa0",
+  "confidence": "high",
+  "why": "cands[0]; isStreamingProtocol/service/vcall 0x80,0xc0 then tail jmp [rax+0x398] (mac 0x3a0); called from getOutput 0x142d06510. 0x142cdbb80 is isStreamingUri"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart9AudioPart25isSeparatedSeparatableUriERKN4juce6StringENS0_5MODELE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142cdbdf0",
+  "confidence": "high",
+  "why": "isSeparatableUri(0x142cdbe70) then tail jmp AudioPartDataManager::isSeparated 0x142d080e0"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart9AudioPart27isSeparatedSeparatableUriAtERKN4juce6StringENS0_5MODELExi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142cdbc30",
+  "confidence": "high",
+  "why": "isSeparatableUri check then AudioPartDataManager::isSeparatedAt inlined (AudioPartUri ctor 0x141117720, singleton, lock, hash lookup, [+0x5c]/[+0x5d], isContains(ll*8, int*8) via 0x142d42450)"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart9AudioPart4loadEiRKN4juce6StringEPNS0_26AudioPartProgressInterfaceE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142cdb380",
+  "confidence": "high",
+  "why": "s_isAudioPartEnabled check, s_model, isInitialized (0x142d051a0), WeakReference build, asyncRequestSeparate 0x142d04b40"
+ },
+ {
+  "item": "__ZNK2db12RowDataTrack22getExtAnalysisFilePathEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141f3f800",
+  "confidence": "high",
+  "why": "\"/PIONEER\" startsWith, \".EXT\", upToLastOccurrenceOf on String at this+0x3f0; sret in rdx"
+ },
+ {
+  "item": "__ZNK2db12RowDataTrack5refIDEv",
+  "kind": "sym",
+  "verdict": "inlined",
+  "confidence": "medium",
+  "why": "mac body is 'lea rax,[rdi+8]; ret' (returns &this->m_id, the track id field at +8, same +8 read in getAnalyzeStatus); trivial, inlined as [track+8] on Windows / folded with identical lea rax,[rcx+8] stubs"
+ },
+ {
+  "item": "__ZNK2db18DjPlaylistsElement11writeToFileERKN4juce4FileERKNS1_6StringES7_i",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141eb5030",
+  "confidence": "high",
+  "why": "TemporaryFile ctor 0x142a81780, FileOutputStream ctor 0x142a82400, wasOk, write stream (writeToStream mostly inlined, calls 0x141eb63d0), overwriteTargetFileWithTemporary 0x142a81270; 0x141eb6b20/0x141eb9fc0 are DjPlaylistsWriter::write/run with writeToFile inlined"
+ },
+ {
+  "item": "__ZNK6rbxfrm11SyncManager28shouldChangeMasterByPriorityEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142ce0cf0",
+  "confidence": "high",
+  "why": "virtual, constant true ('mov al,1; ret' at 0x142ce0cf0): MSVC SyncManager primary vtable 0x1457d1620 slot 10 (mac slot after D1/D0: idx 12 -> 10 with one dtor slot); neighbours match (slot 9 addSyncMaster 0x142ce0ec0, slot 7 isForLocalSyncSystem = xor al,al). Many identical stubs may be folded; hook via vtable slot"
+ },
+ {
+  "item": "__ZN4juce5LabelC1ERKNS_6StringES3_",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142b9fd00",
+  "confidence": "high",
+  "why": "mac C1 is a thunk to the real ctor 0x1029d46c0; Win 0x142b9fd00 = complete ctor: Component ctor, 3x setColour, FontOptions(float,int), Value etc.; this=rcx, name=rdx, text=r8"
+ },
+ {
+  "item": "O_jogSearch",
+  "kind": "offset",
+  "fn": "__ZN6djplay14MidiMapDDJFLX4C2EiN4juce6StringE",
+  "kind_recipe": "mov",
+  "nth": 13,
+  "value": "0x801a8",
+  "confidence": "high",
+  "why": "Win ctor 0x1424d30b0: JogProcessor made with \"@JogSearch\" string stored at [this+idx*8+0x801a8] (@JogScratch at 0x80188; mac 0x80200/0x80220 so -0x78)"
+ },
+ {
+  "item": "O_jogPerf",
+  "kind": "offset",
+  "fn": "__ZN6djplay14MidiMapDDJFLX4C2EiN4juce6StringE",
+  "kind_recipe": "ldr x8",
+  "nth": 2,
+  "value": "0xa0",
+  "confidence": "high",
+  "why": "Win 1424d32ec-1424d3311: after JogProcessor ctor, mov rcx,[rax+0xa0]; vcall [rax+8] (mac [rax+0xb8] then vcall +8)"
+ },
+ {
+  "item": "O_mapChildStart",
+  "kind": "offset",
+  "fn": "__ZN6djplay14MidiMapDDJFLX418operateValueChangeEiRN4juce6StringEh",
+  "kind_recipe": "ldr x22",
+  "nth": 0,
+  "value": "0x40",
+  "confidence": "medium",
+  "why": "Win vtable slot 11 (0x142525a90) delegates to MidiMap lookup 0x1424594d0: deque at this+0x28 (MSVC proxy,map,mapsize,myoff@+0x18,mysize@+0x20) => myoff at 0x40; mac deque also at 0x28 with start @0x48. Hook reads must use MSVC deque layout (index=(myoff+i): block=(idx>>1)&(mapsize-1), 16 bytes/block? 2 ptrs per block)"
+ },
+ {
+  "item": "O_mapLock",
+  "kind": "offset",
+  "fn": "__ZN6djplay14MidiMapDDJFLX418operateValueChangeEiRN4juce6StringEh",
+  "kind_recipe": "add x0",
+  "nth": 1,
+  "value": "0x50",
+  "confidence": "high",
+  "why": "Win 0x1424594d0: lea r12,[rcx+0x50]; EnterCriticalSection wrapper 0x142a45d20 / exit 0x142a45cf0 (mac 0x58; deque 0x30 vs 0x28 bytes)"
+ },
+ {
+  "item": "__ZN4juce6Button16sendClickMessageERKNS_12ModifierKeysE",
+  "kind": "sym",
+  "verdict": "unknown",
+  "confidence": "low",
+  "why": "cands are all weak (sim .66, 1 vote); 14175aed0 (mac internalClickCallback match) is actually a paint fn so caller route failed; not found in time"
+ },
+ {
+  "item": "__ZN17ItemPageComponent7resizedEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141c51150",
+  "confidence": "high",
+  "why": "identical logic: loop children (array at +0x108/count +0x114), setTopLeftPosition(0,y), y+=h([+0x44])+4, tail jmp setSize(this.width,y)"
+ },
+ {
+  "item": "__ZN22ChannelLevelDeviceUnit13timerCallbackEi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141868090",
+  "confidence": "high",
+  "why": "cands[2]; identical body: id!=0 return, deck=[obj+8]-1, getMixerState(0) vcall +0xe0 (mac 0xe8) twice (args 1/0), vmaxss, vmulss, vcvttss2si, tail vcall [+0x18]. Entry is a secondary-base thunk-style: rcx = this+0xa0 (lea rdi,[rcx-0xa0]), arg2 in edx"
+ }
+]

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>platendoos</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  #app { display: flex; flex-direction: column; height: 100%; padding: 20px 20px 12px; }
+  #chip { display: flex; justify-content: center; margin-top: 8px; }
+  .chip { display: inline-flex; align-items: center; height: 56px; width: 315px; background: #303030; border-radius: 10px; overflow: hidden; }
+  .chip .icon { width: 56px; height: 56px; background: #2978eb; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .chip .name { flex: 1; text-align: center; font-weight: 700; font-size: 31px; letter-spacing: 2px; color: #e0e0e0; }
+  #versions { text-align: center; font-weight: 500; margin-top: 16px; user-select: text; -webkit-user-select: text; }
+  #summary { text-align: center; color: var(--fg2); font-size: 11px; margin-top: 3px; }
+  #wrap { flex: 1; min-height: 0; overflow: auto; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 0 6px; height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  tr:nth-child(even) td { background: rgba(255,255,255,.035); }
+  .on { color: var(--green); } .pending { color: var(--orange); } .config { color: var(--fg2); } .unavailable { color: var(--orange); }
+  #restart { margin-top: 12px; padding: 7px 10px; border: 1px solid rgba(255,159,10,.45); border-radius: 6px;
+    background: rgba(255,159,10,.10); color: var(--orange); text-align: center; }
+  #restart.hidden { display: none; }
+  #hint { color: var(--fg3); font-size: 11px; padding-top: 10px; text-align: center; }
+  #foot { display: flex; gap: 8px; padding-top: 12px; }
+  #foot .sp { flex: 1; }
+</style></head>
+<body>
+<div id="app">
+  <div id="chip"><div class="chip">
+    <div class="icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#fff">
+      <circle cx="20" cy="20" r="12.4" stroke-width="3"/><circle cx="20" cy="20" r="6.8" stroke-width="1.5"/>
+      <circle cx="20" cy="20" r="2.5" fill="#fff" stroke="none"/></svg></div>
+    <div class="name">PLATENDOOS</div>
+  </div></div>
+  <div id="versions"></div>
+  <div id="summary"></div>
+  <div id="restart" class="hidden"></div>
+  <div id="wrap"><table><tbody id="mods"></tbody></table></div>
+  <div id="hint">Switching a mod on or off (<span class="muted">name=0</span> / <span class="muted">name=1</span> in the config) applies after a restart of rekordbox; other options apply as soon as the file is saved.</div>
+  <div id="foot">
+    <button id="log">Open log</button>
+    <button id="config">Open config</button>
+    <span class="sp"></span>
+    <button id="close">Close</button>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+  rbm.onState = function (s) {
+    document.getElementById('versions').textContent = s.versions;
+    document.getElementById('summary').textContent = s.summary;
+    var r = document.getElementById('restart');
+    r.textContent = s.restart || '';
+    r.classList.toggle('hidden', !s.restart);
+    document.getElementById('mods').innerHTML = s.mods.map(function (m) {
+      return '<tr><td>' + rbm.esc(m.name) + '</td><td class="' + rbm.esc(m.state) + '">' + rbm.esc(m.text) + '</td></tr>';
+    }).join('');
+  };
+  ['log', 'config', 'close'].forEach(function (id) {
+    document.getElementById(id).onclick = function () { rbm.send({ cmd: id }); };
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') rbm.send({ cmd: 'close' }); });
+  rbm.ready();
+</script>
+</body></html>

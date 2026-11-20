@@ -1,0 +1,431 @@
+[
+ {
+  "item": "header_restore1",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1414b5190",
+  "sites": [
+   "0x1414b53d1"
+  ],
+  "target": "0x14148ed00",
+  "confidence": "medium",
+  "why": "Mac has one restoreHeaderInfo call with ViewType computed in ebx (2 if cell type==5 else !vcall); MSVC split it into two calls: 0x1414b5398 (edx=2 constant, the type==5 branch) and 0x1414b53d1 (edx=computed ebx, the general branch, followed by the isDbBrowse/... chain exactly like mac). Both call 0x14148ed00; caller is 0x1414b5190 (matched changeTableHeader). Hook both if you need every call; 0x1414b53d1 is the general one. Win args: rcx=mgr, edx=viewtype, r8=header, r9=BrowseProperty, [rsp+0x20]=ArtworkStatus&"
+ },
+ {
+  "item": "column_index1",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1414ab3a0",
+  "sites": [
+   "0x1414ab48a"
+  ],
+  "target": "0x141490050",
+  "confidence": "high",
+  "why": "getColumnAutoSizeWidth is unmatched in the matcher; found as 0x1414ab3a0 (getColumnName, CacheManager::getFont, Font::getStringWidth +0x25, then BrowseHeaderManager singleton get + getColumnIndexByID(this=rcx, id=edx)). Target 0x141490050 is a leaf (no frame): linear search of an id table returning index+1, -1 if missing; only one caller."
+ },
+ {
+  "item": "paint_getString",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1414b3f10",
+  "sites": [
+   "0x1414b4457"
+  ],
+  "target": "0x1414ac520",
+  "confidence": "high",
+  "why": "Mac nth0 is the generic column path (getString then getUpdatingColumn compare, bt mask 0x201600000); on Windows the code order is swapped: 0x1414b4344 is the column==0x22 case (= mac nth1) and 0x1414b4457 is the generic path with the same 0x201600000 bitmask. getString(this=rcx, sret=rdx, row=r8, col=r9d)"
+ },
+ {
+  "item": "sorter_setCompFunc",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x1414f77a0",
+  "sites": [
+   "0x1414f784d"
+  ],
+  "target": "0x1414f7990",
+  "confidence": "high",
+  "why": "ListViewSorter ctor found at 0x1414f77a0 (vtable ref, isTagList, 0x27/0x23 constants); calls setCompFunc(this, int col) then setLocale. setCompFunc has dec edx; cmp 0x4e jump table like mac. Note fields shifted: compare-type/sortdir at +0x60, col +0x70, browseType +0x68 (mac 0xb0/0xc0/0xb8), ListViewer& at +8"
+ },
+ {
+  "item": "__ZN6browse14ListViewSorterC2EbiRNS_10ListViewerERKN4juce6StringES6_",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1414f77a0",
+  "confidence": "high",
+  "why": "vtable ref + calls setCompFunc/setLocale/getBrowseType/isTagList with 0x23/0x27 constants"
+ },
+ {
+  "item": "__ZN6browse14ListViewSorter11setCompFuncEi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1414f7990",
+  "confidence": "high",
+  "why": "jump table over col-1 (0x4e max), calls setCompareFuncTo 0x1414fa4a0; sole caller is ctor 0x1414f77a0"
+ },
+ {
+  "item": "__ZN6browse14ListViewSorter32setCompareFuncWithArtistAndAlbumEMS0_FiPN2db12RowDataTrackES3_Eb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1414fa3d0",
+  "confidence": "medium",
+  "why": "(this, fn, bool): setCompareFuncTo(0,fn), artist(1), album(2), if bool disc/track(3,4) then ID, zero the following slot; same sequence as mac. 0x1414fa1e0 is a sibling variant without the artist/album pair"
+ },
+ {
+  "item": "__ZN6browse10ListViewer22getColumnAutoSizeWidthEi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1414ab3a0",
+  "confidence": "high",
+  "why": "(not asked but found) matches mac structure"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart9AudioPart14isStreamingUriERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142cdbb80",
+  "confidence": "high",
+  "why": "identical to mac: StreamingManager isStreamingProtocol, getStreamingServiceFromPath, vcall 0x80/0xc0 (mac 0x88/0xc8), else getStreamingType==1; 0x142cdbaa0 is a different fn (tail-jmps vcall +0x398)"
+ },
+ {
+  "item": "stem_sep7",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x142ceb460",
+  "sites": [
+   "0x142ceb66b"
+  ],
+  "target": "0x142cdbe70",
+  "confidence": "high",
+  "why": "MultiPagingAudioSource::load; after vcall +0xd0 and an enabled flag check it calls isSeparatableUri(rcx=String*, edx=model) at 0x142ceb66b; target isSeparatableUri has the cmp edx,3 / isUriWithModelPart / isStreamingUri / isInitialized structure of mac"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart25AudioPartSeparatorManager13isInitializedENS0_5MODELE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142d051a0",
+  "confidence": "high",
+  "why": "called from isSeparatableUri with ecx=model, null-check of manager singleton then inlined AudioPartSeparator::isInitialized (model remap, function-pointer table of stride 0x58); same shape as mac"
+ },
+ {
+  "item": "__ZNK6rbxfrm18AudioReaderFactory15createReaderForERKN4juce6StringEb",
+  "kind": "sym",
+  "verdict": "inlined",
+  "win": "0x142cdda90",
+  "confidence": "high",
+  "why": "orphan standalone copy at 0x142cdda90 (leaf: this=rcx, String*=rdx, bool=r8b; same loop as mac) has no callers; all users inlined it"
+ },
+ {
+  "item": "stem_init",
+  "kind": "hook",
+  "verdict": "inlined",
+  "win": "0x141123eb0",
+  "sites": [
+   "0x141123f90"
+  ],
+  "target": "import slot 0x143513620 (GetProcAddress, call [rip+x])",
+  "confidence": "medium",
+  "why": "AudioPartLibrary::load (0x141123eb0, matched) inlines DynamicLibrary::getFunction as a direct 'call [rip+x]' to imp:GetProcAddress, 8 of them in the same order as mac with strings Initialize(nth0, 0x141123f90), Finalize 0x141124038, IsInitialized 0x1411240e1, PreOperation 0x14112418a, PostOperation 0x141124233, CancelOperation 0x1411242dc, OperationAtIndexOtherWithBass 0x141124385, OperationAtIndexSeparatedBass 0x14112442e. Args rcx=HMODULE, rdx=name c-string, not juce::String. Mac nth0 assumed to be Initialize (not verified by string)"
+ },
+ {
+  "item": "an_streamCD",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141213840",
+  "sites": [
+   "0x141217cbd"
+  ],
+  "target": "0x14121a780",
+  "confidence": "medium",
+  "why": "3 getStreamAt calls in same order (0x1412169a7, 0x1412179fe, 0x141217cbd); nth1/nth2 have identical context so the order is by address; nth0 differs by being followed by a Thread::yield exactly as on mac"
+ },
+ {
+  "item": "an_yield0",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141213840",
+  "sites": [
+   "0x1412169b6"
+  ],
+  "target": "0x142a45a30",
+  "confidence": "high",
+  "why": "yield directly after the first getStreamAt (followed by threadShouldExit check) in both"
+ },
+ {
+  "item": "an_yield1",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141213840",
+  "sites": [
+   "0x141216c8c"
+  ],
+  "target": "0x142a45a30",
+  "confidence": "high",
+  "why": "yield right after conditional WaveCreator::readWaveData call (0x1412359c0), guarded by flags [+0x2a6]/[+0x2a7] like mac [+0x27e]/[+0x27f]"
+ },
+ {
+  "item": "an_yield2",
+  "kind": "hook",
+  "verdict": "ok",
+  "win": "0x141213840",
+  "sites": [
+   "0x141216e7a"
+  ],
+  "target": "0x142a45a30",
+  "confidence": "high",
+  "why": "yield right after the vmulss/vfmadd mix loop followed by a div, as on mac"
+ },
+ {
+  "item": "__ZN13MainComponent13getBrowseRectEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141843270",
+  "confidence": "high",
+  "why": "(this=rcx, sret Rectangle*=rdx) getLocalBounds, ApplicationMode::isMode(2), StatusBar::getComponent(0)+0x44, ProDJLink flag, cast to MainPanel; four callers incl. browseResize and handleAsyncUpdate"
+ },
+ {
+  "item": "__ZN13MainComponent12browseResizeEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141843a40",
+  "confidence": "high",
+  "why": "[this+0xa70]==1, BrowseBasicView-getInstance (0x141855d40) +0x30 cast to BrowseMain, getBrowseRect(0x141843270), UiManager::resizeBrowseComponent(0x1425e8fd0) on [this+0x4c0]; same shape as mac"
+ },
+ {
+  "item": "__ZN13MainComponent12changeLayoutE10CommandIDs",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14182e360",
+  "confidence": "high",
+  "why": "same call sequence (canUseVer7NewBrowseFunction, PlayerLayout, SettingFile get...) "
+ },
+ {
+  "item": "__ZN13MainComponent14showMixerPanelEb",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14182f740",
+  "confidence": "high",
+  "why": "tiny: [this+0x500] (mac 0x5a8), isEnabled check (0x142c0c360 is mislabeled drawImageWithin), Button::setToggleState(bool,1)"
+ },
+ {
+  "item": "__ZN2db16DatabaseMediator12modifyRemoveERN4juce5ArrayIPNS_12RowDataTrackENS1_20DummyCriticalSectionELi0EEERNS2_IjS5_Li0EEEPNS1_24ThreadWithProgressWindowEb",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141fef300",
+  "confidence": "high",
+  "why": "same sequence: mainDBController, cancel_analyze, CS enter, StreamingManager get+getStreamingServiceFromPath, vcalls (slot -8)"
+ },
+ {
+  "item": "__ZN2db16DatabaseMediator13executeImportERN4juce10OwnedArrayINS_12RowDataTrackENS1_20DummyCriticalSectionEEERNS2_INS_16ListDataPlaylistES4_EERNS2_INS_15RowDataPlaylistES4_EERKNS0_10ImportInfoERNS1_5ArrayINS0_19TrackAdditionResultES4_Li0EEEPNSG_INS_6IDsSetES4_Li0EEEb",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141fd8520",
+  "confidence": "high",
+  "why": "SettingFile getBoolValue, SettingIF getHotCueAutoLoad/getCurrentImportPublic, importWithoutProgress, showImportedHiResoTrackWarning identical order"
+ },
+ {
+  "item": "__ZN2db16DatabaseMediator16mainDBControllerEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142020260",
+  "confidence": "high",
+  "why": "[this+0xa60]/[this+0x588] (mac 0xa10/0x540) then static singleton init; same shape"
+ },
+ {
+  "item": "__ZN2db16DatabaseMediator17mod_analysis_lockERKN4juce5ArrayIjNS1_20DummyCriticalSectionELi0EEEbPNS1_24ThreadWithProgressWindowE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141ff3810",
+  "confidence": "high",
+  "why": "(this=rcx, Array<uint>*=rdx, bool=r8b, ThreadWithProgressWindow*=r9): RowDataTrack ctor, loop with threadShouldExit (win 0x142a61fb0, NOT 0x142a45a40) / setProgress; same structure"
+ },
+ {
+  "item": "__ZN4juce15SingletonHolderIN9streaming16StreamingManagerENS_15CriticalSectionELb1EE3getEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x14110e5f0",
+  "confidence": "high",
+  "why": "Windows version takes no args (singleton global at [rip+0x5099347]); EnterCriticalSection, double-check, new StreamingManager (0x160 bytes) -> ctor 0x142eecbf0"
+ },
+ {
+  "item": "__ZN4juce17ComponentAnimator6fadeInEPNS_9ComponentEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142bf3df0",
+  "confidence": "medium",
+  "why": "alpha byte [+0xec] set to 0xff, vcalls -8 slots (0xe8->0xe0, 0x60->0x58), tail into animateComponent 0x142bf3f90; names of callees by matcher are wrong but structure matches"
+ },
+ {
+  "item": "__ZN4juce17MemoryInputStreamC1EPKvmb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142a70f10",
+  "confidence": "low",
+  "why": "Windows juce differs: 0x142a70f10 = ctor (this=rcx, data=rdx, size=r8) sets vtable(+16 of 0x1457a2... same as dtor 0x142a70e10), [+8]=data,[+0x10]=size, zero +0x18..+0x28; it IGNORES the keepInternalCopy bool (r9) and has NO callers (all inlined). The copy variant is 0x142a70e30 (this, MemoryBlock const*=rdx, bool copy=r8b) which is the one actually called (5+ callers). Mac callers pass true => use 0x142a70e30-style or construct manually"
+ },
+ {
+  "item": "__ZN4juce19NSViewComponentPeer14AsyncRepainter17handleAsyncUpdateEv",
+  "kind": "sym",
+  "verdict": "absent",
+  "confidence": "high",
+  "why": "macOS NSView peer class; Windows uses HWNDComponentPeer"
+ },
+ {
+  "item": "__ZN6browse10ListViewer9paintCellERN4juce8GraphicsEiiiib",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1414b3f10",
+  "confidence": "high",
+  "why": "both getString calls (0x1414ac520) and column special-cases 0x22/0x4f/0x21 bitmask 0x201600000 identical"
+ },
+ {
+  "item": "__ZNK6browse14CustomTreeView15getSelectedItemEi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141624460",
+  "confidence": "high",
+  "why": "mov rcx,[rcx+0x148] (mac +0x158); test; jne 0x141623390 (getSelectedItemWithIndex, a conditional tail jump so call-scanners miss it); else xor eax,eax"
+ },
+ {
+  "item": "__ZNK6browse15BrowseBasicView13getListViewerEv",
+  "kind": "sym",
+  "verdict": "wrong",
+  "win": "0x1414036e0",
+  "confidence": "high",
+  "why": "matcher's 0x141514010 is a RelatedTracksSetting::setIntValue thunk. Real one: mov rcx,[rcx+0x238] (mac 0x268); test; jne 0x141493d20 (BrowseListManager::getList); xor eax,eax. NB the matcher paired this address with BrowseBasicView::getInstance instead"
+ },
+ {
+  "item": "__ZNK6browse16BrowseTreeViewer13getListViewerEv",
+  "kind": "sym",
+  "verdict": "inlined",
+  "confidence": "medium",
+  "why": "no tiny wrapper exists that jumps/calls 0x1414036e0 with a loaded [this+X]; candidate 0x141502680 is unrelated (ApplicationMode switch). Inlined into callers as mov rcx,[rcx+off]; call 0x1414036e0"
+ },
+ {
+  "item": "__ZNK6browse18CustomTreeViewItem10getSubItemEi",
+  "kind": "sym",
+  "verdict": "wrong",
+  "win": "0x141621a50",
+  "confidence": "high",
+  "why": "matcher's 0x141432180 is a 4-compare bool predicate. Real: cmp edx,[rcx+0x3c]; jae; mov rax,[rcx+0x30]; movsxd; mov rax,[rax+rdx*8]; ret (leaf, same offsets as mac)"
+ },
+ {
+  "item": "__ZN6djplay14WidgetWaveView14initializeWaveEllPNS_8SongInfoEPNS_8WaveDataENS_8WaveTypeENS_9ColorTypeENS_8PartFlagEPNS_8BeatInfoEbN8djengine15EnPlayerChannelENS_17WaveNormalizeCoefE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141a16490",
+  "confidence": "medium",
+  "why": "calls isEqualPrepare (0x141a1d3e0) early like mac; spinlock + timer stops; not fully compared"
+ },
+ {
+  "item": "__ZN6djplay15DeviceComponent18operateGetPropertyEiRN4juce6StringERKNS1_10IdentifierERNS_13DeviceVariantE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1423a9700",
+  "confidence": "medium",
+  "why": "forwarder: mov rcx,[rcx+0x80] (mac +0x98); test; vcall [vtbl+0x80] (mac 0x88) as tail jmp; shape matches but similar sibling forwarders (operateSetProperty etc.) exist - slot not cross-checked"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart25AudioPartSeparatorManager20asyncRequestSeparateEiRKN4juce6StringENS0_5MODELENS2_13WeakReferenceINS0_26AudioPartProgressInterfaceENS2_22ReferenceCountedObjectEEE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142d04b40",
+  "confidence": "high",
+  "why": "AudioPartUri ctor, unregisterDeck 0x142d01b40, isSeparatableUri 0x142cdbe70, isSeparated 0x142d080e0 in same order"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart25AudioPartSeparatorManager19syncRequestSeparateERKN4juce6StringENS0_5MODELE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142d04910",
+  "confidence": "high",
+  "why": "AudioPartUri ctor, isSeparatableUri, ThreadPool::waitForJobToFinish 0x142a609c0, sole caller = AudioPartReader::fileOpen 0x142d12c90 like mac"
+ },
+ {
+  "item": "__hb_coretext_shaper_font_data_create",
+  "kind": "sym",
+  "verdict": "absent",
+  "confidence": "high",
+  "why": "HarfBuzz CoreText shaper, macOS only"
+ },
+ {
+  "item": "__ZN6djplay15DeviceComponentC1EiN4juce6StringEb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1423a8b90",
+  "confidence": "high",
+  "why": "mac C1 is a jmp thunk to the C2 body; Windows 0x1423a8b90 (this,int,String,bool) = DeviceObject ctor(0x1423c5220), DeviceComponent vtable, var(), CriticalSection, DeviceManager::get, registComponent. Matcher cand 0x14248e180 is a std::deque push - wrong"
+ },
+ {
+  "item": "__ZN6djplay14WidgetWaveView19setWavePartSelectedEbbbb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141a17f20",
+  "confidence": "high",
+  "why": "SpinLock enter, flag word [+0x7f0] bits 5..8 set/cleared from the 4 bools, if changed and bit0 and not [+0x2864] -> setPrepareWait 0x141a331d0, then vcall; mac does the same with [+0xbe0]"
+ },
+ {
+  "item": "__ZN9streaming12StreamingLog3runEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1411511c0",
+  "confidence": "medium",
+  "why": "only unmatched caller of FileLogger::trimFileSize (0x142a80af0); run loop with threadShouldExit (0x142a61fb0), Sleep, StringArray add/remove, vcall +8 (log write); not read line by line"
+ },
+ {
+  "item": "__ZN9streaming4Play11getMediaUrnEib",
+  "kind": "sym",
+  "verdict": "inlined",
+  "win": "0x14117a050",
+  "confidence": "low",
+  "why": "no standalone fn with (this,sret,int,bool) found. 0x14117a050(this=rcx, bool-as-index=edx, id=r8d) is the map find-or-insert (two std::maps at this+idx*16, node value at +0x28, inserts default MediaInfo) with ~60 callers; Play CS enter/leave and the String copy of urn are done in the callers (e.g. 0x142ef57e0 around call 0x142ef589c). Mac nth: not applicable"
+ },
+ {
+  "item": "__ZN9streaming7spotify7Service20setClientTokenDirectERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142f0a0d0",
+  "confidence": "medium",
+  "why": "184 bytes: dynamic_cast to spotify::Auth (typeinfo ref at 0x142f0a0ea), EnterCriticalSection, inlined String assign, WaitableEvent::signal 0x142a44500, Leave; siblings 0x142fa7240/0x142fa8e60 do the same after MemoryBlock::toString so are other setters. Offsets inside not checked"
+ },
+ {
+  "item": "__ZN9streaming7spotify7Service21isAvailablePlayOnDeckERKN4juce6StringEi",
+  "kind": "sym",
+  "verdict": "unknown",
+  "confidence": "low",
+  "why": "matcher cands (0x141b22c10 ...) are not in the spotify service range; getMediaUrn is inlined on Windows so it cannot be found by its callee. Not located within time budget"
+ },
+ {
+  "item": "O_devName",
+  "kind": "offset",
+  "fn": "__ZN6djplay10DeviceUnitC2EiN4juce6StringEb",
+  "kind_recipe": "add x19",
+  "nth": 0,
+  "verdict": "ok",
+  "value": "0x10",
+  "confidence": "high",
+  "why": "Windows DeviceUnit/DeviceComponent ctors call registUnit/registComponent with lea r8,[rsi+0x10] (name String); same +0x10 as mac lea rdx,[rbx+0x10]"
+ },
+ {
+  "item": "O_outHelper",
+  "kind": "offset",
+  "fn": "__ZN6djplay10DeviceMidi23handleOutputMidiMessageERKN4juce11MidiMessageERKNS1_6StringEi",
+  "kind_recipe": "ldr x20",
+  "nth": 2,
+  "verdict": "ok",
+  "value": "0x490",
+  "confidence": "medium",
+  "why": "Windows handleOutputMidiMessage is 0x1424bb7e0 (in DeviceMidi's secondary vtable at obj+0x300, so this=obj+0x300): reads [this+0x190]=MidiOutputHelper*. Relative to the primary DeviceMidi pointer it is 0x190+0x300=0x490 (cross-check: [this-0x270] = obj+0x90 = DeviceComponent byte flag, mac 0xa8). If your hook receives the secondary pointer use 0x190"
+ },
+ {
+  "item": "O_output",
+  "kind": "offset",
+  "fn": "__ZN6djplay16MidiOutputHelper3runEv",
+  "kind_recipe": "ldr x20",
+  "nth": 8,
+  "verdict": "ok",
+  "value": "0x218",
+  "confidence": "medium",
+  "why": "MidiOutputHelper::run is 0x1424bde20 (matcher mislabels it TimedMidiMessage::print); at 0x1424be076 mov rcx,[rsi+0x218]; call 0x142c7ccd0 (MidiOutput::sendMessageNow) just before DeviceLog::enable, same position as mac [rbx+0x1d8]"
+ }
+]

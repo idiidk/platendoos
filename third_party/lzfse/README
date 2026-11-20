@@ -1,0 +1,1 @@
+Reference LZFSE (github.com/lzfse/lzfse @ e634ca5, BSD-3, Apple): the Windows build's LZFSE for stemcache's lossless chunks (macOS uses libcompression).

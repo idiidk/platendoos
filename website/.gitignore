@@ -1,0 +1,6 @@
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/public/platendoos-trailer.mp4
+.site/
+docs/.vitepress/dist-full/

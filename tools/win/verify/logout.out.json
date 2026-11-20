@@ -1,0 +1,29 @@
+[
+ {
+  "item": "__ZN9streaming7spotify7Service13requestLogOutEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142f15750",
+  "confidence": "high",
+  "why": "matched; same sequence as mac: waitJob(\"beaconStop\"), waitJob(\"beaconUnload\"), map erase, stopTimer, deleteJob(\"SpotifyServiceTimerCallback\"), dynamic_cast StreamingAuth->spotify::Auth, lock/clear/reset, vcall, listeners. It is entry 22 after the address point of spotify::Service's vtable 0x1457f40a8 (slot 0xb0; mac 0xb8 with its two destructors)"
+ },
+ {
+  "item": "__ZN9streaming7spotify21DownloadConnectionJob3runEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14118d2e0",
+  "confidence": "high",
+  "why": "matched (1083-insn mac body); the spotify::DownloadConnectionJob vtable 0x1457f8d00 is {deleting dtor 0x14118e3b0, 0x14118d2e0}: juce::Thread's run right after the destructor"
+ },
+ {
+  "item": "sp_https_get",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x142faf7b4"
+  ],
+  "target": "0x142fabb00",
+  "confidence": "high",
+  "why": "spotify::Client ctor 0x142faf530 fills the SDK's HAL callback table with a run of lea rax,[rip+fn]; the first is HttpsHalHelper::getCallback 0x142fabb00 (matched, its only reference). A lea site: the patcher changes the displacement"
+ }
+]

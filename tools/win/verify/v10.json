@@ -1,0 +1,90 @@
+[
+ {
+  "kind": "offset",
+  "name": "O_trackTitle",
+  "file": "columns.cpp",
+  "fn": "__ZN2db15TrackListSorter12compareTitleEPNS_12RowDataTrackES2_",
+  "recipe": "add x1",
+  "nth": 0,
+  "mac_value": "0x20",
+  "win_fn": "0x1423a4580",
+  "line": "static const Offset O_trackTitle{0x20, \"__ZN2db15TrackListSorter12compareTitleEPNS_12RowDataTrackES2_\", \"add x1\", 0};  // RowDataTrack: title (juce::String, compareTitle)",
+  "prior": null
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming16StreamingManager17isSpotifyProtocolERKN4juce6StringE",
+  "win": null,
+  "how": "missing",
+  "prior": "inlined",
+  "cands": []
+ },
+ {
+  "kind": "offset",
+  "name": "O_trackFlags",
+  "file": "core.cpp",
+  "fn": "__ZNK2db12RowDataTrack17isAnalysisEnabledEv",
+  "recipe": "ldr x0",
+  "nth": 1,
+  "mac_value": "0x3f8",
+  "win_fn": null,
+  "line": "static const Offset O_trackFlags{0x3f8, \"__ZNK2db12RowDataTrack17isAnalysisEnabledEv\", \"ldr x0\", 1};  // RowDataTrack: bit 1 = analysed",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_ctvRoot",
+  "file": "core.cpp",
+  "fn": "__ZNK6browse14CustomTreeView15getSelectedItemEi",
+  "recipe": "ldr x0",
+  "nth": 0,
+  "mac_value": "0x158",
+  "win_fn": "0x141624460",
+  "line": "static const Offset O_ctvRoot{0x158, \"__ZNK6browse14CustomTreeView15getSelectedItemEi\", \"ldr x0\", 0};",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_historyDeck",
+  "file": "analyzer.cpp",
+  "fn": "__ZN6djplay8UiPlayer18PlayHistoryManagerC1Ei",
+  "recipe": "str x0",
+  "nth": 1,
+  "mac_value": "0x28",
+  "win_fn": "0x1425a2070",
+  "line": "static const Offset O_historyDeck{0x28, \"__ZN6djplay8UiPlayer18PlayHistoryManagerC1Ei\", \"str x0\", 1};  // UiPlayer::PlayHistoryManager: deck (ePlayerID)",
+  "prior": null
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN4juce17MemoryInputStreamC1EPKvmb",
+  "win": null,
+  "how": "missing",
+  "prior": "pick",
+  "cands": []
+ },
+ {
+  "kind": "offset",
+  "name": "O_itemSize",
+  "file": "artcache.cpp",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "recipe": "str x20",
+  "nth": 1,
+  "mac_value": "0x10",
+  "win_fn": "0x1415fdfa0",
+  "line": "static const Offset O_itemSize{0x10, kAdd, \"str x20\", 1}; // ArtworkCache::Pimpl::Item: its image's bytes (int)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_readerLength",
+  "file": "betterkey.cpp",
+  "fn": "__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE6unloadEv",
+  "recipe": "str x19",
+  "nth": 0,
+  "mac_value": "0x1f8",
+  "win_fn": "0x141104f90",
+  "line": "static const Offset O_readerLength{0x1f8, \"__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE6unloadEv\", \"str x19\", 0};  // PcmReaderTemplate: length in frames (int)",
+  "prior": null
+ }
+]

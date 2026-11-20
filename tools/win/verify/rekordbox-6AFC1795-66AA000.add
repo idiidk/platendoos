@@ -1,0 +1,43 @@
+build 6AFC1795-66AA000
+# rekordbox 7.2.20 (Windows): what its code changed since 7.2.19, so that patcher/retable.h can't find it from
+# 7.2.19's signatures. Each line was checked by disassembling both builds side by side (2026-11-19) and then run on
+# a PC. tools/win/addtable.py merges these lines into the scanned table (see its header for the command).
+# Addresses are rvas, as in every table.
+
+# spotifyapi. Service::getPlaylistTracks (7.2.19: 2f0d490) and getLookupTracks (2f0d6a0) were rewritten: a stack
+# cookie, rbp-based locals, and the 401 handling now logs. Found as the only callers of the two request functions,
+# which did not change (2f8f220 -> 30490a0, 2f8e450 -> 30482d0). The lock is still taken once around the request:
+# lea rbx,[this+0x130]; mov rcx,rbx; call [EnterCriticalSection]; ...; call <request>; ...; mov rcx,rbx;
+# call [LeaveCriticalSection]. The targets are the import slots' values (35c7818, 35c7850) minus the image base.
+addr __ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii 2fc6ca0
+addr __ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii 2fc7020
+hook sp_tracks_enter icall 2fc6d39 -13a152668
+hook sp_tracks_exit icall 2fc6d80 -13a1525d2
+hook sp_lookup_enter icall 2fc70b8 -13a152668
+hook sp_lookup_exit icall 2fc70fb -13a1525d2
+
+# spotifyfix, the client token. 7.2.20 has a newer Spotify library (1.37.0, was 1.26.1), so the token request the
+# two sites call is new code (7.2.19: 19a1b, here 1ab5; in both builds called from exactly these two places and
+# tail-called from four thunks). The sites are the same code with the Client's fields moved (handle +0x78 -> +0xb8,
+# lock +0x358 -> +0x3b8): lea rdx,[callback]; call <request>, and the callback is the unchanged function
+# 2fa8e60 -> 3064130.
+hook spotify_token_set call 305f432 1ab5
+hook spotify_token_set call 3061e90 1ab5
+
+# spotifyfix, the logout guard. Service::requestLogOut (7.2.19: 2f15750) got log lines, so its bytes changed; it is
+# still slot 0xb0 of Service's vtable (58ba190), between the same neighbours, and makes the same calls in the same
+# order (2f69d10 -> 3023b90 twice, 2b2daa0 -> 2bfc3f0, 2f69f80 -> 3023e00, [this+0x118] and +0x124 cleared).
+addr __ZN9streaming7spotify7Service13requestLogOutEv 2fcf470
+off __ZTVN9streaming7spotify7ServiceE|vt:__ZN9streaming7spotify7Service13requestLogOutEv|0 b0
+
+# stemcache. AudioPartSeparator::start (7.2.19: 2d40a00) was split up (the Mac build names the new part
+# checkAndPrepare); the function that now asks isSeparatableUri(&this->uri at +0x228, model at +0x230) first is
+# 2e0ec70, the one caller of isSeparatableUri (2daa690) without a hook; the other seven callers are where they were.
+hook stem_sep4 call 2e0eca1 2daa690
+
+# jucethread (core/jucethread.cpp, a pseudo-mod for core's JuceThreadScope). 7.2.20's streaming::DownloadManager::
+# syncDownload (2fee380; 7.2.19: 2f34570) gained the Mac build's wait loop: 2fee79c call getCurrentThread; movzx
+# ecx,[rax+0x1ed] unguarded, 300x Sleep(100). The four lines it needs (getCurrentThread 2b30a50,
+# getCurrentThreadHolder 2b30e40 with its result through rcx, the name at Thread+8 read by StreamingReader::fileOpen
+# 2de04c0, threadShouldExit's flag +0x1ed) were here until 2026-11-19 night; they are now verified in 7.2.19
+# (tools/win/verify/tidymenu.out.json: the same code there) and the scanner finds them from its signatures.

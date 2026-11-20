@@ -1,0 +1,154 @@
+[
+ {
+  "item": "an_begin",
+  "kind": "hookreg",
+  "reg": "r15",
+  "arg": 1,
+  "confidence": "high",
+  "why": "Windows analyze 0x141213840: r15=thread (mov r15,rcx at 1412138b8, never reassigned; rsi/r14 copies); site 0x1412139af calls SingletonHolder::get(rcx=holder); thread goes to rdx (arg 1 of rbm_an_begin(holder, thread))"
+ },
+ {
+  "item": "history_add",
+  "kind": "hookreg",
+  "reg": "rbx",
+  "arg": 2,
+  "confidence": "high",
+  "why": "PlayHistoryManager::timerCallback 0x1425a2130: rbx=this (mov rbx,rcx), [rbx+0x2c]=id, [rbx+0x28]=deck, site 0x1425a2175 (rcx=DatabaseIF, edx=id); manager to r8 (arg 2 of rbm_history_add(db,id,manager))"
+ },
+ {
+  "item": "key_specialInfo",
+  "kind": "hookreg",
+  "reg": "r15",
+  "arg": 3,
+  "confidence": "high",
+  "why": "site 0x141218ada is after r15=rsi=thread (141216ff0); SetSepcialInfo(rcx=controller, edx=job, r8=&shared_ptr) leaves r9 free: thread goes to r9 (arg 3 of rbm_key_specialInfo)"
+ },
+ {
+  "item": "beat_specialInfo",
+  "kind": "hookreg",
+  "reg": "r15",
+  "arg": 3,
+  "confidence": "high",
+  "why": "site 0x14121730f, same as key_specialInfo (r9 free, r15 = thread)"
+ },
+ {
+  "item": "O_rowId",
+  "kind": "offset",
+  "fn": "__ZN2db16DatabaseMediator21analyzeCollectionLoadERKNS_12RowDataTrackEb",
+  "kind_recipe": "ldr x20",
+  "nth": 1,
+  "value": "0x8",
+  "confidence": "high",
+  "why": "Windows analyzeCollectionLoad 0x141f8b730: mov edx,[rdi+8] (rdi=RowDataTrack) stored as the one id in the Array<unsigned> passed to execAnalyzeCollection, as mac [x20+8]"
+ },
+ {
+  "item": "O_rowStatusLow",
+  "kind": "offset",
+  "fn": "__ZN2db21rekordboxDBController16getAnalyzeStatusEjRNS_14sAnalyzeStatusEPNS_12RowDataTrackE",
+  "kind_recipe": "ldr x20",
+  "nth": 2,
+  "value": "0x3fc",
+  "confidence": "high",
+  "why": "same recipe as O_rowStatusLow, verified in v0 (movsx ecx, byte [rbx+0x3fc] in 14217ec80)"
+ },
+ {
+  "item": "O_dataPathString",
+  "kind": "offset",
+  "fn": "__ZNK8DataPath12IsDownloadedEv",
+  "kind_recipe": "add x19",
+  "nth": 0,
+  "value": "0x10",
+  "confidence": "high",
+  "why": "v1: IsDownloaded 0x141e6ddc0 passes this+0x10 to getStreamingServiceFromPath, as mac"
+ },
+ {
+  "item": "V_dataPathIsDownloaded",
+  "kind": "offset",
+  "fn": "__ZTV8DataPath",
+  "kind_recipe": "vt:__ZNK8DataPath12IsDownloadedEv",
+  "nth": 0,
+  "value": "0xb0",
+  "confidence": "high",
+  "why": "DataPath vtable 0x143ca00c0 (27 slots): slot 22 = 0x141e6ddc0 (IsDownloaded) -> 0xb0 from the vptr; maketable computes it (mac 0xb8 = one extra dtor slot). The mod copies the vtable with the 1-word MSVC header"
+ },
+ {
+  "item": "V_sourcePath",
+  "kind": "offset",
+  "fn": "__ZTVN8analyzer10DataSourceE",
+  "kind_recipe": "vt:__ZNK8analyzer10DataSource7GetPathEv",
+  "nth": 0,
+  "value": "0x20",
+  "confidence": "high",
+  "why": "Windows analyze 0x141213840: mov rdx,[r15+0x288]->[rcx]; call [rcx+0x20] (path, before constructing the PcmReader with it), mac [rax+0x28]"
+ },
+ {
+  "item": "O_threadSource",
+  "kind": "offset",
+  "fn": "__ZN8analyzer18CBeatAnalyzeThread15getSongFilePathEv",
+  "kind_recipe": "ldr x21",
+  "nth": 0,
+  "value": "0x288",
+  "confidence": "high",
+  "why": "getSongFilePath 0x141213010: cs enter at +0x250 (mac +0x210); shared_ptr<DataSource> {ptr [rdi+0x288], ctrl [rdi+0x290]} (mac 0x260/0x268); same field analyze reads for GetPath"
+ },
+ {
+  "item": "O_threadId",
+  "kind": "offset",
+  "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv",
+  "kind_recipe": "ldr x20",
+  "nth": 12,
+  "value": "0x284",
+  "confidence": "medium",
+  "why": "analyze: mac 'esi=[thread+0x258]; rdi=[thread+0x2a0]; call [vt+0xe0]' <-> Windows 'rcx=[r15+0x2c0]; edx=[r15+0x284]; call [vt+0xd8]' (141213caf/cc0, same call sequence under the same flag checks; slots 0xe0/0x148 vs 0xd8/0x140); consistent with the 0x3848/0x3850 <-> 0x2be0/0x2be8 pairing"
+ },
+ {
+  "item": "O_threadInfo",
+  "kind": "offset",
+  "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv",
+  "kind_recipe": "ldr x20",
+  "nth": 3,
+  "value": "0x2c0",
+  "confidence": "medium",
+  "why": "see O_threadId: the track-info interface object whose vtable analyze calls (mac +0x2a0)"
+ },
+ {
+  "item": "S_pcmReader",
+  "kind": "offset",
+  "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv",
+  "kind_recipe": "movz x0",
+  "nth": 0,
+  "value": "0x2d8",
+  "confidence": "high",
+  "why": "Windows analyze 0x141213840: 'mov ecx,0x2d8; call operator new' then PcmReaderTemplate ctor 0x141104be0(this,path,0,0,[0xd55],0,0) at 1412139db-141213a22, as mac 0x2a8 (movz x0, new, ctor)"
+ },
+ {
+  "item": "S_beatInfo",
+  "kind": "offset",
+  "fn": "__ZN8analyzer13AnalyzeJobKey6getKeyERN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEEfNSt3__110shared_ptrIfEEjbmm",
+  "kind_recipe": "movz x14",
+  "nth": 0,
+  "value": "0xc",
+  "confidence": "high",
+  "why": "v8: getKey 0x141293560 strides the beat array by 12 (lea rcx,[rcx+rcx*2]; shl 2)"
+ },
+ {
+  "item": "O_historyDeck",
+  "kind": "offset",
+  "fn": "__ZN6djplay8UiPlayer18PlayHistoryManagerC1Ei",
+  "kind_recipe": "str x0",
+  "nth": 1,
+  "value": "0x28",
+  "confidence": "high",
+  "why": "v10 value, same recipe as analyzer.cpp; used with the primary this (rbx in timerCallback)"
+ },
+ {
+  "item": "O_uiPlayerDeck",
+  "kind": "offset",
+  "fn": "__ZN6djplay8UiPlayer17onBeatGridChangedEPN6rbxfrm14IControlClientERKNS1_14IDjPlayerStateE",
+  "kind_recipe": "ldr x0",
+  "nth": 1,
+  "value": "0x458",
+  "confidence": "high",
+  "why": "v9 value 0x458 from the PRIMARY UiPlayer; checked the analyze_completed hook (site 0x142565d4e in handleDBMessageTrackStatus 0x142565c20) passes the primary pointer: that function itself reads [rdi+0x458] (edx at 142565c7c/cf1) before calling WhenAnalyzeCompleted(rcx=rdi), so 0x458 (not 0x58) is right here"
+ }
+]

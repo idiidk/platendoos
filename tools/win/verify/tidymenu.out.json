@@ -1,0 +1,63 @@
+[
+ {
+  "item": "__ZN4juce9PopupMenuD1Ev", "kind": "sym", "verdict": "ok", "win": "0x142bb0be0", "confidence": "high",
+  "why": "~PopupMenu: releases the look-and-feel WeakReference's shared pointer at +0x10 (lock xadd [p+8]), destroys the items (rva ff2d20: ~Item over data +0 / used +0xc), frees the data (tail jmp rva 299f450, juce's free). The deleting form rva ff4520 is the same plus operator delete(this, 0x18) (sizeof PopupMenu 0x18, as mac). Matched in m.pkl"
+ },
+ {
+  "item": "__ZN4juce9PopupMenu7addItemENS0_4ItemE", "kind": "sym", "verdict": "ok", "win": "0x142bb0700", "confidence": "high",
+  "why": "addItem(Item) by value: (this, Item* temporary); grows the Array (rva ff2d80, new capacity (n+8 + n/2) & ~7 as juce), moves the item into data + used * 0x90 with the Item move ctor (rva 2bb09c0), then tail-jumps to ~Item (rva fba300) on the argument: MSVC's callee destroys the by-value Item. addSeparator (rva 2bae8c0) has the same sequence inlined"
+ },
+ {
+  "item": "__ZN4juce9PopupMenu10addSubMenuENS_6StringES0_b", "kind": "sym", "verdict": "ok", "win": "0x142baef90", "confidence": "high",
+  "why": "addSubMenu(String name, PopupMenu menu, bool active) = (this, String*, PopupMenu*, r9b): moves both into temporaries and calls the 6-argument addSubMenu (rva 2baeb10) with r9 passed through, image nullptr, ticked false, itemResultID 0, as juce; then destroys its by-value String (refcount at text-0x10) and PopupMenu (WeakReference +0x10, ~Item over the items, free data): the callee destroys both. rekordbox's showListViewPopupMenu (rva 16071a0) calls it five times. Matched in m6/m7.pkl"
+ },
+ {
+  "item": "__ZN4juce9PopupMenu4ItemC1ERKS1_", "kind": "sym", "verdict": "ok", "win": "0x142bb0810", "confidence": "high",
+  "why": "Item copy ctor (rcx dest, rdx source, returns dest): text String +0 (lock inc refcount), itemID +8, std::function action +0x10 (MSVC 0x40 bytes, impl pointer at +0x48: cloned through its vtable slot 0), subMenu +0x50 (new 0x18 + PopupMenu copy rva fe2720), image +0x58 (Drawable::createCopy, vtable +0x190), customComponent +0x60 (refcount +0xf8), customCallback +0x68, commandManager +0x70, shortcut String +0x78, colour +0x80, the bools +0x84..+0x88 (isEnabled, isTicked, isSeparator, isSectionHeader, shouldBreakAfter). Used by Array<Item>::getLast (rva ff2e70) in addSeparator. MSVC has one constructor where mac has C1 and C2"
+ },
+ {
+  "item": "__ZN4juce9PopupMenu4ItemC2ERKS1_", "kind": "sym", "verdict": "ok", "win": "0x142bb0810", "confidence": "high",
+  "why": "the same function as C1 (MSVC has a single constructor); named for the Item field recipes"
+ },
+ {
+  "item": "__ZN4juce9PopupMenu4ItemD1Ev", "kind": "sym", "verdict": "ok", "win": "0x140fba300", "confidence": "high",
+  "why": "~Item: shortcut String +0x78, customCallback +0x68 (refcount +8), customComponent +0x60 (refcount +0xf8), image +0x58 (virtual delete), subMenu +0x50 (rva ff4520, PopupMenu's deleting dtor), action impl at +0x48 (slot 0x20, local storage test), text +0. Called after every Item move (addItem(Item), addSeparator). Matched in m6/m7.pkl (as D2; MSVC has one)"
+ },
+ {
+  "item": "S_item", "kind": "offset", "fn": "__ZN4juce9PopupMenu12addSeparatorEv", "kind_recipe": "movz x10", "nth": 0,
+  "value": "0x90", "verdict": "ok", "confidence": "high",
+  "why": "sizeof(PopupMenu::Item) on Windows (mac 0x70: MSVC's std::function is 0x40 bytes, libc++'s 0x20): addSeparator (rva 2bae8c0) and addItem(Item) (rva 2bb0700) index the items as lea rcx,[n+n*8]; shl rcx,4; Array<Item> copies step 0x90 (rva ff2dd3); the last field written is the byte at +0x88"
+ },
+ {
+  "item": "O_itemEnabled", "kind": "offset", "fn": "__ZN4juce9PopupMenu4ItemC2ERKS1_", "kind_recipe": "ldr x20", "nth": 9,
+  "value": "0x84", "verdict": "ok", "confidence": "high",
+  "why": "Item::isEnabled (mac +0x64): the copy ctor 0x142bb0810 copies the five bools from +0x84 after the Colour at +0x80; addSeparator's new Item writes word [item+0x84] = 1 (enabled, not ticked) and byte [item+0x86] = 1 (separator)"
+ },
+ {
+  "item": "O_itemSeparator", "kind": "offset", "fn": "__ZN4juce9PopupMenu4ItemC2ERKS1_", "kind_recipe": "ldr x20", "nth": 11,
+  "value": "0x86", "verdict": "ok", "confidence": "high",
+  "why": "Item::isSeparator (mac +0x66): third bool copied by 0x142bb0810; addSeparator reads it from getLast()'s copy (cmp byte [rbp+0x46] with the copy at rbp-0x40) and sets it in its new item"
+ },
+ {
+  "item": "__ZN4juce6Thread16getCurrentThreadEv", "kind": "sym", "verdict": "ok", "win": "0x142a62000", "confidence": "high",
+  "why": "jucethread (7.2.19): lea rcx,[rsp+0x30]; call getCurrentThreadHolder (rva 2a623f0); ThreadLocalValue<Thread*>::get (rva ef8740) on holder+0x10, then the holder's reference released: byte for byte 7.2.20's 2b30a50 (rvas aside). Matched in m.pkl/m8.pkl"
+ },
+ {
+  "item": "__ZN4juceL22getCurrentThreadHolderEv", "kind": "sym", "verdict": "ok", "win": "0x142a623f0", "confidence": "high",
+  "why": "jucethread (7.2.19): the ReferenceCountedObjectPtr<CurrentThreadHolder> returned through rcx (spin lock, new 0x18-byte holder: vptr, refcount +8, list +0x10); the same instructions as 7.2.20's 2b30e40, and ThreadLocalValue::get (rva ef8740, GetCurrentThreadId inline) the same as 7.2.20's f162e0"
+ },
+ {
+  "item": "__ZN6rbxfrm15StreamingReader8fileOpenERKN4juce6StringE", "kind": "sym", "verdict": "ok", "win": "0x142d11cb0", "confidence": "high",
+  "why": "StreamingReader::fileOpen (7.2.19; matched in m6/m7.pkl): vcall +0x98, getCurrentThread, then lea rcx,[thread+8]; String::startsWith(\"CBeatAnalyzeThread:\") and byte [this+0xa9] = 1, as 7.2.20's 2de04c0"
+ },
+ {
+  "item": "O_threadName", "kind": "offset", "fn": "__ZN6rbxfrm15StreamingReader8fileOpenERKN4juce6StringE", "kind_recipe": "add x0", "nth": 0,
+  "value": "0x8", "verdict": "ok", "confidence": "high",
+  "why": "juce::Thread's name String: fileOpen 0x142d11cb0 passes thread+8 to String::startsWith (lea rcx,[rax+8]), as 7.2.20"
+ },
+ {
+  "item": "O_shouldExit", "kind": "offset", "fn": "__ZNK4juce6Thread16threadShouldExitEv", "kind_recipe": "add x0", "nth": 0,
+  "value": "0x1ed", "verdict": "ok", "confidence": "high",
+  "why": "threadShouldExit 0x142a61fb0 = movzx eax,[rcx+0x1ed]; signalThreadShouldExit (rva 2a61fd0) xchg byte [rcx+0x1ed]; same in 7.2.20"
+ }
+]

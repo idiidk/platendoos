@@ -1,0 +1,88 @@
+[
+ {
+  "item": "stem_init",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x141123f90"
+  ],
+  "target": "GetProcAddress",
+  "confidence": "high",
+  "why": "AudioPartLibrary::load 0x141123eb0 inlines juce::DynamicLibrary::getFunction: 8 calls [rip+...] to the GetProcAddress import (slot 0x143513620), names <engine>+Initialize/Finalize/IsInitialized/PreOperation/PostOperation/CancelOperation/OperationAtIndexOtherWithBass/OperationAtIndexSeparatedBass in mac's order; #0 Initialize. Windows hook signature: (HMODULE, const char*)"
+ },
+ {
+  "item": "stem_pre",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x14112418a"
+  ],
+  "target": "GetProcAddress",
+  "confidence": "high",
+  "why": "as stem_init: GetProcAddress #3, PreOperation"
+ },
+ {
+  "item": "stem_op3",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x141124385"
+  ],
+  "target": "GetProcAddress",
+  "confidence": "high",
+  "why": "as stem_init: GetProcAddress #6, OperationAtIndexOtherWithBass"
+ },
+ {
+  "item": "stem_op4",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x14112442e"
+  ],
+  "target": "GetProcAddress",
+  "confidence": "high",
+  "why": "as stem_init: GetProcAddress #7, OperationAtIndexSeparatedBass"
+ },
+ {
+  "item": "grid_assign",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x141217351"
+  ],
+  "target": "0x14121f470",
+  "confidence": "high",
+  "why": "Windows-only meaning: CBeatAnalyzeThread::analyze inlines Array<DetailedBeatInfo>::operator= (dst local [rbp+0x38] = src [result+8]); the hook takes the call before it, AnalyzeJobController::GetResult(controller [r15+0x2cc8], 3 = beat job) at 0x141217351, and fills result+8 with bettergrid's beats so the inlined copy takes them. Thread = r15 (hookreg)."
+ },
+ {
+  "item": "grid_assign",
+  "kind": "hookreg",
+  "reg": "r15",
+  "arg": 2,
+  "confidence": "high",
+  "why": "r15 = this (CBeatAnalyzeThread): [r15+0x2cc8] is the job controller passed to GetResult"
+ },
+ {
+  "item": "spotify_token_set",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x142fa559f",
+   "0x142fa71ed"
+  ],
+  "target": "0x140019a1b",
+  "confidence": "high",
+  "why": "Windows-only meaning: Client::onRequestClientTokenCallback (with setClientTokenDirect) is inlined into the static RequestClientTokenHelper::requestClientTokenCallback(token, err, client) at 0x142fa8e60; both copies of Client::requestClientToken pass it (lea rdx) to the DJDownload request 0x140019a1b(handle, callback, client) at these calls. The hook swaps in a callback that runs the original on another thread."
+ },
+ {
+  "item": "an_seek",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x14121984a"
+  ],
+  "target": "0x1412232c0",
+  "confidence": "high",
+  "why": "Windows-only meaning: createSeekTable is inlined into CBeatAnalyzeThread::analyze (guard [r15+0x2a8] && ![r13+0x2c91] at 0x141219803); the inline body builds a FlacAnalyzeManager at [rbp+0xbc0] and calls its seek-table builder 0x1412232c0(manager, 0x190) here: the stage marker sits on that call (no thread argument: the analysis thread's current one)."
+ }
+]

@@ -1,0 +1,99 @@
+[
+ {
+  "item": "__ZN4juce20TableHeaderComponent15setSortColumnIdEib",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142b97570",
+  "confidence": "high",
+  "why": "same body as mac (find sorted column by flags [col+0xf4]&0x60, match id [col+0xf0], clear flags, set 0x20 fwd / 0x40 back); mac's final virtual call [vt+0x140] is a direct tail call to 0x142b97440 on Windows"
+ },
+ {
+  "item": "__ZN6browse16BrowseListHeader13columnClickedEiRKN4juce12ModifierKeysE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141491fd0",
+  "confidence": "high",
+  "why": "same structure: test [mods]&0x20, col==0x3f menu branch via showPopupMenu 0x141492970, else isSortableColumn(0x141490130) then getSortColumnId/isSortedForwards/setSortColumnId; header fields +0x168/+0x16c same"
+ },
+ {
+  "item": "__ZNK4juce20TableHeaderComponent13getColumnNameEi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142b982f0",
+  "confidence": "high",
+  "why": "rcx=header, rdx=hidden String* return (returned in rax), r8d=column id; finds column ([hdr+0x100] array, count [hdr+0x10c], id [col+0xf0]), copies String [col+0x18] with inlined refcount lock inc (empty-string sentinel otherwise); caller getPlaylistDataForText 0x1414aa09b uses it exactly as mac's"
+ },
+ {
+  "item": "__ZNK4juce20TableHeaderComponent16isSortedForwardsEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142b974d0",
+  "confidence": "high",
+  "why": "separate real function (not inlined into the mod path): scans columns for flags [col+0xf4]&0x60, returns (flags>>5)&1, default true (al=1); called from columnClicked at 0x1414920d0/0x141492160/0x1414921c1. getSortColumnId 0x142b97520 reads [col+0xf0] of that column, 0 if none; both use header +0x100 (array) +0x10c (count)"
+ },
+ {
+  "item": "O_sorterChain",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6browse14ListViewSorter15compareElementsEii",
+  "kind_recipe": "add x19",
+  "nth": 0,
+  "win": "0x1414f7ec0",
+  "win_fn": "0x1414f7ec0",
+  "value": "0x10",
+  "confidence": "high",
+  "why": "Windows compareElements: lea rbx,[rsi+0x10] then loop reads [rbx] directly, add rbx,8. 0x10 is the chain START (8-byte entries); mac 0x18 = start+8 only because its loop reads [rbx-8]. Numeric value 0x10, not 0x18; replace code's `O_sorterChain - 8` by a per-platform chainStart"
+ },
+ {
+  "item": "O_sorterViewer",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6browse14ListViewSorter15compareElementsEii",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "win": "0x1414f7ec0",
+  "win_fn": "0x1414f7ec0",
+  "value": "0x8",
+  "confidence": "high",
+  "why": "mov rcx,[rcx+8] (this=rcx) passed as this to ListViewer::getCurrentListTrack 0x1414add90, same as mac [rdi+8]"
+ },
+ {
+  "item": "O_sorterDir",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6browse14ListViewSorter15compareElementsEii",
+  "kind_recipe": "ldr x19",
+  "nth": 1,
+  "win": "0x1414f7ec0",
+  "win_fn": "0x1414f7ec0",
+  "value": "0x60",
+  "confidence": "high",
+  "why": "cmp dword ptr [rsi+0x60],0 ; cmovle edi,ecx (negated result when dir<=0): >0 ascending keeps result, else -result; same semantics as mac [r14+0xb0] with cmovg. Matches v5.out.json sortdir +0x60"
+ },
+ {
+  "item": "header_sortClick",
+  "kind": "hook",
+  "verdict": "ok",
+  "sites": [
+   "0x1414921dc"
+  ],
+  "target": "0x142b97570",
+  "confidence": "high",
+  "why": "E8 call in the ordinary-column branch (col!=0x3f: isSortableColumn 0x141490130, then getSortColumnId/isSortedForwards computing edx=col-or-0, r8b=forwards, rcx=header). Windows has 3 setSortColumnId calls (E8 each): 0x1414920fa=# menu '(0,true)' (mac bf5c, nth0), 0x141492184=# menu final (mac c01a, nth2), 0x1414921dc=ordinary (mac bfb7, nth1) - in ADDRESS order it is the 3rd, not the 2nd. Args: rcx=header, edx=col, r8b=forwards (movzx r8d,al)"
+ },
+ {
+  "item": "NOTE ListViewSorter layout (Windows)",
+  "kind": "note",
+  "why": "compareElements(this=rcx,int a=edx,int b=r8d) 0x1414f7ec0 (matched fn): ListViewer* at +0x8; chain START at +0x10; entries are 8 bytes (plain code address, no this-adjust); NO count: loop `mov rax,[rbx]; test rax,rax; je end; call rax(rcx=sorter, rdx=rowA, r8=rowB); add rbx,8; stop on non-zero result`, so the chain is ended by a null 8-byte entry; direction int at +0x60 (>0 ascending; result negated when <=0). 10 slots fit between +0x10 and +0x60 (mac: 10 slots of 16 bytes +0x10..+0xb0): (dirOff - chainStart)/entrySize = (0x60-0x10)/8 = 10 on Windows, same count as mac, last slot must be the null terminator. Raw entry k at sorter+0x10+8k. In code: slots = sorter+0x10 as uintptr_t*, entry = slots[k], isNull = !slots[k]; mac needs 2 words per entry, Windows 1. Proposed: O_sorterChain Windows = 0x10 and mac code `O_sorterChain - 8` becomes `chainStart` (0x18-8=0x10 on mac, 0x10 on Windows); entrySize 16 mac / 8 Windows"
+ },
+ {
+  "item": "NOTE chain entries and arguments",
+  "kind": "note",
+  "why": "a and b are the two element POINTERS (db::RowDataTrack*) from ListViewer::getCurrentListTrack(row) 0x1414add90 (rdx=rbp=track(a), r8=r14=track(b)), same as mac (rsi,rdx). Entries are called as `call rax` with rcx=sorter unmodified; setCompFunc 0x1414f7990 and setCompareFuncTo 0x1414fa4a0 store raw code addresses ([this+idx*8+0x10]=r8); all 39 distinct lea-targets in setCompFunc/setCompareFuncWithArtistAndAlbum (0x1414fa3d0) are real function bodies (checked: none begins with the vcall-thunk 'mov rax,[rcx]' pattern). mac uses adj=0 non-virtual too, so calling entry(sorter,a,b) directly is correct. Signature int(sorter*, RowDataTrack*, RowDataTrack*) in rcx,rdx,r8. setCompareFuncTo ALSO sets the string cache for known compare fns (compares r8 to specific compare fn addresses, then [viewer+0x250] cache setup) - same side effect as mac; terminator written by setCompareFuncWithArtistAndAlbum at [this+esi*8+0x18]=0, plain case zeroes a qword after the last (e.g. [rbx+0x30]=0)"
+ },
+ {
+  "item": "NOTE TableHeaderComponent fields",
+  "kind": "note",
+  "why": "header: column array ptr +0x100, count (int) +0x10c; per column: id +0xf0, flags +0xf4 (0x20 sorted fwd, 0x40 sorted back, mask 0x60), width +0xf8, title String +0x18; BrowseListHeader own fields +0x168 (last clicked col) +0x16c (fwd flag). getColumnName 0x142b982f0 is a free-standing (non-folded) function; calling convention at(header, String* ret, int col) returns ret. isSortedForwards/getSortColumnId are real separate functions (0x142b974d0 / 0x142b97520)."
+ }
+]

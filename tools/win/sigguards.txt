@@ -1,0 +1,6 @@
+# Constants the mods have in their Windows source (not in the address table), checked when patcher/retable.h makes
+# a table for another rekordbox build: each must be found unchanged, else the hooks listed are left out (their mod
+# is off) instead of the mod writing to the wrong place. Read by tools/win/makesigs.py.
+#   <function symbol the constant is read in> <hex value> <hooks, comma-separated> <regex for the instruction>
+# (analyzer.cpp's constants are table fields now: tools/win/sigfields.txt)
+# flx4.cpp: MainComponent's ApplicationCommandTarget subobject (+568) is checked at run time (its vtable's slot 4)

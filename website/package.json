@@ -1,0 +1,22 @@
+{
+  "name": "platendoos-website",
+  "private": true,
+  "description": "The platendoos documentation site (VitePress).",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/site.mjs dev",
+    "dev:private": "node scripts/site.mjs dev --private",
+    "build": "node scripts/site.mjs build && node scripts/check-public.mjs",
+    "build:private": "node scripts/site.mjs build --private",
+    "build:with-trailer": "node scripts/site.mjs build --trailer && node scripts/check-public.mjs",
+    "preview": "node scripts/site.mjs preview",
+    "preview:private": "node scripts/site.mjs preview --private",
+    "check:public": "node scripts/check-public.mjs",
+    "settings": "python3 -I scripts/settings_gen.py",
+    "screens": "python3 -I scripts/screens.py"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4",
+    "vue": "3.5.13"
+  }
+}

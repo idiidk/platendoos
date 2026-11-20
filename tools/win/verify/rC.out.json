@@ -1,0 +1,12 @@
+[
+ {
+  "item": "O_readerOwner",
+  "kind": "offset",
+  "fn": "__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE6unloadEv",
+  "kind_recipe": "add x19",
+  "nth": 1,
+  "value": "0x218",
+  "confidence": "medium",
+  "why": "PcmReaderTemplate<Float2> vtable 0x1457cfea8 (ReaderOwner sub-object) is at offset 536=0x218 (RTTI), consistent with coordinator's ~0x218"
+ }
+]

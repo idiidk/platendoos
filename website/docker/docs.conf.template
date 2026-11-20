@@ -1,0 +1,41 @@
+# nginx for the docs site (website/Dockerfile). The image's entrypoint fills in ${PORT} and writes this to
+# /etc/nginx/conf.d/docs.conf.
+
+# Hashed build files (assets/) never change; pages are checked each time; the rest (pictures, icon) for an hour.
+map $uri $docs_cache {
+    ~/assets/       "max-age=31536000, immutable";
+    ~(\.html|/)$    "no-cache";
+    default         "max-age=3600";
+}
+
+server {
+    listen ${PORT};
+    server_name _;
+    server_tokens off;
+    # redirects keep the browser's host and port (the container sits behind Coolify's proxy)
+    absolute_redirect off;
+
+    gzip on;
+    gzip_static on;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript text/javascript application/json image/svg+xml text/plain application/xml;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+
+    # The public edition, for everyone.
+    location / {
+        root /srv/public;
+        index index.html;
+        try_files $uri $uri.html $uri/ =404;
+        error_page 404 /404.html;
+        include /etc/nginx/snippets/headers.conf;
+        add_header Cache-Control "public, $docs_cache" always;
+    }
+}

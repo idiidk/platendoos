@@ -1,0 +1,84 @@
+[
+ {
+  "item": "__ZN2db13SpotifyBridge13timerCallbackEi",
+  "verdict": "pick",
+  "win": "0x141eee3c0",
+  "confidence": "high",
+  "why": "4 sibling bridge timerCallbacks have identical shape; only 141eee3c0 references the spotify::Service RTTI in case 2 (cast then vcall +0xb8 = mac +0xc0), case 3/4 DatabaseIF analyzeCollection calls match"
+ },
+ {
+  "item": "__ZN2db13SpotifyBridge26getNewPlaylistsAndSetCacheERKN4juce5ArrayIjNS1_20DummyCriticalSectionELi0EEE",
+  "verdict": "ok",
+  "win": "0x141ee98b0",
+  "confidence": "high",
+  "why": "same callees (getExperiences, ListTrackCache::clear, ThreadSafeMap setValue, sort/joinIntoString/operator!=), same flow"
+ },
+ {
+  "item": "__ZN9streaming16StreamingManager17isSpotifyProtocolERKN4juce6StringE",
+  "verdict": "inlined",
+  "win": null,
+  "confidence": "high",
+  "why": "none of the cands match; tiny wrapper ([mgr+0x38] -> vcall slot) is inlined in StreamingReaderFactory::createReaderFor (win 142cdd460): 142cdd554 mov rcx,[rax+0x38]; 142cdd563 call [rax+0x28] (vtable slot 0x28 on win vs 0x30 on mac)"
+ },
+ {
+  "item": "__ZN9streaming7spotify6Client28onRequestClientTokenCallbackEPKc15DJDownloadError",
+  "verdict": "pick",
+  "win": "0x142fa7240",
+  "confidence": "high",
+  "why": "none of the listed cands; found 142fa7240: if(err==0&&ptr) String(ptr); cast [this+8] to spotify::Service, then to spotify::Auth ([+0xf8]); lock; swap string at +0x2f8; signal event +0x300; setClientTokenDirect (win 142f0a0d0) is inlined here"
+ },
+ {
+  "item": "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii",
+  "verdict": "ok",
+  "win": "0x142f0d6a0",
+  "confidence": "high",
+  "why": "getTracksByUri + convertTracks + vcalls +0xb8/+0x58 (mac +0xc0/+0x60), Enter/LeaveCriticalSection, same shape"
+ },
+ {
+  "item": "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii",
+  "verdict": "ok",
+  "win": "0x142f0d490",
+  "confidence": "high",
+  "why": "DjAPI::getTracks + convertTracks, 0x191 check, Track array loop, same shape"
+ },
+ {
+  "item": "spotify_rev_refresh",
+  "verdict": "ok",
+  "win": "0x141ef35a0",
+  "sites": [
+   "0x141ef3732"
+  ],
+  "confidence": "medium",
+  "why": "win lambda 141ef35a0 (unmatched in tool) = refreshListTrack_myCollection $_20: eligibility flow, var[] x3, one operator!= right after (call 0x142a6d110), then 0x18f check, loop with vcall +0x310 (mac +0x320) and ListTrackCache/TrackCache::addCopyOf; siblings 141eee560/141ef6890 have no != call; ThreadSafeMap::getValue appears inlined"
+ },
+ {
+  "item": "spotify_rev_library",
+  "verdict": "ok",
+  "win": "0x141ee98b0",
+  "sites": [
+   "0x141ee9ff5"
+  ],
+  "confidence": "high",
+  "why": "win has 6 != calls vs 8 mac (2 of the mac per-element loop ones merged); the last two (c66,cc3,cfd,d96 are the early ones) follow sort+joinIntoString pairs: 0x141ee9f5a = mac nth 6, 0x141ee9ff5 = mac nth 7 (second sort/join pair)"
+ },
+ {
+  "item": "spotify_rev_item1",
+  "verdict": "ok",
+  "win": "0x141ef4550",
+  "sites": [
+   "0x141ef4858"
+  ],
+  "confidence": "high",
+  "why": "matched lambda; element-compare loop identical: != at +0x20, +0x10, byte +0x158, int +0x154, != at +0x160; mac nth4 (+0x10 string) = 141ef4858"
+ },
+ {
+  "item": "spotify_rev_item2",
+  "verdict": "ok",
+  "win": "0x141ef4550",
+  "sites": [
+   "0x141ef48e8"
+  ],
+  "confidence": "high",
+  "why": "same loop; mac nth5 (!= on field +0x160 after the +0x158/+0x154 compares) = 141ef48e8. Order on win: 47cf (nth0), then loop 4823/4858/48e8 (nth3,4,5), then joins 4a8c/4b2e (nth1,2)"
+ }
+]

@@ -1,0 +1,38 @@
+# Only sources and the scripts that build platendoos are committed. Never anything built, and never any part of
+# rekordbox: the models, the Windows tables/signatures (made from rekordbox.exe), the trailer's media and every
+# build product are made by the scripts or fetched with tools/build/fetch_inputs.sh, and shipped in GitHub releases.
+
+# Build output (compile.sh / build.sh / tools/build/*.sh / tools/win/build.sh)
+/build/
+
+# Models (tools/models/, or tools/build/fetch_inputs.sh)
+/models/*
+!/models/README.md
+
+# Windows address tables and signatures, made from rekordbox.exe (tools/win/maketable.py, makesigs.py)
+/tools/win/tables/
+/tools/win/sigs/
+
+# Trailer media (trailer/render.py and the recordings it cuts)
+/trailer/*.mp4
+/trailer/shots/
+/trailer/assets/
+/trailer/clips/
+
+# Anything app- or archive-shaped, wherever it is
+*.app/
+*.zip
+*.dmg
+*.exe
+*.dll
+*.dylib
+*.onnx
+*.mlmodelc/
+*.mlpackage/
+
+# macOS
+.DS_Store
+
+# Agent worktrees
+/.claude/
+__pycache__/

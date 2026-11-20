@@ -1,0 +1,110 @@
+[
+ {
+  "kind": "offset",
+  "name": "O_trackBpm",
+  "file": "columns.cpp",
+  "fn": "__ZN2db15TrackListSorter10compareBPMEPNS_12RowDataTrackES2_",
+  "recipe": "ldr x1",
+  "nth": 0,
+  "mac_value": "0x3a8",
+  "win_fn": "0x1423a4910",
+  "line": "static const Offset O_trackBpm{0x3a8, \"__ZN2db15TrackListSorter10compareBPMEPNS_12RowDataTrackES2_\", \"ldr x1\", 0};  // RowDataTrack: BPM * 100 (compareBPM)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_trackArtist",
+  "file": "columns.cpp",
+  "fn": "__ZN2db15TrackListSorter13compareArtistEPNS_12RowDataTrackES2_",
+  "recipe": "add x1",
+  "nth": 0,
+  "mac_value": "0xd0",
+  "win_fn": null,
+  "line": "static const Offset O_trackArtist{0xd0, \"__ZN2db15TrackListSorter13compareArtistEPNS_12RowDataTrackES2_\", \"add x1\", 0};  // RowDataTrack: artist (juce::String, compareArtist)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_engineChannels",
+  "file": "core.cpp",
+  "fn": "__ZN8djengine10DjEngineIF6unloadENS_15EnPlayerChannelE",
+  "recipe": "ldr x20",
+  "nth": 0,
+  "mac_value": "0xdc",
+  "win_fn": "0x14253b5b0",
+  "line": "static const Offset O_engineChannels{0xdc, \"__ZN8djengine10DjEngineIF6unloadENS_15EnPlayerChannelE\", \"ldr x20\", 0};  // DjEngineIF: number of player channels",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_trackId",
+  "file": "core.cpp",
+  "fn": "__ZNK2db12RowDataTrack5refIDEv",
+  "recipe": "add x0",
+  "nth": 0,
+  "mac_value": "0x8",
+  "win_fn": null,
+  "line": "static const Offset O_trackId{0x8, \"__ZNK2db12RowDataTrack5refIDEv\", \"add x0\", 0};  // RowDataTrack: database id",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_btvBasicView",
+  "file": "core.cpp",
+  "fn": "__ZNK6browse16BrowseTreeViewer13getListViewerEv",
+  "recipe": "ldr x0",
+  "nth": 0,
+  "mac_value": "0x148",
+  "win_fn": null,
+  "line": "static const Offset O_btvBasicView{0x148, \"__ZNK6browse16BrowseTreeViewer13getListViewerEv\", \"ldr x0\", 0};  // browse::BrowseTreeViewer: its BrowseBasicView",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_threadSource",
+  "file": "analyzer.cpp",
+  "fn": "__ZN8analyzer18CBeatAnalyzeThread15getSongFilePathEv",
+  "recipe": "ldr x21",
+  "nth": 0,
+  "mac_value": "0x260",
+  "win_fn": "0x141213010",
+  "line": "static const Offset O_threadSource{0x260, \"__ZN8analyzer18CBeatAnalyzeThread15getSongFilePathEv\", \"ldr x21\", 0};  // CBeatAnalyzeThread: analyzer::DataSource* (vtable +0x28: path)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_items",
+  "file": "artcache.cpp",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "recipe": "add x19",
+  "nth": 1,
+  "mac_value": "0x3c8",
+  "win_fn": "0x1415fdfa0",
+  "line": "static const Offset O_items{0x3c8, kAdd, \"add x19\", 1};   // ArtworkCache::Pimpl: OwnedArray<Item> (oldest first)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "S_beatInfo",
+  "file": "bettergrid.cpp",
+  "fn": "__ZN8analyzer13AnalyzeJobKey6getKeyERN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEEfNSt3__110shared_ptrIfEEjbmm",
+  "recipe": "movz x14",
+  "nth": 0,
+  "mac_value": "0xc",
+  "win_fn": "0x141293560",
+  "line": "static const Offset S_beatInfo{0xc, \"__ZN8analyzer13AnalyzeJobKey6getKeyERN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEEfNSt3__110shared_ptrIfEEjbmm\", \"movz x14\", 0};  // sizeof(DetailedBeatInfo)",
+  "prior": null
+ },
+ {
+  "kind": "offset",
+  "name": "O_jobSpecialInfo",
+  "file": "betterkey.cpp",
+  "fn": "__ZN8analyzer13AnalyzeJobKey6DetectEv",
+  "recipe": "ldr x19",
+  "nth": 2,
+  "mac_value": "0x60",
+  "win_fn": "0x141293390",
+  "line": "static const Offset O_jobSpecialInfo{0x60, \"__ZN8analyzer13AnalyzeJobKey6DetectEv\", \"ldr x19\", 2};  // AnalyzeJobKey: AnalyzeJobKeySpecialInfo*",
+  "prior": null
+ }
+]

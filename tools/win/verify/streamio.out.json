@@ -1,0 +1,6 @@
+[
+ {"item": "streamio win:reader pcm interface", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:reader pcm interface", "nth": 0, "value": "0x250", "verdict": "ok", "confidence": "high",
+  "why": "analyze() (7.2.19) rewinds the reader before the AB pass: mov rcx,[rbp+0x48] (the reader getStreamAt gets, rdx at 0x12179f7); add rcx,0x250; mov rax,[rcx]; call [rax+0x28] with edx 0 (0x12179a3-0x12179b7); before the CD pass the same with lea rcx,[rdi+0x250] (0x1217c66)"},
+ {"item": "streamio win:reader setPosition slot", "kind": "offset", "fn": "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", "kind_recipe": "win:reader setPosition slot", "nth": 0, "value": "0x28", "verdict": "ok", "confidence": "high",
+  "why": "mov r8,[rax+0x28]; xor edx,edx; call r8 on the pcm interface (+0x250) before the AB pass (0x12179b1) and the CD pass (0x1217c74): setPosition(0), the mac's slot 0x28 of PcmReaderTemplate<Float2> as well"}
+]

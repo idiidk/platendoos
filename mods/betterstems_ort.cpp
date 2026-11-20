@@ -1,0 +1,111 @@
+// HTDemucs on ONNX Runtime (the backend of betterstems.cpp where there is no Core ML: Windows; see
+// betterstems_backend.h). The model: tools/models/htdemucs_onnx.py -> models/htdemucs.onnx (fp32; inputs mix, mag;
+// outputs spec, wave: the same split as the Core ML one).
+//   config: betterstems_slow=0   Windows: 1: HTDemucs also where it is slow (on the CPU, or on a GPU that needs over a
+//                                second for a segment); 0: rekordbox's own engine separates there
+#include <algorithm>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <thread>
+#include <vector>
+#include "betterstems_backend.h"
+#include "../core/rbmod.h"
+#include "../engines/ort.h"
+
+using namespace rbm;
+
+namespace betterstems_backend {
+
+namespace {
+std::shared_ptr<ort::Session> g_session;
+std::string modelPath() { return plat::resourcesDir() + "/htdemucs.onnx"; }
+}  // namespace
+
+bool installed() { return std::filesystem::exists(plat::fsPath(modelPath())); }
+
+// HTDemucs is used only where it is fast: on a GPU (DirectML) that separates a segment (7.8 s of audio) within
+// kSlowSegment. On the CPU a segment takes 2.5-5 s on all the cores it gets (a track: two minutes of a 6-core PC at
+// 75%, next to a playing deck), and an integrated GPU can be slower still; rekordbox's own engine does a whole
+// track in 15-30 s. There this returns false and rekordbox's engine separates. betterstems_slow=1: HTDemucs anyway.
+const double kSlowSegment = 1.0;  // s
+
+bool load(std::string* version) {
+    std::string path = modelPath(), err;
+    std::error_code ec;
+    auto size = std::filesystem::file_size(plat::fsPath(path), ec);
+    if (ec) return false;
+    bool gpu = cfgInt("gpu", 1) != 0, anyway = cfgInt("betterstems_slow", 0) != 0;
+    const char* own = "rekordbox's own engine separates (betterstems_slow=1 for HTDemucs anyway)";
+    if (!gpu && !anyway) {
+        logf("betterstems: gpu=0, and HTDemucs is slow on the CPU: %s", own);
+        return false;
+    }
+    double t = now();
+    unsigned hw = std::thread::hardware_concurrency();
+    // (the CPU threads: half the cores, so a playing deck and rekordbox's analysis keep the others)
+    auto s = ort::open(path, (int)std::clamp<unsigned>(hw / 2, 2, 8), &err, gpu, !anyway);
+    if (!s) {
+        if (gpu && !anyway && err.rfind("no GPU session", 0) == 0)
+            logf("betterstems: HTDemucs can't run on a GPU here (%s), and it is slow on the CPU: %s", err.c_str(), own);
+        else
+            logf("betterstems: loading the model failed: %s", err.c_str());
+        return false;
+    }
+    const auto &in = ort::inputNames(*s), &out = ort::outputNames(*s);
+    if (in.size() != 2 || out.size() != 2 || in[0] != "mix" || in[1] != "mag" || out[0] != "spec" || out[1] != "wave") {
+        logf("betterstems: the model has unexpected inputs/outputs");
+        return false;
+    }
+    logf("betterstems: HTDemucs loaded in %.1f s from %s on the %s", now() - t, path.c_str(), ort::provider(*s).c_str());
+    // On a GPU: a segment of silence, twice when the first is slow (the first run also builds the GPU's pipeline, so
+    // the first track doesn't pay for it). It tells how fast this GPU is.
+    bool onGpu = ort::provider(*s).rfind("GPU", 0) == 0;
+    const auto &mixShape = ort::inputShape(*s, 0), &magShape = ort::inputShape(*s, 1);
+    size_t mixN = 1, magN = 1;
+    for (int64_t d : mixShape) mixN *= d > 0 ? (size_t)d : 0;
+    for (int64_t d : magShape) magN *= d > 0 ? (size_t)d : 0;
+    if (onGpu && mixN && magN) {
+        std::vector<float> mix(mixN, 0.f), mag(magN, 0.f);
+        std::vector<std::vector<float>> res;
+        double took = 0;
+        for (int i = 0; i < 2 && (i == 0 || took > kSlowSegment); i++) {
+            double t0 = now();
+            if (!ort::run(*s, {{"mix", mix.data(), mixShape}, {"mag", mag.data(), magShape}}, {"spec", "wave"}, res, &err)) {
+                logf("betterstems: the model's first run failed: %s", err.c_str());
+                took = 0;
+                break;
+            }
+            took = i ? std::min(took, now() - t0) : now() - t0;
+        }
+        onGpu = ort::provider(*s).rfind("GPU", 0) == 0;  // (a run that fails on the GPU moves the session to the CPU)
+        if (took > 0) logf("betterstems: a segment takes %.2f s on the %s", took, ort::provider(*s).c_str());
+        if (!anyway && (!onGpu || took > kSlowSegment)) {
+            logf("betterstems: HTDemucs is slow on this GPU (over %.1f s a segment): %s", kSlowSegment, own);
+            ort::close(*s);
+            return false;
+        }
+    }
+    *version = "htdemucs-onnx-" + std::to_string((unsigned long long)size);
+    g_session = s;
+    return true;
+}
+
+bool predict(const float* mix, int length, const float* mag, int bins, int frames, int sources,
+             std::vector<float>& spec, std::vector<float>& wave, std::string* error) {
+    std::vector<std::vector<float>> out;
+    std::string err;
+    std::string device = g_session ? ort::provider(*g_session) : "";
+    bool ran = g_session && ort::run(*g_session, {{"mix", mix, {1, 2, length}}, {"mag", mag, {1, 4, bins, frames}}}, {"spec", "wave"}, out, &err);
+    if (g_session && ort::provider(*g_session) != device) logf("betterstems: now on the %s", ort::provider(*g_session).c_str());
+    if (!ran ||
+        out[0].size() != (size_t)sources * 4 * bins * frames || out[1].size() != (size_t)sources * 2 * length) {
+        *error = err.empty() ? "unexpected output" : err;
+        return false;
+    }
+    spec = std::move(out[0]);
+    wave = std::move(out[1]);
+    return true;
+}
+
+}  // namespace betterstems_backend

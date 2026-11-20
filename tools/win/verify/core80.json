@@ -1,0 +1,642 @@
+[
+{
+"kind": "sym",
+"sym": "__ZN4juce10IdentifierC1EPKc",
+"win": "0x142a6e3a0",
+"how": "call",
+"callers": 33933,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6StringD1Ev",
+"win": "0x14280dfc8",
+"how": "call",
+"callers": 23947,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6StringC1EPKc",
+"win": "0x1423a8b90",
+"how": "call",
+"callers": 10011,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "___clang_call_terminate",
+"win": "0x142807d78",
+"how": "call",
+"callers": 9619,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6StringC1ERKS0_",
+"win": "0x142a5b890",
+"how": "call",
+"callers": 5727,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6StringC1Ev",
+"win": "0x142a45d40",
+"how": "call",
+"callers": 5727,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9StringRefC1EPKc",
+"win": "0x142a6ceb0",
+"how": "call",
+"callers": 4615,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce15CriticalSection4exitEv",
+"win": "0x140ee9680",
+"how": "call",
+"callers": 4229,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce15CriticalSection5enterEv",
+"win": null,
+"how": null,
+"callers": 4202,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce6String9toRawUTF8Ev",
+"win": "0x142a67670",
+"how": "call",
+"callers": 3220,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9ComponentD2Ev",
+"win": "0x142c15980",
+"how": "call",
+"callers": 2977,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce3varD1Ev",
+"win": "0x142a5c930",
+"how": "call",
+"callers": 2955,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juceplENS_6StringEPKc",
+"win": "0x142a6be20",
+"how": "call",
+"callers": 2620,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce15CriticalSectionC2Ev",
+"win": null,
+"how": null,
+"callers": 2556,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce3varC1Ev",
+"win": "0x142a5bc90",
+"how": "call",
+"callers": 2555,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9StringRefC1ERKNS_6StringE",
+"win": "0x142a65640",
+"how": "call",
+"callers": 2490,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN6rbxfrm6RbxLog5printEN4juce9StringRefE",
+"win": "0x14112c3f0",
+"how": "call",
+"callers": 2488,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6ColourC1Ej",
+"win": "0x14280dd90",
+"how": "call",
+"callers": 2453,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce78this_will_fail_to_link_if_some_of_your_compile_units_are_built_in_release_modeC1Ev",
+"win": null,
+"how": null,
+"callers": 2373,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN6djplay9SettingIF11getInstanceEv",
+"win": null,
+"how": null,
+"callers": 2028,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6StringaSEOS0_",
+"win": "0x142a6e3e0",
+"how": "call",
+"callers": 2004,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce11StringArrayC1Ev",
+"win": "0x142a6e0d0",
+"how": "call",
+"callers": 1887,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce6String20fromLastOccurrenceOfENS_9StringRefEbb",
+"win": "0x142a68750",
+"how": "call",
+"callers": 1842,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN6rbxfrm6RbxLog6printfEPKcz",
+"win": "0x142a45d00",
+"how": "call",
+"callers": 1806,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce4File18getSeparatorStringEv",
+"win": "0x14132c5b0",
+"how": "call",
+"callers": 1769,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN15BaseLookAndFeelD2Ev",
+"win": "0x1413ebbd0",
+"how": "call",
+"callers": 1762,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9translateEPKc",
+"win": "0x142b9f980",
+"how": "call",
+"callers": 1665,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6StringaSERKS0_",
+"win": "0x142a6e5b0",
+"how": "call",
+"callers": 1612,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce17DeletedAtShutdownD2Ev",
+"win": "0x142b2d900",
+"how": "call",
+"callers": 1585,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juceplENS_6StringERKS0_",
+"win": "0x142a6bec0",
+"how": "call",
+"callers": 1416,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce11LookAndFeel10findColourEi",
+"win": "0x142be3120",
+"how": "call",
+"callers": 1384,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce11LookAndFeel21getDefaultLookAndFeelEv",
+"win": "0x142b9f690",
+"how": "call",
+"callers": 1372,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce15StringPairArrayC1Eb",
+"win": "0x142a5c350",
+"how": "call",
+"callers": 1368,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce4FontD1Ev",
+"win": "0x142aa81f0",
+"how": "call",
+"callers": 1327,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN6common11SettingFileC1Ev",
+"win": null,
+"how": null,
+"callers": 1272,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce14LookAndFeel_V4D2Ev",
+"win": null,
+"how": null,
+"callers": 1272,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6ColourC1Ehhh",
+"win": "0x14253d5c0",
+"how": "call",
+"callers": 1190,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9Component9setBoundsEiiii",
+"win": "0x140fe6250",
+"how": "call",
+"callers": 1177,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce5ImageD1Ev",
+"win": "0x142b047a0",
+"how": "call",
+"callers": 1142,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4jucelsERNS_6StringEPKc",
+"win": "0x142a6bbb0",
+"how": "call",
+"callers": 1099,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9Component9setColourEiNS_6ColourE",
+"win": null,
+"how": null,
+"callers": 1067,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce6Colour9withAlphaEf",
+"win": "0x142b14460",
+"how": "call",
+"callers": 1062,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4jucelsERNS_6StringERKS0_",
+"win": "0x142a6d6d0",
+"how": "call",
+"callers": 1052,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN6browse17BrowseLookAndFeelD2Ev",
+"win": "0x1416058b0",
+"how": "call",
+"callers": 1025,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce11StringArrayD1Ev",
+"win": "0x142abf220",
+"how": "call",
+"callers": 996,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6StringC1EOS0_",
+"win": null,
+"how": null,
+"callers": 986,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce15SingletonHolderIN8djengine10DjEngineIFENS_15CriticalSectionELb0EE3getEv",
+"win": "0x142b2bac0",
+"how": "call",
+"callers": 964,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9Component17addAndMakeVisibleEPS0_i",
+"win": "0x142c12d00",
+"how": "call",
+"callers": 943,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce15SingletonHolderIN2db10DatabaseIFENS_15CriticalSectionELb0EE3getEv",
+"win": "0x141380ab0",
+"how": "call",
+"callers": 932,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce8Graphics9setColourENS_6ColourE",
+"win": "0x142b08120",
+"how": "call",
+"callers": 931,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce11MemoryBlockD1Ev",
+"win": "0x14280dea0",
+"how": "call",
+"callers": 893,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juceplEPKcRKNS_6StringE",
+"win": "0x142a6bfb0",
+"how": "call",
+"callers": 878,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6String12formattedRawEPKcz",
+"win": "0x14304e970",
+"how": "call",
+"callers": 875,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce4File12getChildFileENS_9StringRefE",
+"win": "0x142a85870",
+"how": "call",
+"callers": 818,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6Button14setToggleStateEbNS_16NotificationTypeE",
+"win": "0x142c0c360",
+"how": "call",
+"callers": 815,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9Component7repaintEv",
+"win": "0x142c11ba0",
+"how": "call",
+"callers": 808,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce3varcvbEv",
+"win": "0x142a5c370",
+"how": "call",
+"callers": 793,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juceeqERKNS_6StringES2_",
+"win": "0x142a6d150",
+"how": "call",
+"callers": 754,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN6rbxfrm15RefCountedObjEx32decReferenceCountWithoutDeletingEv",
+"win": "0x1414ca410",
+"how": "name",
+"callers": 745,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9Component7setSizeEii",
+"win": "0x142c13e60",
+"how": "call",
+"callers": 742,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce15CriticalSectionD1Ev",
+"win": "0x1410465d0",
+"how": "call",
+"callers": 741,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce10IdentifierD1Ev",
+"win": "0x142a5ac00",
+"how": "call",
+"callers": 722,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce5Value8getValueEv",
+"win": "0x142c30280",
+"how": "call",
+"callers": 718,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9Component14setLookAndFeelEPNS_11LookAndFeelE",
+"win": "0x142c10ad0",
+"how": "call",
+"callers": 717,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce15SingletonHolderI15ApplicationModeNS_15CriticalSectionELb1EE3getEv",
+"win": "0x141373aa0",
+"how": "call",
+"callers": 692,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNSt3__124__put_character_sequenceIcNS_11char_traitsIcEEEERNS_13basic_ostreamIT_T0_EES7_PKS4_m",
+"win": null,
+"how": null,
+"callers": 689,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce5Label7setTextERKNS_6StringENS_16NotificationTypeE",
+"win": null,
+"how": null,
+"callers": 678,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce4FileC1ERKNS_6StringE",
+"win": "0x142a880b0",
+"how": "call",
+"callers": 665,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZSt28__throw_bad_array_new_lengthB6v15006v",
+"win": null,
+"how": null,
+"callers": 660,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9translateERKNS_6StringE",
+"win": "0x142a65810",
+"how": "call",
+"callers": 637,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK15ApplicationMode6isModeENS_4FlagE",
+"win": null,
+"how": null,
+"callers": 623,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce6StringC1Ei",
+"win": "0x142a6d6f0",
+"how": "call",
+"callers": 620,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce8Graphics7fillAllENS_6ColourE",
+"win": "0x142b05710",
+"how": "call",
+"callers": 618,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce3varixEPKc",
+"win": "0x142a5ba10",
+"how": "call",
+"callers": 610,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce5Label7setFontERKNS_4FontE",
+"win": "0x142abf2b0",
+"how": "call",
+"callers": 593,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce9ComponentC2Ev",
+"win": "0x14280e1a8",
+"how": "call",
+"callers": 567,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZNK4juce3var4sizeEv",
+"win": "0x142a5b830",
+"how": "call",
+"callers": 560,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "_TEGetCurrentDB",
+"win": null,
+"how": null,
+"callers": 551,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce3varixEi",
+"win": "0x142a6f600",
+"how": "call",
+"callers": 536,
+"cands": []
+},
+{
+"kind": "sym",
+"sym": "__ZN4juce4FontC1Efi",
+"win": null,
+"how": null,
+"callers": 535,
+"cands": []
+}
+]

@@ -1,0 +1,19 @@
+# Table fields that makesigs should find only through particular instructions (a common displacement like 0xa8 is
+# read by other instructions in the same function too): <table key, spaces as ~> <regex for "mnemonic operands">.
+# Read by tools/win/makesigs.py. A field without a line here is anchored on any instruction with its value.
+# analyzer.cpp: CBeatAnalyzeThread job flags and the track-info vtable slots (tools/win/verify/analyzer.out.json)
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:info~slot~keyById|0 mov r8, qword ptr \[rax \+ 0xa8\]
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:info~slot~keyFromInfo|0 mov r8, qword ptr \[rax \+ 0x188\]
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:param~key|0 movzx edx, byte ptr \[r13 \+ 0x2c68\]
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:param~phrase|0 movzx edx, byte ptr \[r13 \+ 0x2c69\]
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:param~vocal|0 movzx edx, byte ptr \[r13 \+ 0x2c6a\]
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:job~key|0 cmp byte ptr \[r13 \+ 0x2c89\], 0
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:embedding|0 movzx edx, byte ptr \[r15 \+ 0x29a\]
+# streamio.cpp: the reader's pcm interface and its setPosition slot, as analyze() rewinds it (tools/win/verify/streamio.out.json)
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:reader~pcm~interface|0 (add rcx, 0x250|lea rcx, \[r\w+ \+ 0x250\])$
+__ZN8analyzer18CBeatAnalyzeThread7analyzeEv|win:reader~setPosition~slot|0 mov r8, qword ptr \[rax \+ 0x28\]$
+# multisort.cpp: ListViewSorter's viewer, compare chain and direction, read in compareElements, which the table has no
+# address for: found in the function their verification names ("win_fn" in tools/win/verify/multisort.out.json)
+__ZN6browse14ListViewSorter15compareElementsEii|ldr~x0|0 ^mov rcx, qword ptr \[r\w+ \+ 8\]$
+__ZN6browse14ListViewSorter15compareElementsEii|add~x19|0 ^lea r\w+, \[r\w+ \+ 0x10\]$
+__ZN6browse14ListViewSorter15compareElementsEii|ldr~x19|1 ^cmp dword ptr \[r\w+ \+ 0x60\], 0$

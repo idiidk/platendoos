@@ -1,0 +1,6 @@
+[
+ {"item": "__ZNK4juce20TableHeaderComponent14getColumnWidthEi", "kind": "sym", "verdict": "ok", "win": "0x142b97e70", "confidence": "high",
+  "why": "columns array +0x100, count +0x10c, ColumnInfo id +0xf0, returns the width; the same loop as mac"},
+ {"item": "__ZNK4juce20TableHeaderComponent18getColumnIdOfIndexEib", "kind": "sym", "verdict": "ok", "win": "0x142b97bb0", "confidence": "high",
+  "why": "onlyVisible (r8b) counts columns with flag 2 at +0xe8, then the id at +0xf0 of columns[+0x100][index]; as mac"}
+]

@@ -1,0 +1,89 @@
+/* platendoos: dark first like rekordbox, the PLATENDOOS chip's blue as the accent. */
+:root {
+  --pd-blue: #2978eb;
+  --vp-c-brand-1: #1d64cf;
+  --vp-c-brand-2: #2978eb;
+  --vp-c-brand-3: #2978eb;
+  --vp-c-brand-soft: rgba(41, 120, 235, 0.14);
+  --vp-button-brand-bg: #2978eb;
+  --vp-button-brand-hover-bg: #1d64cf;
+  --vp-button-brand-active-bg: #1857b5;
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #2978eb 20%, #7fb2ff);
+  --vp-home-hero-image-background-image: none;
+}
+.dark {
+  --vp-c-bg: #121212;
+  --vp-c-bg-alt: #0b0b0b;
+  --vp-c-bg-elv: #1c1c1c;
+  --vp-c-bg-soft: #1e1e1e;
+  --vp-c-divider: #2c2c2c;
+  --vp-c-gutter: #000;
+  --vp-c-brand-1: #6ea6ff;
+  --vp-c-brand-2: #4c8ff5;
+  --vp-c-brand-3: #2978eb;
+  --vp-c-brand-soft: rgba(41, 120, 235, 0.18);
+  --vp-code-block-bg: #181818;
+  --vp-sidebar-bg-color: #0f0f0f;
+}
+
+/* small platform tag (sidebar and pages) */
+.pd-tag {
+  display: inline-block; font-size: 10px; line-height: 15px; padding: 0 5px; border-radius: 4px;
+  font-weight: 600; letter-spacing: .3px; vertical-align: 1px;
+  color: var(--vp-c-text-2); border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-soft);
+}
+
+/* screenshots */
+.vp-doc img.shot, .vp-doc figure.shot img {
+  border-radius: 10px; border: 1px solid var(--vp-c-divider); box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  display: block; margin: 0 auto;
+}
+.vp-doc figure.shot { margin: 20px 0; }
+.vp-doc figure.shot figcaption, .pd-trailer figcaption {
+  text-align: center; font-size: 13px; color: var(--vp-c-text-2); margin-top: 8px;
+}
+.vp-doc figure.shot.narrow img { max-width: 440px; width: 100%; }
+.vp-doc figure.shot.mid img { max-width: 620px; width: 100%; }
+
+/* the facts box on a mod page */
+.pd-modinfo {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin: 16px 0 24px; padding: 12px 16px;
+  border: 1px solid var(--vp-c-divider); border-radius: 10px; background: var(--vp-c-bg-soft); font-size: 14px;
+}
+.pd-modinfo .k { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--vp-c-text-3); }
+.pd-modinfo .v { color: var(--vp-c-text-1); }
+@media (max-width: 640px) { .pd-modinfo { grid-template-columns: 1fr; } }
+
+/* home page */
+.pd-trailer { margin: 0 auto; max-width: 960px; }
+.pd-trailer video { width: 100%; border-radius: 12px; border: 1px solid var(--vp-c-divider); background: #000; aspect-ratio: 16 / 9; }
+.VPHome .pd-home { max-width: 1280px; margin: 0 auto; padding: 0 24px 48px; }
+@media (min-width: 640px) { .VPHome .pd-home { padding: 0 48px 64px; } }
+@media (min-width: 960px) { .VPHome .pd-home { padding: 0 64px 64px; } }
+.pd-home h2 { font-size: 24px; font-weight: 600; margin: 48px 0 16px; border: 0; padding: 0; }
+.pd-home .pd-shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.pd-home .pd-shots figure { margin: 0; }
+.pd-home .pd-shots img { width: 100%; border-radius: 10px; border: 1px solid var(--vp-c-divider); }
+.pd-home .pd-shots figcaption { font-size: 13px; color: var(--vp-c-text-2); margin-top: 6px; }
+.VPHero .image-src { max-width: 360px; }
+.VPHero.has-image .image { margin-top: 8px; }
+
+/* wide tables scroll inside themselves on a phone */
+.vp-doc table { display: block; overflow-x: auto; }
+
+/* the wide logo as hero image: no square box around it on small screens */
+@media (max-width: 959px) {
+  .VPHero .image-container { width: auto !important; height: auto !important; margin: 0 auto 8px; }
+  .VPHero .image-src { position: static !important; transform: none !important; max-width: min(320px, 100%) !important; display: block; margin: 0 auto; }
+  .VPHero .image-bg { display: none; }
+  .VPHero .image { margin: 0 auto 20px !important; }
+}
+
+/* the full edition's label next to the site title (EditionBadge.vue) */
+.pd-edition {
+  align-self: center; margin-left: 10px; font-size: 10.5px; line-height: 17px; padding: 0 7px; border-radius: 9px;
+  font-weight: 600; letter-spacing: .3px; white-space: nowrap;
+  color: var(--vp-c-text-2); border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-soft);
+}
+@media (max-width: 420px) { .pd-edition { margin-left: 6px; font-size: 9.5px; padding: 0 5px; } }

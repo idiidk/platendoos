@@ -1,0 +1,197 @@
+[
+ {
+  "kind": "sym",
+  "sym": "__ZN2db13SpotifyBridge13timerCallbackEi",
+  "win": null,
+  "how": null,
+  "sim": null,
+  "cands": [
+   [
+    "0x141ed27d0",
+    2.62,
+    7,
+    0.52
+   ],
+   [
+    "0x141eee3c0",
+    2.61,
+    7,
+    0.51
+   ],
+   [
+    "0x141e74990",
+    2.61,
+    7,
+    0.51
+   ],
+   [
+    "0x141f16fb0",
+    2.57,
+    7,
+    0.47
+   ],
+   [
+    "0x1414b5860",
+    2.23,
+    7,
+    0.13
+   ],
+   [
+    "0x142f6a450",
+    1.98,
+    5,
+    0.48
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN2db13SpotifyBridge26getNewPlaylistsAndSetCacheERKN4juce5ArrayIjNS1_20DummyCriticalSectionELi0EEE",
+  "win": "0x141ee98b0",
+  "how": "vt",
+  "sim": 0.71,
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming16StreamingManager17isSpotifyProtocolERKN4juce6StringE",
+  "win": null,
+  "how": null,
+  "sim": null,
+  "cands": [
+   [
+    "0x1413d7290",
+    1.64,
+    5,
+    0.14
+   ],
+   [
+    "0x142a5aba0",
+    1.25,
+    3,
+    0.35
+   ],
+   [
+    "0x142a5c330",
+    0.92,
+    1,
+    0.62
+   ],
+   [
+    "0x14216ac30",
+    0.73,
+    2,
+    0.13
+   ],
+   [
+    "0x1413a7d90",
+    0.61,
+    2,
+    0.01
+   ],
+   [
+    "0x142a6d3a0",
+    0.46,
+    1,
+    0.16
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming7spotify6Client28onRequestClientTokenCallbackEPKc15DJDownloadError",
+  "win": null,
+  "how": null,
+  "sim": null,
+  "cands": [
+   [
+    "0x14237fbc0",
+    1.87,
+    5,
+    0.37
+   ],
+   [
+    "0x1424a2e90",
+    1.83,
+    4,
+    0.63
+   ],
+   [
+    "0x1423c52e0",
+    1.78,
+    4,
+    0.58
+   ],
+   [
+    "0x1423c5220",
+    1.77,
+    4,
+    0.57
+   ],
+   [
+    "0x1424a2d40",
+    1.76,
+    4,
+    0.56
+   ],
+   [
+    "0x141ad5400",
+    1.75,
+    4,
+    0.55
+   ]
+  ]
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming7spotify7Service15getLookupTracksERKN4juce11StringArrayEii",
+  "win": "0x142f0d6a0",
+  "how": "vt",
+  "sim": 0.42,
+  "cands": []
+ },
+ {
+  "kind": "sym",
+  "sym": "__ZN9streaming7spotify7Service17getPlaylistTracksERKN4juce6StringEii",
+  "win": "0x142f0d490",
+  "how": "vt",
+  "sim": 0.37,
+  "cands": []
+ },
+ {
+  "kind": "hook",
+  "name": "spotify_rev_refresh",
+  "caller": "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge29refreshListTrack_myCollectionENS2_10_list_typeEjcRN4juce10OwnedArrayINS2_12RowDataTrackENS5_20DummyCriticalSectionEEEbbE4$_20NS_9allocatorISB_EEFvPNS5_13ThreadPoolJobEEEclEOSF_",
+  "nth": 0,
+  "count": 1,
+  "target": "__ZN4juceneERKNS_6StringES2_",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "spotify_rev_library",
+  "caller": "__ZN2db13SpotifyBridge26getNewPlaylistsAndSetCacheERKN4juce5ArrayIjNS1_20DummyCriticalSectionELi0EEE",
+  "nth": 7,
+  "count": 8,
+  "target": "__ZN4juceneERKNS_6StringES2_",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "spotify_rev_item1",
+  "caller": "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge15refreshListItemEvE4$_21NS_9allocatorIS4_EEFvPN4juce13ThreadPoolJobEEEclEOS9_",
+  "nth": 4,
+  "count": 6,
+  "target": "__ZN4juceneERKNS_6StringES2_",
+  "hookkind": -1
+ },
+ {
+  "kind": "hook",
+  "name": "spotify_rev_item2",
+  "caller": "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge15refreshListItemEvE4$_21NS_9allocatorIS4_EEFvPN4juce13ThreadPoolJobEEEclEOS9_",
+  "nth": 5,
+  "count": 6,
+  "target": "__ZN4juceneERKNS_6StringES2_",
+  "hookkind": -1
+ }
+]

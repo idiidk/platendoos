@@ -1,0 +1,14 @@
+[
+ {"item": "__ZN2db10DatabaseIF10getCueInfoEjRN4juce10OwnedArrayIN8analyzer3CueENS1_20DummyCriticalSectionEEENS_12_browse_typeEl", "kind": "sym", "verdict": "pick", "win": "0x141f336b0", "confidence": "high",
+  "why": "wrapper: mov rcx,[rcx]; test; jne 141f4dc80; else eax=-1. UiProDJLink::ReceiveGetContentAllCuesEvent 0x14197d9d0: SingletonHolder<DatabaseIF>::get, edx=id, r8=&OwnedArray (16 bytes on the stack, its count read after at +0xc), r9d=1 (browse type), [rsp+0x20]=0 (long); 5 callers incl. ConvertMemoryCueThread::run"},
+ {"item": "__ZN2db10DatabaseIF9deleteCueEjjNS_12_browse_typeElPN6rbxfrm21IPreparedDataListenerE", "kind": "sym", "verdict": "pick", "win": "0x141f336f0", "confidence": "high",
+  "why": "wrapper: mov rcx,[rcx]; test; jne 141f4ea50; ret (void). DjplayDB::deleteHotCueData 0x1425498f0: get(), edx=content id, r8d=cue id, r9d=browse type, [rsp+0x20]=long, [rsp+0x28]=listener: (uint,uint,browse_type,long,listener*) as mac; mac has deleteCue right before setCue, Windows too (next thunk)"},
+ {"item": "__ZN2db10DatabaseIF6setCueEjRN8analyzer3CueENS_12_browse_typeElPN6rbxfrm21IPreparedDataListenerE", "kind": "sym", "verdict": "pick", "win": "0x141f33710", "confidence": "high",
+  "why": "wrapper: mov rcx,[rcx]; test; jne 141f4ef80; ret. UiProDJLink 0x14197dc30 builds an analyzer::Cue on the stack (vptr = __ZTVN8analyzer3CueE+0x10 0x1437cfb80, +0x30 word 0xff00, String at +0x38, size 0x78, as mac), fills it (1980be0: +8 id, +0xc kind, +0x10 in, +0x18 out, +0x31, +0x38 comment, +0x4c colour index) and calls this with edx=id, r8=&cue, r9d=1, [rsp+0x20]=0, [rsp+0x28]=0; ConvertMemoryCueThread::run calls it too; the thunks after it take (..,bool) = setActiveLoop/resetActiveLoop, then sortCues' two-bool thunk 141f33790, the mac order"},
+ {"item": "__ZN2db10DatabaseIF15modifyTrackDataERNS_12RowDataTrackENS_14ListDataCommon7ColNameERKN4juce6StringEbb", "kind": "sym", "verdict": "ok", "win": "0x141f323d0", "confidence": "high",
+  "why": "matched (m8.pkl); like mac it puts the row into a one-element Array and calls the Array overload 141f32050 with the same col, string and both bools; 25 callers in the browse modifiers (0x1414a1080..) call it as get(), rdx=row, r8d=col, r9=&String, [rsp+0x20]=0, [rsp+0x28]=1: (false,true) as mac GenreModifier::modifyGenre"},
+ {"item": "__ZN2db15TrackListSorter12compareGenreEPNS_12RowDataTrackES2_", "kind": "sym", "verdict": "pick", "win": "0x1423a4770", "confidence": "high",
+  "why": "same code as mac (show.py): per row lea [row+0x180] (genre String), [row+0x168] (genre id), [row+8], [row+0x50], sort kind 4, for both rows"},
+ {"item": "O_rowGenre", "kind": "offset", "fn": "__ZN2db15TrackListSorter12compareGenreEPNS_12RowDataTrackES2_", "kind_recipe": "add x1", "nth": 0, "verdict": "ok", "value": "0x180", "confidence": "high",
+  "why": "win 1423a4770: lea rax,[r8+0x180] next to the genre id at +0x168, same as mac"}
+]

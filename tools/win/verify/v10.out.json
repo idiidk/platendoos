@@ -1,0 +1,84 @@
+[
+ {
+  "item": "O_trackTitle",
+  "kind": "offset",
+  "verdict": "ok",
+  "value": "0x20",
+  "fn": "__ZN2db15TrackListSorter12compareTitleEPNS_12RowDataTrackES2_",
+  "kind_recipe": "add x1",
+  "nth": 0,
+  "confidence": "high",
+  "why": "Windows compareTitle 0x1423a4580 does lea rax,[rdx+0x20] / [r8+0x20] for StringToCompare, same as mac; type at +0x50, id at +8 also identical"
+ },
+ {
+  "item": "__ZN9streaming16StreamingManager17isSpotifyProtocolERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142eecb60",
+  "confidence": "high",
+  "why": "leaf (missing from fn list): mov rcx,[rcx+0x38]; test; jz xor al; mov rax,[rcx]; jmp [rax+0x28] (mac slot 0x30; one dtor slot fewer). Called by DataPath::IsSpotifyProtocol 0x141e6de90 as (manager=GetInstance 0x14110e5f0, &String at this+0x10). Neighbour 0x142eecb80 is the same shape on field +0x20 (a different protocol check)"
+ },
+ {
+  "item": "O_trackFlags",
+  "kind": "offset",
+  "verdict": "ok",
+  "value": "0x3f8",
+  "fn": "__ZNK2db12RowDataTrack17isAnalysisEnabledEv",
+  "kind_recipe": "ldr x0",
+  "nth": 1,
+  "confidence": "high",
+  "why": "isAnalysisEnabled is inlined on Windows (no standalone fn). Inlined copies e.g. 0x1414b0a0c, 0x1414bd121, 0x1415ee688, 0x14111e1da: mov eax,[reg+0x3f8]; test al,0x20; cmp byte [reg+0x3fc],0 ; jns; test al,2; bt eax,0x18; shr eax,0x1b - exact same bit logic as mac. Type field is still +0x50 (cmp 6/1 seen at 0x141fdf90d with test [r15+0x3f8] nearby). Use these Windows fns, or read the field directly"
+ },
+ {
+  "item": "O_ctvRoot",
+  "kind": "offset",
+  "verdict": "ok",
+  "value": "0x148",
+  "fn": "__ZNK6browse14CustomTreeView15getSelectedItemEi",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "confidence": "high",
+  "why": "Windows CustomTreeView::getSelectedItem 0x141624460: mov rcx,[rcx+0x148]; test; jne 0x141623390 (getSelectedItemWithIndex) else xor eax - same shape as mac (+0x158); shifted by -0x10"
+ },
+ {
+  "item": "O_historyDeck",
+  "kind": "offset",
+  "verdict": "ok",
+  "value": "0x28",
+  "fn": "__ZN6djplay8UiPlayer18PlayHistoryManagerC1Ei",
+  "kind_recipe": "str x0",
+  "nth": 1,
+  "confidence": "high",
+  "why": "PlayHistoryManager ctor 0x1425a2070: Timer ctor then mov [rdi+0x28],ebx (deck int arg); [rdi+0x2c]=0 qword as mac"
+ },
+ {
+  "item": "__ZN4juce17MemoryInputStreamC1EPKvmb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142a70f10",
+  "confidence": "medium",
+  "why": "Windows has no 3-arg (ptr,size,keepCopy) ctor; the keepCopy=false path is the standalone 0x142a70f10 (this,data,size): vtable store, [+8]=data,[+0x10]=size, +0x18/+0x20/+0x28=0, returns this (vtable 0x1457a2738, 0x30 bytes used). The copying path is only in the MemoryBlock ctor 0x142a70e30 (this, MemoryBlock const* {data@0,size@8}, bool keepCopy), which allocs 0x14299f450/460 and memcpy; for the mod's keepCopy=true either call 0x142a70e30 with a stack MemoryBlock{data,size} (it copies, doesn't own the block), or call 0x142a70f10 and keep the bytes alive. Signature differs from mac: no bool arg"
+ },
+ {
+  "item": "O_itemSize",
+  "kind": "offset",
+  "verdict": "ok",
+  "value": "0x10",
+  "fn": "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE",
+  "kind_recipe": "str x20",
+  "nth": 1,
+  "confidence": "high",
+  "why": "Windows addImageToCache 0x1415fdfa0: mov [rbx+0x10],edi after width*height*(4 if ARGB, 3 if RGB), then add edx,[rbx+0x10] to the total; Item layout same (hash +8, size +0x10, String id +0x18). Note labels in matcher are wrong there (0x14280dfc8 is operator new, 0x142b006e0/700 getHeight/getWidth)"
+ },
+ {
+  "item": "O_readerLength",
+  "kind": "offset",
+  "verdict": "ok",
+  "value": "0x238",
+  "fn": "__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE6unloadEv",
+  "kind_recipe": "str x19",
+  "nth": 0,
+  "confidence": "medium",
+  "why": "0x141104f90 is a this-adjusting thunk (add rcx,-0x250 -> real unload 0x141104fc0, which has mac's +0x259 flag at +0x289, i.e. everything +0x30..+0x40); the length write 'mov dword [rbx-0x18],0' with rbx=thunk this = real+0x250 gives +0x238 from the real object. Mac pairs: unregisterMyself arg +0x1d8 -> +0x218 (rbx-0x38), length +0x1f8 -> +0x238 - consistent +0x40 shift. If the mod passes the thunk's (secondary-base) this, the value from that pointer is -0x18 instead"
+ }
+]

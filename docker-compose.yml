@@ -1,0 +1,14 @@
+# The documentation site (website/), for Coolify or any Docker host: website/README.md, "Host it".
+# Coolify: Docker Compose build pack, this file; the service "docs" listens on 8080 (its domain:
+# https://docs.example.com:8080). Locally: docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+services:
+  docs:
+    build:
+      context: .
+      dockerfile: website/Dockerfile
+    image: platendoos-docs
+    restart: unless-stopped
+    environment:
+      PORT: ${PORT:-8080}
+    expose:
+      - ${PORT:-8080}

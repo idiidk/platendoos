@@ -1,0 +1,4 @@
+[
+ {"item": "O_lvNumRows", "kind": "offset", "fn": "__ZN6browse10ListViewer10getNumRowsEv", "kind_recipe": "ldr x0", "nth": 0, "value": "0x240", "confidence": "high", "why": "Windows getNumRows is the leaf 0x141141c90 (mov eax,[rcx+0x118]) in the TableListBoxModel subobject at ListViewer+0x128 (vtable 0x1438c4928 slot 1, only there), so the field is ListViewer+0x240; getRowByIndex 0x1414addc0 (this=ListViewer) compares its index with [rcx+0x240]. core.cpp reads it directly on Windows. mac recipe: recipes.py find gives {getNumRows,'ldr x0',0} = 0x258"},
+ {"item": "S_rowDataTrack", "kind": "offset", "value": "0x4e0", "confidence": "high", "why": "not a recipe (a literal in core.cpp, valid on Windows too): Windows 0x141400134 / 0x1413ac87e do mov ecx,0x4e0; call operator new(0x14280dfc8); mov rcx,rax; call RowDataTrack::RowDataTrack (0x1413a8200) = mac size"}
+]
