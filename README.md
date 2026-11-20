@@ -15,9 +15,7 @@ Your own rekordbox is never touched. On macOS platendoos makes a separate copy, 
 that loads the mods; on Windows `platendoos.exe` starts your installed rekordbox with the mods loaded, without
 changing any of its files. Open rekordbox the usual way whenever you want it plain.
 
-<!-- The public trailer (trailer/platendoos-trailer-public.mp4, 2:57, made with render.py --edition public) goes here
-once it is uploaded to GitHub: its https://github.com/user-attachments/assets/... link on a line of its own, then
-<p align="center"><sub>The trailer (2:57, with sound), recorded in rekordbox.</sub></p> -->
+<p align="center"><b><a href="https://media.idiidk.nl/platendoos-trailer.mp4">▶ Watch the trailer</a></b> (2:57, with sound), recorded in rekordbox.</p>
 
 > Made for and tested on rekordbox **7.2.19**; **7.2.20** was checked the day it came out and runs with every mod
 > on, on both platforms. On macOS, after a rekordbox update the mods try to find their way around by themselves;

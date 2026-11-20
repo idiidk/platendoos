@@ -5,10 +5,10 @@ export default {
   // SITE_BASE=/docs/ npm run build. (The Docker image, website/Dockerfile, builds the public edition at '/'.)
   base: '/',
 
-  // The trailer on the home page. The video (about 56 MB) isn't in git: by default the page plays it from the
-  // v0.3.1 release. `npm run build:with-trailer` copies trailer/platendoos-trailer.mp4 into the build instead.
-  // Note: while the GitHub repository is private, the release asset doesn't load for visitors.
-  trailerUrl: 'https://github.com/idiidk/platendoos/releases/download/v0.3.1/platendoos-trailer.mp4',
+  // The trailer on the home page (the public edition's, 2:57). The video isn't in git: it's served from the
+  // platendoos-media R2 bucket on Cloudflare (media.idiidk.nl). `npm run build:with-trailer` copies
+  // trailer/platendoos-trailer.mp4 into the build instead.
+  trailerUrl: 'https://media.idiidk.nl/platendoos-trailer.mp4',
 
   repo: 'https://github.com/idiidk/platendoos',
 }

@@ -11,11 +11,12 @@ type Extra = {
   // sidebar entries per group: { group: 'Guides' | <a mods group>, text?, link? | mod?, platform?, before? }
   sidebar?: { group: string; text?: string; link?: string; mod?: string; platform?: string; before?: string }[]
   badge?: string // shown next to the site title
+  trailer?: string // the trailer's URL, instead of site.trailerUrl
 }
 const extraFile = fileURLToPath(new URL('../../../private/website/site.mjs', import.meta.url))
 const extra: Extra = edition === 'private' && existsSync(extraFile) ? (await import(pathToFileURL(extraFile).href)).default : {}
 // npm run build:with-trailer serves the trailer from the site itself (scripts/build-with-trailer.mjs)
-const trailer = process.env.PLATENDOOS_TRAILER === 'local' ? '/platendoos-trailer.mp4' : site.trailerUrl
+const trailer = process.env.PLATENDOOS_TRAILER === 'local' ? '/platendoos-trailer.mp4' : extra.trailer ?? site.trailerUrl
 
 // The mods, grouped as in the README. mac: macOS only; win: Windows only.
 const modGroups: { text: string; mods: [string, string?][] }[] = [
