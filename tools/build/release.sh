@@ -83,7 +83,7 @@ prev=$(git describe --tags --abbrev=0 --match 'v*' $sha^ 2>/dev/null || true)
     print
     print -r -- "Needs rekordbox 7 installed (made for 7.2.19 and 7.2.20, tested on both). The patcher carries only the mods and their models, no part of rekordbox."
     print
-    print -r -- "- **macOS** (Apple Silicon): unzip \`platendoos-patcher-mac-$ver.zip\` and open **platendoos patcher**. It isn't notarised: the first time, open *System Settings > Privacy & Security* and choose *Open Anyway*."
+    print -r -- "- **macOS** (Apple Silicon; **Intel Macs in beta**, tested only under Rosetta so far): unzip \`platendoos-patcher-mac-$ver.zip\` and open **platendoos patcher**. It isn't notarised: the first time, open *System Settings > Privacy & Security* and choose *Open Anyway*."
     print -r -- "- **Windows** (x64): unzip \`platendoos-windows-$ver.zip\` anywhere and run **platendoos patcher.exe** in the \`platendoos\` folder. It isn't signed: SmartScreen may warn, *More info > Run anyway*."
     print
     # the version's section of CHANGELOG.md (from "## <ver>" up to the next "## "), its ### headings one level up
