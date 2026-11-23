@@ -10,7 +10,8 @@ The same mods run in rekordbox for Windows. This explains what's different and h
   for Windows (`tools/win/build.sh`). The rest of the `.mm` files are mac-only mods (midipoll, screeninfo,
   fontcache, and for now outputsync and betterfx).
 - Backends behind headers: `engines/dsp.h` (Accelerate / portable C++), `engines/beatthis_backend.h` and
-  `mods/betterstems_backend.h` (Core ML / ONNX Runtime), `mods/audiofile.h` (AudioToolbox / Media Foundation),
+  `mods/betterstems_backend.h` (Core ML / ONNX Runtime), `mods/audiofile.h` (AudioToolbox / Media Foundation,
+  and `mods/aiff.h` for AIFF, which Windows doesn't read),
   `mods/stemcodec.h` (AudioConverter AAC + LZFSE / Media Foundation), `mods/flx4_overlay.h` (AppKit / Win32),
   `core/webui.h` (the tool windows: WKWebView / WebView2, pages in `ui/`).
 - rekordbox's own C++ ABI differs: Itanium on mac, MSVC on Windows. Shared code avoids assuming either:

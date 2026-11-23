@@ -1,13 +1,16 @@
 // See audiofile.h. Windows: reading through Media Foundation's source reader (WAV, FLAC, MP3, AAC... whatever
-// Windows decodes). sameSamples compares two files as Media Foundation decodes them.
+// Windows decodes), and AIFF, which it doesn't read, through aiff.h. sameSamples compares two files as Media
+// Foundation decodes them.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>
 #include "audiofile.h"
+#include "aiff.h"
 #include "../core/rbmod.h"
 #include "../core/plat.h"
+#include <fstream>
 #include <mutex>
 #include <vector>
 
@@ -103,9 +106,19 @@ bool readMore(IMFSourceReader* r, std::vector<uint8_t>& out, bool* err) {
     }
 }
 
+// An AIFF file, opened, and its header (not ok: any other file, which Media Foundation gets).
+struct Aiff {
+    std::ifstream f;
+    aiff::Format x;
+    bool ok;
+    explicit Aiff(const std::string& path) : f(rbm::plat::fsPath(path), std::ios::binary) { ok = f && aiff::open(f, &x); }
+    int rate() const { return (int)(x.rate + 0.5); }
+};
+
 }  // namespace
 
 bool facts(const std::string& path, int* rate, long long* frames) {
+    if (Aiff a(path); a.ok) return *rate = a.rate(), *frames = a.x.frames, true;
     MfThread mf;
     Ptr<IMFSourceReader> r;
     if (!mf.ok || !openReader(path, r)) return false;
@@ -117,6 +130,11 @@ bool facts(const std::string& path, int* rate, long long* frames) {
 }
 
 bool probe(const std::string& path, Info* out) {
+    if (Aiff a(path); a.ok) {
+        out->seconds = a.x.frames / a.x.rate, out->sampleRate = a.x.rate;
+        out->bitRate = a.x.rate * a.x.channels * a.x.bytes() * 8;
+        return true;
+    }
     MfThread mf;
     Ptr<IMFSourceReader> r;
     if (!mf.ok || !openReader(path, r)) return false;
@@ -131,6 +149,7 @@ bool probe(const std::string& path, Info* out) {
 }
 
 bool readStereo16(const std::string& path, std::vector<int16_t>* out, int* rate) {
+    if (Aiff a(path); a.ok) return *rate = a.rate(), aiff::readStereo16(a.f, a.x, out);
     MfThread mf;
     Ptr<IMFSourceReader> r;
     if (!mf.ok || !openReader(path, r)) return false;

@@ -16,7 +16,8 @@ The same mods run in rekordbox for Windows. This explains what's different and h
   fontcache, and for now outputsync and betterfx).
 - Backends behind headers: `engines/dsp.h` (Accelerate / portable C++), `engines/beatthis_backend.h` and
 <!--@public win-audiofile-->
-  `mods/betterstems_backend.h` (Core ML / ONNX Runtime), `mods/audiofile.h` (AudioToolbox / Media Foundation),
+  `mods/betterstems_backend.h` (Core ML / ONNX Runtime), `mods/audiofile.h` (AudioToolbox / Media Foundation,
+  and `mods/aiff.h` for AIFF, which Windows doesn't read),
 <!--@/public-->
   `mods/stemcodec.h` (AudioConverter AAC + LZFSE / Media Foundation), `mods/flx4_overlay.h` (AppKit / Win32),
   `core/webui.h` (the tool windows: WKWebView / WebView2, pages in `ui/`).

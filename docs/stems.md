@@ -14,7 +14,8 @@ what we found about how it does that, and what platendoos does or will do about 
 - `MODEL`: 0 Spleeter 3 stems, 1 Demucs3 3 stems, 2 Spleeter 4 stems (the default), 3 Demucs3 4 stems.
   *STEMS Analysis Process* (setting `PartAnalysisQuality`, 0 = quality) picks Demucs3.
 - `OperationAtIndex(handle, chunk, inL, inR, out0L, out0R, ... out3L, out3R)`: planar float, 44.1 kHz. Outputs:
-  0 inst ("other"), 1 vocal, 2 drums, 3 bass (3-stem: inst = other + bass, last pair NULL).
+  0 inst ("other"), 1 vocal, 2 drums, 3 bass (3-stem: inst = other + bass; `OtherWithBass` takes no last pair, and
+  rekordbox leaves those two argument slots as they were, on both platforms: not NULL, never read them).
   Chunks: Spleeter 519168 samples (11.8 s) + 4096 each side; Demucs3 483052 + 1024 each side.
 - Separation starts when a track loads, chunk by chunk from the start, on the CPU. Playback waits for the chunk it
   needs. Spleeter jumps to the playhead (`isRandomAccessible`); Demucs3 goes strictly in order.

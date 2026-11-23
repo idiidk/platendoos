@@ -34,8 +34,13 @@ cflags=(--target=x86_64-pc-windows-msvc /MT /O2 /EHsc /std:c++20 /W3 /Zi /utf-8
     -Wno-microsoft-cast -Wno-deprecated-declarations -D_CRT_SECURE_NO_WARNINGS -DNOMINMAX -D_USE_MATH_DEFINES
     "-DPLATENDOOS_BUILD=\"$build\""
     /imsvc $xwin/crt/include /imsvc $xwin/sdk/include/ucrt /imsvc $xwin/sdk/include/um /imsvc $xwin/sdk/include/shared /imsvc $xwin/sdk/include/winrt
-    -I $root/core -I $here/include)
+    -I $root/core -I $here/include
+    # no build paths in the binaries (__FILE__, debug info): they would carry the builder's user name
+    "/clang:-ffile-prefix-map=$root/=" "/clang:-ffile-prefix-map=$HOME/=~/")
 [[ $edition == public ]] && cflags+=(-DRBM_PUBLIC=1)
+# changed compiler flags recompile everything (objects are otherwise only rebuilt when their sources change)
+mkdir -p $obj
+if [[ "$(cat $obj/cflags 2>/dev/null)" != "$cflags" ]]; then rm -f $obj/*.obj; print -r -- "$cflags" > $obj/cflags; fi
 libpaths=(/libpath:$xwin/crt/lib/x86_64 /libpath:$xwin/sdk/lib/um/x86_64 /libpath:$xwin/sdk/lib/ucrt/x86_64)
 
 srcs=($root/core/*.cpp(N) $root/mods/*.cpp(N) $root/engines/*.cpp(N))
@@ -94,7 +99,7 @@ for p in ${pids[waited+1,-1]}; do wait $p || fail=1; done
 # rekordbox ships sqlite3.dll and loads it itself: link against that copy (its exports in sqlite3.def)
 $llvm/llvm-dlltool -m i386:x86-64 -d $here/sqlite3.def -l $obj/sqlite3.lib
 
-$lld/lld-link /nologo /dll /debug /out:$pkg/rbmods.dll $objs $obj/icon.res $obj/sqlite3.lib $libpaths \
+$lld/lld-link /nologo /dll /debug /pdbaltpath:%_PDB% /out:$pkg/rbmods.dll $objs $obj/icon.res $obj/sqlite3.lib $libpaths \
     kernel32.lib user32.lib gdi32.lib shell32.lib ole32.lib bcrypt.lib advapi32.lib version.lib gdiplus.lib comctl32.lib winhttp.lib normaliz.lib shlwapi.lib
 $llvm/clang-cl $cflags /c /Fo$obj/launcher.obj -- $here/launcher.cpp
 $lld/lld-link /nologo /subsystem:windows /out:$pkg/platendoos.exe $obj/launcher.obj $obj/icon.res $libpaths kernel32.lib shell32.lib user32.lib

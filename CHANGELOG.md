@@ -3,6 +3,17 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
+## 0.4.1 (2026-11-23)
+
+- **No more crash when a track loads with rekordbox set to three stems.** With rekordbox's STEMS set to three
+  parts (vocal, inst, drums) instead of four, rekordbox crashed a few seconds after a track was loaded on a deck.
+  The stems mods (stemcache, betterstems) took a three-stem separation for a four-stem one and wrote the bass stem
+  to memory that wasn't theirs. Fixed on macOS and Windows; with four stems nothing changes. Thanks to the people
+  on r/Rekordbox who reported it and sent their logs.
+- **AIFF files on Windows.** The auto cues and genres windows read a track's audio file through Windows' own
+  decoders, and Windows has none for AIFF. platendoos now reads `.aif` / `.aiff` files itself there (AIFF and
+  uncompressed AIFF-C, 8 to 32 bits and float). On macOS they were read already.
+
 ## 0.4.0 (2026-11-20)
 
 - **Spotify audio stays off the disk.** platendoos no longer keeps Spotify tracks' audio on disk, decoded or as

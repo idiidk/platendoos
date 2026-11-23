@@ -5,9 +5,10 @@
 // libDemucs3.dylib) that AudioPartLibrary::load finds by name: <engine>OperationAtIndexOtherWithBass (3 stems) and
 // <engine>OperationAtIndexSeparatedBass (4 stems) separate one chunk:
 //   bool op(handle, chunk, inL, inR, out0L, out0R, out1L, out1R, out2L, out2R, out3L, out3R)
-// planar floats; out3 is NULL for 3 stems. This hands rekordbox wrappers instead: a chunk whose input audio was
-// separated before (same engine, model version and stem count) gets its stems from disk; any other is separated as
-// before and stored. Keyed by the audio itself (SHA-256 of the input), so it can't give a track another's stems.
+// planar floats. The 3-stem op takes no out3: rekordbox leaves those two stack slots as they were (not NULL), so
+// the stem count comes from which op it is, never from out3L. This hands rekordbox wrappers instead: a chunk whose
+// input audio was separated before (same engine, model version and stem count) gets its stems from disk; any other
+// is separated as before and stored. Keyed by the audio itself (SHA-256 of the input), so it can't give a track another's stems.
 // Stored as AAC (stemcodec.h; 256 kbps per stem by default: ~1.5 MB per chunk of 4 stems), or 16-bit PCM packed
 // losslessly (mid/side, order-2 prediction, byte planes, LZFSE: ~4-5 MB). Chunks of either kind are read.
 //
@@ -589,8 +590,10 @@ static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0
     g_chunksStarted++;
     g_lastOpAt = now();
     noteChunk(handle, false, true);
+    // K 0: OperationAtIndexOtherWithBass (3 stems; o3L/o3R are stale stack, not arguments), 1: SeparatedBass (4).
+    if (K == 0) o3L = o3R = nullptr;
     float* out[8] = {o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R};
-    int n = o3L ? 8 : 6, stems = n / 2;
+    int n = K == 1 ? 8 : 6, stems = n / 2;
     std::string model = better ? betterVersion() : e.version;
     // A Spotify track's chunks (or a separation's whose track isn't known) are kept in memory, never on disk.
     bool inMemory = g_on && separationSpotify(handle) != 0;

@@ -22,5 +22,6 @@ srcs=(${srcs:#*_win.*})
 srcs=(${srcs:#*_ort.*})   # ONNX Runtime backends (and the wrapper, engines/ort.cpp): Windows only, the mac ones are Core ML
 srcs=(${srcs:#*/engines/ort.cpp})
 clang++ -std=c++20 -O2 -arch arm64 -dynamiclib -fobjc-arc -framework AppKit -framework QuartzCore -framework Security -framework WebKit -framework CoreText -framework Accelerate -framework CoreML -framework AudioToolbox -framework AVFoundation -framework CoreMIDI -framework CoreAudio -lsqlite3 -lcompression -Wall -Wno-return-type-c-linkage -DPLATENDOOS_BUILD="\"$build\"" $defs \
+    -ffile-prefix-map="$here/=" -ffile-prefix-map="$HOME/=~/" -install_name @executable_path/librbmods.dylib \
     -o "$here/build/librbmods.dylib" $srcs
 print -r -- $edition > "$here/build/edition"
