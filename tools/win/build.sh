@@ -40,7 +40,7 @@ cflags=(--target=x86_64-pc-windows-msvc /MT /O2 /EHsc /std:c++20 /W3 /Zi /utf-8
 [[ $edition == public ]] && cflags+=(-DRBM_PUBLIC=1)
 # changed compiler flags recompile everything (objects are otherwise only rebuilt when their sources change)
 mkdir -p $obj
-if [[ "$(cat $obj/cflags 2>/dev/null)" != "$cflags" ]]; then rm -f $obj/*.obj; print -r -- "$cflags" > $obj/cflags; fi
+if [[ "$(cat $obj/cflags 2>/dev/null)" != "$cflags" ]]; then rm -f $obj/*.obj(N); print -r -- "$cflags" > $obj/cflags; fi
 libpaths=(/libpath:$xwin/crt/lib/x86_64 /libpath:$xwin/sdk/lib/um/x86_64 /libpath:$xwin/sdk/lib/ucrt/x86_64)
 
 srcs=($root/core/*.cpp(N) $root/mods/*.cpp(N) $root/engines/*.cpp(N))
