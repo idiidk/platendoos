@@ -3,6 +3,38 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
+## 0.6.0 (2026-11-23)
+
+- **Auto cues: memory cues, and your own pad layout.** Many older CDJs show only hot cues A–C or A–D, and every
+  CDJ has ten memory cues. The auto cues window has a new **Layout** button (next to ⚙): per cue (intro, build,
+  drop, breakdown, build 2, drop 2, outro, fake drop) you pick its hot cue pad, A–H or none, and whether it is
+  also written as a memory cue. Six presets: eight pads (A–H, the default, as before), eight pads + memory cues,
+  the main four on A–D with the rest on E–H + memory cues, four pads (A–D) + memory cues, three pads (A–C) +
+  memory cues, and memory cues only. A layout change applies to every track in the window at once, without asking
+  the model again.
+- **Memory cues** get the cue's name as their comment and no colour. A track holds ten: the memory cues already
+  on it count, and what doesn't fit is left out (the status line says how many). Two cues on the same spot give
+  one memory cue. **Replace existing cues** now also removes a track's other memory cues when new ones are written
+  to it. **Undo write** takes back the last **Write cues** or **Remove cues**, as before.
+- **Auto cues: rulesets.** The lower half of Layout says where the intro, build and outro cues go, as a choice of
+  five rulesets: Arrangement (every cue where its part starts, the default, as before), builds 8 bars before the
+  drop, builds 16 bars before the drop, Mix points (intro on the first drums, builds 16 bars before the drop,
+  outro 32 bars before the end) and Long blends (intro on the first drums, builds 32 bars before the drop, outro
+  64 bars before the end). Each rule can also be set by itself: the intro cue on the first bar with sound, the
+  first bar with drums or the track's first bar; build cues where the build starts or 4, 8, 16 or 32 bars before
+  their drop; the outro cue where the last loud part ends or 16, 32 or 64 bars before the track ends. The rules
+  work without a model and hold for a model's cues too. Where a rule doesn't fit a track (no room for the build
+  before its drop, say), that cue stays where it was.
+- **Auto cues without a language model.** Under ⚙ there is now **No model** next to OpenRouter and Claude Code
+  (`autocue_provider=none`): the built-in rules place the cues, nothing is sent anywhere, and there is no key, no
+  account and no cost. The instructions box at the top of the window makes way for the ruleset dropdown. Cues a
+  model gave a track before stay available under *Cues from: The model*.
+- **Where an analysis' time goes.** The log (`~/Library/Logs/rekordbox-mods.log` on macOS) has a line per
+  auto cues analysis with the time spent reading the audio, separating stems and working out the arrangement. One
+  example, on an Apple Silicon Mac with HTDemucs: a local 3:43 track took 0.7 s, 18.5 s and 1.5 s.
+- Hovering a cue card in the auto cues window no longer shifts its text.
+- All of this was tested on macOS in rekordbox. On Windows it builds but has not been run yet.
+
 ## 0.5.1 (2026-11-23)
 
 - **HTDemucs stems that were noise on some graphics cards** (Windows). On some cards the stems came out as a loud

@@ -26,7 +26,7 @@ EXTRA = {
 }
 # Public summaries where the template's (from the README) still speaks of the full edition.
 PUBLIC_SUMMARY = {
-    'autocue': 'Sets hot cues A–H (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist, '
+    'autocue': 'Sets cues (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist as hot cues A–H, as memory cues, or both, '
                'Spotify tracks too.',
 }
 BEGIN, END = '<!--@public settings-options-->', '<!--@/public-->'

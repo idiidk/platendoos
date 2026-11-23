@@ -52,17 +52,31 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #artcache_mb=256
 
 # ---- autocue ----
-# Sets hot cues A–H (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a
-# playlist, Spotify tracks too (read from the stream into memory by spotifyaudio).
+# Sets cues (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist as
+# hot cues A–H, as memory cues, or both, Spotify tracks too (read from the stream into memory by
+# spotifyaudio).
 #autocue=1
+#   4, 8, 16 or 32 puts build cues that many bars before their drop (0: where the build starts)
+#autocue_build_bars=0
 #   Claude Code's model (an alias or a full name)
 #autocue_claude_model=haiku
 #autocue_claude_path=
+#   where the intro cue goes: sound (the first bar with sound), drums (the first bar with drums)
+#   or start (the track's first bar)
+#autocue_intro=sound
+#   per cue, in autocue_pads' order: 1 writes it as a memory cue too (or only, without a pad)
+#autocue_memory=00000000
 #   any model id from openrouter.ai/models
 #autocue_model=anthropic/claude-haiku-5.5
+#   16, 32 or 64 puts the outro cue that many bars before the track ends (0: where the last loud
+#   part ends)
+#autocue_outro_bars=0
+#   the hot cue pad of Intro, Build, Drop, Breakdown, Build 2, Drop 2, Outro and Fake drop, in
+#   that order (- for none); set in the window under Layout
+#autocue_pads=ABCDEFGH
 #   tracks analysed at once (one of them separates stems at a time)
 #autocue_parallel=3
-#   or claude: the local Claude Code CLI
+#   or claude: the local Claude Code CLI; none: no model, the built-in rules place the cues
 #autocue_provider=openrouter
 #   0 analyses three bands of the mix instead of stems (faster: no separation)
 #autocue_stems=1
@@ -358,17 +372,31 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #audiomem_lazy=1
 
 # ---- autocue ----
-# Sets hot cues A–H (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a
-# playlist, Spotify tracks too (read from the stream into memory by spotifyaudio).
+# Sets cues (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist as
+# hot cues A–H, as memory cues, or both, Spotify tracks too (read from the stream into memory by
+# spotifyaudio).
 #autocue=1
+#   4, 8, 16 or 32 puts build cues that many bars before their drop (0: where the build starts)
+#autocue_build_bars=0
 #   Claude Code's model (an alias or a full name)
 #autocue_claude_model=haiku
 #autocue_claude_path=
+#   where the intro cue goes: sound (the first bar with sound), drums (the first bar with drums)
+#   or start (the track's first bar)
+#autocue_intro=sound
+#   per cue, in autocue_pads' order: 1 writes it as a memory cue too (or only, without a pad)
+#autocue_memory=00000000
 #   any model id from openrouter.ai/models
 #autocue_model=anthropic/claude-haiku-5.5
+#   16, 32 or 64 puts the outro cue that many bars before the track ends (0: where the last loud
+#   part ends)
+#autocue_outro_bars=0
+#   the hot cue pad of Intro, Build, Drop, Breakdown, Build 2, Drop 2, Outro and Fake drop, in
+#   that order (- for none); set in the window under Layout
+#autocue_pads=ABCDEFGH
 #   tracks analysed at once (one of them separates stems at a time)
 #autocue_parallel=3
-#   or claude: the local Claude Code CLI
+#   or claude: the local Claude Code CLI; none: no model, the built-in rules place the cues
 #autocue_provider=openrouter
 #   0 analyses three bands of the mix instead of stems (faster: no separation)
 #autocue_stems=1

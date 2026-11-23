@@ -12,7 +12,7 @@ patcher); a restart of rekordbox applies that. Mods marked <span class="pd-tag">
 | [spotifyapi](./spotifyapi) | Lets rekordbox load several Spotify track lists at once instead of one after the other. A big playlist shows up roughly twice as fast. |
 | [spotifyfix](./spotifyfix) | Stops Spotify playlists from endlessly reloading, and fixes a deadlock that could freeze every Spotify download until you force quit. |
 | [spotifystart](./spotifystart) <span class="pd-tag">win</span> | rekordbox 7.2.19 for Windows only: fixes Spotify hanging on "loading the library" after a restart. |
-| [autocue](./autocue) | Sets hot cues A–H (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist's tracks from their arrangement, placed by a language model or built-in rules. |
+| [autocue](./autocue) | Sets cues (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist's tracks from their arrangement, as hot cues A–H, memory cues or both, placed by built-in rules (five rulesets, no model needed) or a language model. |
 | [genres](./genres) | Fills the Genre field from what the music sounds like, with a style model that knows 400 Discogs styles. |
 | [spotifyaudio](./spotifyaudio) | Reads a Spotify track from the stream into memory for the auto cues and genres windows. Nothing is written to disk. |
 <!--@private mods-index-spotify-b-->

@@ -17,7 +17,7 @@ mods fix that.
 | Covers downloaded over and over | Far more of them kept in memory | [artcache](/mods/artcache) |
 | Only rekordbox itself can read a Spotify track | The auto cues and genres windows read it too, into memory | [spotifyaudio](/mods/spotifyaudio) |
 | No genre for Spotify tracks in Spotify playlists | Genres detected and shown | [genres](/mods/genres) |
-| No cues on a Spotify track until you set them | Hot cues A–H from the arrangement | [autocue](/mods/autocue) |
+| No cues on a Spotify track until you set them | Hot cues and memory cues from the arrangement | [autocue](/mods/autocue) |
 
 Spotify's audio is only ever streamed: platendoos doesn't write it to disk. What it keeps of a Spotify track is
 what rekordbox keeps too, its analysis (grid, key, waveforms) and your cues.

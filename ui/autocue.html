@@ -16,6 +16,19 @@
   #settings { position: absolute; right: 16px; top: 46px; z-index: 5; width: 380px; background: var(--bg3); border: 1px solid var(--line);
     border-radius: 8px; padding: 12px 14px; display: none; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
   #settings.open { display: block; }
+  #layout { position: absolute; right: 58px; top: 46px; z-index: 5; width: 400px; background: var(--bg3); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px 14px; display: none; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+  #layout.open { display: block; }
+  #layout .l { color: var(--fg2); margin: 8px 0 4px; } #layout > .l:first-child { margin-top: 0; }
+  #layout select { width: 100%; }
+  #lay { width: 100%; border-collapse: collapse; margin-top: 2px; }
+  #lay th { color: var(--fg3); font-weight: 400; font-size: 11px; text-align: left; padding: 0 0 3px; }
+  #lay td { padding: 2px 0; } #lay td:first-child { width: 100%; } #lay th.c, #lay td.c { text-align: center; padding-left: 14px; white-space: nowrap; }
+  #lay .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; }
+  #lay select { width: 62px; padding: 2px 6px; } #lay tr.off td:first-child { color: var(--fg3); }
+  #layout .opt { display: flex; align-items: center; gap: 8px; margin-top: 5px; } #layout .opt span { width: 76px; flex: none; color: var(--fg2); } #layout .opt select { flex: 1; min-width: 0; }
+  #layout hr { border: 0; border-top: 1px solid var(--line); margin: 11px -14px 2px; }
+  #rulesTop { flex: 1; min-width: 120px; height: 28px; display: none; }
   #settings .l { color: var(--fg2); margin: 8px 0 4px; } #settings > .l:first-child { margin-top: 0; }
   #settings select, #settings input[type=text], #settings input[type=password] { width: 100%; }
   #settings .r { display: flex; gap: 6px; align-items: center; } .ok { color: var(--green); flex: 1; }
@@ -38,23 +51,25 @@
   #empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--fg2); font-size: 14px; text-align: center; padding: 0 60px; }
   #cv { width: 100%; display: block; border-radius: 6px; background: #17181b; }
   #hint { color: var(--fg3); font-size: 11px; display: flex; gap: 14px; } #hint .sp { flex: 1; } #hover { color: var(--fg2); }
-  #pads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  #pads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .pad { background: var(--bg2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; min-height: 74px; position: relative; }
   .pad.sel { border-color: var(--accent); background: #22303d; }
-  .pad .h { display: flex; align-items: center; gap: 6px; }
+  .pad .h { display: flex; align-items: center; gap: 6px; min-height: 20px; }
   .pad .k { width: 18px; height: 18px; border-radius: 4px; color: #111; font-weight: 700; text-align: center; line-height: 18px; flex: none; }
   .pad .n { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pad .w { color: var(--fg2); font-size: 11px; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .pad.none .k { opacity: .35; } .pad.none .n { color: var(--fg3); font-weight: 400; }
-  .pad .b { visibility: hidden; display: flex; gap: 3px; flex: none; }
-  .pad:hover .b, .pad.sel .b { visibility: visible; } .pad.none .b { display: none; }
+  .pad .k.m { border-radius: 9px; } .pad.unused { opacity: .5; } .pad.unused .k { background: transparent !important; color: var(--fg3); box-shadow: inset 0 0 0 1px var(--fg3); }
+  .pad .k.also { margin-left: -3px; }
+  .pad .b { display: none; gap: 3px; flex: none; }
+  .pad:hover .b, .pad.sel .b { display: flex; } .pad.none .b, .pad.unused .b { display: none; }
   .pad .w b { color: var(--fg); font-weight: 500; }
   .pad .b button { min-width: 0; padding: 0; width: 22px; height: 19px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; }
   .pad .b svg { width: 10px; height: 10px; pointer-events: none; display: block; }
   .pad .b button.on { background: var(--accent); border-color: var(--accent); }
   #settings .seg { display: flex; margin-bottom: 4px; } #settings .seg button { flex: 1; padding: 4px 0; }
   .bad { color: var(--orange); }
-  .tag { font-size: 10px; border-radius: 3px; padding: 0 4px; margin-left: 4px; } .tag.set { color: var(--green); background: rgba(48,209,88,.14); } .tag.taken { color: var(--orange); background: rgba(255,159,10,.14); }
+  .tag { font-size: 10px; border-radius: 3px; padding: 0 4px; margin-left: 4px; white-space: nowrap; } .tag.set { color: var(--green); background: rgba(48,209,88,.14); } .tag.taken { color: var(--orange); background: rgba(255,159,10,.14); }
   #dHead { display: flex; align-items: flex-start; gap: 12px; } #dHead > div:first-child { flex: 1; min-width: 0; }
   #tools { display: flex; gap: 4px; flex: none; }
   button.ghost { background: transparent; border-color: var(--line); color: var(--fg2); min-width: 0; padding: 3px 9px; font-size: 11px; white-space: nowrap; }
@@ -79,11 +94,29 @@
   <div id="head">
     <div id="name"></div><div id="prog"></div>
     <textarea id="steer" spellcheck="false" placeholder="Your instructions for the model, e.g. “Build cues always 8 bars before the drop”"></textarea>
+    <select id="rulesTop" title="The built-in rules’ ruleset: where the intro, build and outro cues go (more under Layout)"></select>
     <button id="steerGo" title="Ask the model again about every track with these instructions (⌘↵)">Apply</button>
     <button id="analyse" class="primary">Analyse</button>
+    <button id="layoutBtn" title="Which cue goes on which pad, memory cues, and the rules for placing them">Layout</button>
     <button id="gear" class="icon" title="Model, key and stems">⚙</button>
+    <div id="layout">
+      <div class="l">Where each cue goes</div>
+      <select id="preset"></select>
+      <table id="lay"></table>
+      <div class="note">Older CDJs show only hot cues A–C or A–D; every one has 10 memory cues.</div>
+      <hr>
+      <div class="l">Rules for placing the cues</div>
+      <select id="ruleset"></select>
+      <div class="opt"><span>Intro cue</span><select id="introRule"><option value="sound">The first bar with sound</option><option value="drums">The first bar with drums</option><option value="start">The track’s first bar</option></select></div>
+      <div class="opt"><span>Build cues</span><select id="buildBars"><option value="0">Where the build starts</option><option value="4">4 bars before the drop</option><option value="8">8 bars before the drop</option>
+        <option value="16">16 bars before the drop</option><option value="32">32 bars before the drop</option></select></div>
+      <div class="opt"><span>Outro cue</span><select id="outroBars"><option value="0">Where the last loud part ends</option><option value="16">16 bars before the track ends</option>
+        <option value="32">32 bars before the track ends</option><option value="64">64 bars before the track ends</option></select></div>
+      <div class="note">These work without a model, and hold for a model’s cues too. A change here applies to every track at once, without asking the model again.</div>
+    </div>
     <div id="settings">
-      <div class="seg" id="provider"><button data-v="openrouter">OpenRouter</button><button data-v="claude">Claude Code</button></div>
+      <div class="seg" id="provider"><button data-v="openrouter">OpenRouter</button><button data-v="claude">Claude Code</button><button data-v="none" title="The built-in rules place the cues: nothing is sent anywhere">No model</button></div>
+      <div class="note" id="noneNote">The built-in rules place the cues. Nothing is sent anywhere and it costs nothing; your typed instructions aren’t used. Pick a ruleset at the top of the window; the rules one by one, and where each cue goes, are under Layout.</div>
       <div class="l" id="modelLabel">Model</div>
       <select id="modelList"></select>
       <input type="text" id="modelText" spellcheck="false" placeholder="provider/model" style="display:none;margin-top:6px">
@@ -124,7 +157,7 @@
       </div>
     </div>
   </div>
-  <div id="foot"><label class="check" title="Pads that already hold another cue get the new one"><input type="checkbox" id="replace"> Replace existing cues</label>
+  <div id="foot"><label class="check" title="Pads that already hold another cue get the new one, and a track’s other memory cues make way for the new ones"><input type="checkbox" id="replace"> Replace existing cues</label>
     <span id="status"></span><span class="sp"></span>
     <button id="remove" title="Removes every hot and memory cue from the ticked tracks (Undo puts them back)">Remove cues</button><button id="undo" title="Undoes the last Write cues or Remove cues in rekordbox">Undo write</button>
     <button id="apply" class="primary">Write cues</button><button id="close">Close</button></div>
@@ -146,6 +179,20 @@
   try { var sv = +localStorage.getItem('autocueSnap'); if (sv === 1 || sv === .25 || sv === .125) snap = sv; } catch (e) {}
   var undos = [], redos = [];  // your cue edits: {u, before, after} (slot -> position)
   var drag = null, hoverBar = 0, rowsHtml = '', steerSent = null, modelsKey = '', keyEdit = false;
+  // The layout: per cue (A Intro … H Fake drop, as the model names them) its hot cue pad ('-': none) and whether it is a memory cue too.
+  var L = { pads: 'ABCDEFGH', mem: '00000000', build: 0, intro: 'sound', outro: 0 }, layoutKey = '';
+  // The rulesets: sets of the rules for placing the cues (the intro cue, build cues, the outro cue).
+  var RULESETS = [{ n: 'Arrangement: every cue where its part starts', intro: 'sound', build: 0, outro: 0 },
+    { n: 'Builds 8 bars before the drop', intro: 'sound', build: 8, outro: 0 }, { n: 'Builds 16 bars before the drop', intro: 'sound', build: 16, outro: 0 },
+    { n: 'Mix points: intro on the first drums, builds 16 bars before the drop, outro 32 bars before the end', intro: 'drums', build: 16, outro: 32 },
+    { n: 'Long blends: intro on the first drums, builds 32 bars before the drop, outro 64 bars before the end', intro: 'drums', build: 32, outro: 64 }];
+  var PRESETS = [{ n: 'Eight pads (A–H)', pads: 'ABCDEFGH', mem: '00000000' }, { n: 'Eight pads + memory cues', pads: 'ABCDEFGH', mem: '11111111' },
+    { n: 'Main four on A–D, the rest on E–H + memory cues', pads: 'AEBCFDGH', mem: '11111111' }, { n: 'Four pads (A–D) + memory cues', pads: 'A-BC-D--', mem: '11111111' },
+    { n: 'Three pads (A–C) + memory cues', pads: 'A-BC----', mem: '11111111' }, { n: 'Memory cues only', pads: '--------', mem: '11111111' }];
+  function padOf(s) { var p = L.pads[s.charCodeAt(0) - 65]; return p === '-' ? '' : p; }
+  function memOf(s) { return L.mem[s.charCodeAt(0) - 65] === '1'; }
+  function used(s) { return !!padOf(s) || memOf(s); }
+  function label(s) { return padOf(s) || (memOf(s) ? 'M' : '–'); }  // what a cue's badge says: its pad, or M for a memory cue only
 
   function fmt(sec) { sec = Math.max(0, sec); var m = Math.floor(sec / 60), s = Math.floor(sec % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
   function send(cmd, more) { var o = more || {}; o.cmd = cmd; rbm.send(o); }
@@ -210,7 +257,7 @@
   function fmtAt(p) { var t = tOf(p), m = Math.floor(t / 60), sec = t - m * 60; return m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(p % 1 ? 1 : 0); }
   function secAt(x) { return Math.max(0, Math.min(dur(), (x - GUT) / (W - GUT - 4) * dur())); }
   function badges() {  // the draft's cues, left to right, nudged apart where they'd overlap
-    var out = Object.keys(draft).map(function (s) { return { s: s, bar: draft[s], x: xBar(draft[s]) }; });
+    var out = Object.keys(draft).filter(used).map(function (s) { return { s: s, bar: draft[s], x: xBar(draft[s]) }; });
     out.sort(function (a, b) { return a.bar - b.bar || (a.s < b.s ? -1 : 1); });
     for (var i = 0; i < out.length; i++) out[i].bx = i && out[i].x - out[i - 1].bx < 19 ? out[i - 1].bx + 19 : out[i].x;
     return out;
@@ -264,7 +311,7 @@
       g.beginPath(); g.moveTo(x, top); g.lineTo(x, H - 4); g.stroke(); g.lineWidth = 1; g.globalAlpha = 1;
       g.fillStyle = COL[q.s]; rr(q.bx - 1, cy, 18, 22, 4); g.fill();
       if (on) { g.strokeStyle = '#fff'; g.lineWidth = 1.5; rr(q.bx - 1, cy, 18, 22, 4); g.stroke(); g.lineWidth = 1; }
-      g.fillStyle = '#111'; g.textAlign = 'center'; g.font = 'bold 12px -apple-system, "Segoe UI", sans-serif'; g.fillText(q.s, q.bx + 8, cy + 12);
+      g.fillStyle = '#111'; g.textAlign = 'center'; g.font = 'bold 12px -apple-system, "Segoe UI", sans-serif'; g.fillText(label(q.s), q.bx + 8, cy + 12);
       g.font = '10px -apple-system, "Segoe UI", sans-serif';
     });
     // the parts' clips: the same colour and letter is the same material again
@@ -291,20 +338,24 @@
 
   function whyOf(s, bar) {
     var from = function (list, who) { for (var i = 0; i < list.length; i++) if (list[i].s === s && list[i].b === bar) return list[i].w || who; return ''; };
-    return from(D.ai.cues, 'the model') || from(D.an.cues, 'the rules') || 'Placed by you';
+    return from(D.ai.cues, 'the model') || from(D.rules, 'the rules') || 'Placed by you';
   }
   function renderPads() {
     var h = '';
     var unit = snap === 1 ? 'bar' : snap === .25 ? 'beat' : 'half beat', four = snap === 1 ? '4 bars' : snap === .25 ? '4 beats' : '2 beats';
     for (var i = 0; i < 8; i++) {
-      var s = 'ABCDEFGH'[i], bar = draft[s], p = 0;
-      D.draft.forEach(function (d) { if (d.s === s && d.b === bar) p = d.p; });
-      h += '<div class="pad' + (s === pad ? ' sel' : '') + (bar ? '' : ' none') + '" data-s="' + s + '"><div class="h"><span class="k" style="background:' + COL[s] + '">' + s + '</span>' +
-        '<span class="n">' + NAMES[i] + (p === 1 ? '<span class="tag set">in rekordbox</span>' : p === 2 ? '<span class="tag taken" title="This pad holds another cue in rekordbox: tick Replace existing cues to overwrite it">pad taken</span>' : '') + '</span>' +
+      var s = 'ABCDEFGH'[i], bar = draft[s], p = -1, m = -1, on = used(s), mo = on && !padOf(s);
+      D.draft.forEach(function (d) { if (d.s === s && d.b === bar) { p = d.p; m = d.m; } });
+      var set = bar && on && p !== 0 && p !== 2 && m !== 0;  // every cue it makes is in rekordbox
+      var tags = !bar || !on ? '' : set ? '<span class="tag set">in rekordbox</span>' : p === 2 ? '<span class="tag taken" title="This pad holds another cue in rekordbox: tick Replace existing cues to overwrite it">pad taken</span>' : '';
+      h += '<div class="pad' + (s === pad ? ' sel' : '') + (bar ? '' : ' none') + (on ? '' : ' unused') + '" data-s="' + s + '"><div class="h"><span class="k' + (mo ? ' m' : '') + '" style="background:' + COL[s] + '"' +
+        ' title="' + (!on ? 'Off in the layout' : mo ? 'A memory cue' : 'Hot cue ' + padOf(s)) + '">' + label(s) + '</span>' +
+        (memOf(s) && padOf(s) ? '<span class="k m also" style="background:' + COL[s] + '" title="And a memory cue' + (m === 1 ? ' (in rekordbox already)' : '') + '">M</span>' : '') +
+        '<span class="n">' + NAMES[i] + '</span>' +
         '<div class="b">' + (P && P.pad === s ? '<button data-a="play" class="on" title="Stop (space)">' + ICON.pause : '<button data-a="play" title="Listen from this cue (space, or double-click the cue)">' + ICON.play) + '</button>' +
         '<button data-a="-1" title="One ' + unit + ' earlier (←; ⇧ ' + four + ')">' + ICON.prev + '</button><button data-a="1" title="One ' + unit + ' later (→; ⇧ ' + four + ')">' + ICON.next + '</button>' +
         '<button data-a="del" title="Remove this cue (⌫)">' + ICON.del + '</button></div></div>' +
-        '<div class="w">' + (bar ? '<b>' + posName(bar) + ' · ' + fmtAt(bar) + '</b> ' + esc(whyOf(s, bar)) : s === pad ? 'Click the cue lane to place it' : 'Not set') + '</div></div>';
+        '<div class="w">' + (!on ? 'Not written: give it a pad or a memory cue under Layout' : bar ? '<b>' + posName(bar) + ' · ' + fmtAt(bar) + '</b>' + tags + ' ' + esc(whyOf(s, bar)) : s === pad ? 'Click the cue lane to place it' : 'Not set') + '</div></div>';
     }
     $('pads').innerHTML = h;
   }
@@ -377,7 +428,8 @@
     if (ai.status === 'asking' || ai.status === 'queued') t = 'Asking the model…';
     else if (ai.status === 'failed') t = '<span class="bad">The model failed: ' + esc(ai.error) + '</span>';
     else if (ai.status === 'done') t = ai.notes ? '<b>' + esc(m) + '</b>: ' + esc(ai.notes) : '';
-    else t = S && !S.canAsk ? 'No model set up: set one up under ⚙ to have it place the cues.' : '';
+    else t = S && S.provider === 'none' ? 'Placed by the built-in rules (no model: ⚙).' : S && !S.canAsk ? 'No model set up: set one up under ⚙ to have it place the cues.' : '';
+    if (S && S.provider === 'none' && ai.status === 'done') t = 'Placed by the built-in rules (no model: ⚙). The model’s earlier cues are under “The model”.';
     $('mText').innerHTML = t;
     $('askAgain').disabled = !S || !S.canAsk || ai.status === 'asking' || ai.status === 'queued';
     $('showSheet').className = 'ghost' + ($('sheet').classList.contains('open') ? ' on' : '');
@@ -389,7 +441,7 @@
   function same(a, b) { for (var i = 0; i < 8; i++) { var s = 'ABCDEFGH'[i]; if ((a[s] || 0) !== (b[s] || 0)) return false; } return true; }
   function renderSource() {
     if (!D || !D.an) return;
-    var hasModel = D.ai.status === 'done' && D.ai.cues.length, isModel = hasModel && same(draft, cuesOf(D.ai.cues)), isRules = !isModel && same(draft, cuesOf(D.an.cues));
+    var hasModel = D.ai.status === 'done' && D.ai.cues.length, isModel = hasModel && same(draft, cuesOf(D.ai.cues)), isRules = !isModel && same(draft, cuesOf(D.rules));
     var b = $('srcSeg').children;
     b[0].className = isModel ? 'on' : ''; b[0].disabled = !hasModel;
     b[0].title = hasModel ? (isModel ? 'These are the model’s cues' : 'Replace these cues with the model’s (⌘Z takes it back)') : D.ai.status === 'asking' || D.ai.status === 'queued' ? 'The model is still working on it' : 'The model has no cues for this track';
@@ -399,7 +451,7 @@
   }
   $('srcSeg').onclick = function (e) {
     var b = e.target.closest('button'); if (!b || b.disabled || !D || !D.an) return;
-    change(cuesOf(b.dataset.v === 'model' ? D.ai.cues : D.an.cues));
+    change(cuesOf(b.dataset.v === 'model' ? D.ai.cues : D.rules));
   };
   function renderSnap() { Array.prototype.forEach.call($('snap').children, function (b) { b.className = +b.dataset.v === snap ? 'on' : ''; }); }
   $('snap').onclick = function (e) {
@@ -424,7 +476,7 @@
     if (!D || !D.an || e.button) return;
     var p = pos(e), b = badgeAt(p);
     if (b) { drag = { s: b.s, before: copy(draft), moved: false }; pad = b.s; renderPads(); draw(); }
-    else if (p.y > RUL + WAVE && p.y < RUL + WAVE + CUE) setCue(pad, posAt(p.x));
+    else if (p.y > RUL + WAVE && p.y < RUL + WAVE + CUE) { if (used(pad)) setCue(pad, posAt(p.x)); }
     else if (p.x >= GUT - 2) play(posAt(p.x, true));
   });
   window.addEventListener('mousemove', function (e) {
@@ -505,9 +557,9 @@
     if (e.metaKey || e.ctrlKey) return;
     if (k === 'ArrowDown') select(i + 1, true);
     else if (k === 'ArrowUp') select(i - 1, true);
-    else if (k === 'Escape') { if ($('settings').classList.contains('open')) $('settings').classList.remove('open'); else stop(); }
+    else if (k === 'Escape') { if ($('settings').classList.contains('open') || $('layout').classList.contains('open')) { $('settings').classList.remove('open'); $('layout').classList.remove('open'); } else stop(); }
     else if (!D || !D.an) return;
-    else if (up >= 'A' && up <= 'H' && up.length === 1) { pad = up; renderPads(); draw(); }
+    else if (up >= 'A' && up <= 'H' && up.length === 1) { var ix = L.pads.indexOf(up); if (ix < 0) return; pad = 'ABCDEFGH'[ix]; renderPads(); draw(); }
     else if ((k === 'ArrowLeft' || k === 'ArrowRight') && draft[pad]) nudge(pad, (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 4 : 1));
     else if ((k === 'Backspace' || k === 'Delete') && draft[pad]) setCue(pad, 0);
     else if (k === ' ') { if (P) stop(); else play(draft[pad] || 1, draft[pad] ? pad : ''); }
@@ -517,8 +569,53 @@
 
   // ---- the top and bottom ----
   $('analyse').onclick = function () { send(S && S.reading ? 'stop' : 'analyse'); };
-  $('gear').onclick = function () { $('settings').classList.toggle('open'); };
-  document.addEventListener('mousedown', function (e) { if (!e.target.closest('#settings') && e.target !== $('gear')) $('settings').classList.remove('open'); });
+  $('gear').onclick = function () { $('settings').classList.toggle('open'); $('layout').classList.remove('open'); };
+  $('layoutBtn').onclick = function () { $('layout').classList.toggle('open'); $('settings').classList.remove('open'); };
+  document.addEventListener('mousedown', function (e) {
+    if (!e.target.closest('#settings') && e.target !== $('gear')) $('settings').classList.remove('open');
+    if (!e.target.closest('#layout') && e.target !== $('layoutBtn')) $('layout').classList.remove('open');
+  });
+  // ---- the layout ----
+  function renderLayout() {
+    var key = L.pads + '|' + L.mem + '|' + L.build + '|' + L.intro + '|' + L.outro;
+    if (key === layoutKey) return;
+    layoutKey = key;
+    var h = '', found = false;
+    PRESETS.forEach(function (p, i) { var is = p.pads === L.pads && p.mem === L.mem; found = found || is; h += '<option value="' + i + '"' + (is ? ' selected' : '') + '>' + p.n + '</option>'; });
+    $('preset').innerHTML = (found ? '' : '<option value="" selected>Your own</option>') + h;
+    h = '<tr><th>Cue</th><th class="c">Hot cue</th><th class="c">Memory cue</th></tr>';
+    for (var i = 0; i < 8; i++) {
+      var s = 'ABCDEFGH'[i], o = '<option value="-">–</option>';
+      for (var k = 0; k < 8; k++) o += '<option' + (L.pads[i] === 'ABCDEFGH'[k] ? ' selected' : '') + '>' + 'ABCDEFGH'[k] + '</option>';
+      h += '<tr' + (used(s) ? '' : ' class="off"') + '><td><span class="sw" style="background:' + COL[s] + '"></span>' + NAMES[i] + '</td>' +
+        '<td class="c"><select data-i="' + i + '">' + o + '</select></td><td class="c"><input type="checkbox" data-i="' + i + '"' + (L.mem[i] === '1' ? ' checked' : '') + '></td></tr>';
+    }
+    $('lay').innerHTML = h;
+    $('buildBars').value = L.build; $('introRule').value = L.intro; $('outroBars').value = L.outro;
+    h = ''; found = false;
+    RULESETS.forEach(function (r, i) { var is = r.intro === L.intro && r.build === L.build && r.outro === L.outro; found = found || is; h += '<option value="' + i + '"' + (is ? ' selected' : '') + '>' + r.n + '</option>'; });
+    $('ruleset').innerHTML = $('rulesTop').innerHTML = (found ? '' : '<option value="" selected>Your own rules (see Layout)</option>') + h;
+  }
+  function setLayout(o) {  // some of pads, mem, build, intro, outro
+    var to = copy(L); for (var k in o) to[k] = o[k];
+    L = to; if (S) S.layout = L;
+    send('layout', copy(L));
+    renderLayout(); if (D && D.an) { renderPads(); draw(); }
+  }
+  $('preset').onchange = function () { var p = PRESETS[+this.value]; if (this.value !== '' && p) setLayout({ pads: p.pads, mem: p.mem }); };
+  $('ruleset').onchange = $('rulesTop').onchange = function () { var r = RULESETS[+this.value]; if (this.value !== '' && r) setLayout({ intro: r.intro, build: r.build, outro: r.outro }); };
+  $('buildBars').onchange = function () { setLayout({ build: +this.value }); };
+  $('introRule').onchange = function () { setLayout({ intro: this.value }); };
+  $('outroBars').onchange = function () { setLayout({ outro: +this.value }); };
+  $('lay').addEventListener('change', function (e) {
+    var i = +e.target.dataset.i, pads = L.pads.split(''), mem = L.mem.split('');
+    if (e.target.tagName === 'SELECT') {
+      var v = e.target.value, other = v === '-' ? -1 : pads.indexOf(v);
+      if (other >= 0 && other !== i) pads[other] = pads[i];  // the cue that had this pad gets the one this cue had
+      pads[i] = v;
+    } else mem[i] = e.target.checked ? '1' : '0';
+    setLayout({ pads: pads.join(''), mem: mem.join('') });
+  });
   function steerChanged() { return S && $('steer').value.trim() !== (S.instructions || '').trim(); }
   function steerGo() { steerSent = $('steer').value.trim(); send('instructions', { text: steerSent }); $('steer').blur(); }
   $('steer').oninput = function () { $('steerGo').disabled = !steerChanged(); };
@@ -572,27 +669,33 @@
     a.textContent = S.reading ? 'Stop' : 'Analyse'; a.className = S.reading ? '' : 'primary'; a.disabled = !S.reading && !S.toAnalyse;
     a.title = S.reading ? '' : S.toAnalyse ? 'Analyses the ' + S.toAnalyse + ' ticked track' + (S.toAnalyse > 1 ? 's' : '') + ' not analysed yet' : S.done < S.usable ? 'Tick the tracks to analyse' : '';
     if (document.activeElement !== $('steer') && (steerSent === null || steerSent === (S.instructions || '').trim())) { $('steer').value = S.instructions || ''; steerSent = null; }
-    $('steerGo').disabled = !steerChanged();
+    $('steerGo').disabled = !steerChanged() || S.provider === 'none';
     renderModels();
-    var cl = S.provider === 'claude', c = S.claude;
+    var cl = S.provider === 'claude', off = S.provider === 'none', c = S.claude;
+    $('noneNote').style.display = off ? '' : 'none'; $('modelLabel').style.display = $('modelList').style.display = off ? 'none' : '';
+    if (off) $('modelText').style.display = 'none';
+    $('steer').disabled = off; $('steer').placeholder = off ? 'No model: the built-in rules place the cues (⚙ to choose one)' : 'Your instructions for the model, e.g. “Build cues always 8 bars before the drop”';
     Array.prototype.forEach.call($('provider').children, function (b) { b.className = b.dataset.v === S.provider ? 'on' : ''; });
     $('modelLabel').textContent = cl ? 'Model (your Claude Code login)' : 'Model (through OpenRouter)';
-    $('claudeBox').style.display = cl ? '' : 'none'; $('keyBox').style.display = cl ? 'none' : '';
+    $('claudeBox').style.display = cl ? '' : 'none'; $('keyBox').style.display = cl || off ? 'none' : '';
     $('claudeText').className = c.ok ? 'ok' : c.looked && c.error ? 'bad' : 'muted';
     $('claudeText').textContent = c.ok ? '✓ Claude Code ' + c.version + (c.account ? ' · ' + c.account : '') : c.error || 'Looking for Claude Code…';
     $('claudeText').title = c.path || '';
     var edit = keyEdit || !S.hasKey;
     $('keySet').style.display = edit ? 'none' : 'flex'; $('keyNew').style.display = edit ? 'flex' : 'none'; $('keyNote').style.display = S.hasKey ? 'none' : '';
-    $('gear').style.color = S.canAsk ? '' : 'var(--orange)';
+    $('gear').style.color = S.canAsk || off ? '' : 'var(--orange)';
     $('stems').checked = S.useStems && S.stemsAvailable; $('stems').disabled = !S.stemsAvailable;
-    $('stemsNote').textContent = S.stemsAvailable ? 'Slower (each track is separated first), but the model sees the real parts.' : 'Needs the betterstems mod and its model: three bands of the mix are used instead.';
+    $('stemsNote').textContent = S.stemsAvailable ? 'Slower (each track is separated first), but the cues are placed from the real parts.' : 'Needs the betterstems mod and its model: three bands of the mix are used instead.';
     $('cost').textContent = S.cost > 0 && !cl ? 'Model cost this session: $' + S.cost.toFixed(S.cost < 1 ? 3 : 2) : '';
     $('replace').checked = S.replace;
+    if (S.layout && !$('layout').contains(document.activeElement) && document.activeElement !== $('rulesTop')) L = S.layout;
+    $('steer').style.display = off ? 'none' : ''; $('rulesTop').style.display = off ? 'block' : 'none'; $('steerGo').style.display = off ? 'none' : '';
+    renderLayout();
     $('status').textContent = S.status || '';
     $('undo').disabled = !S.canUndo;
     $('apply').disabled = !S.toWrite;
     $('apply').textContent = S.toWrite ? 'Write ' + S.toWrite + ' cue' + (S.toWrite > 1 ? 's' : '') : 'Write cues';
-    $('apply').title = S.toWrite ? 'Sets them as hot cues on ' + S.tracksToWrite + ' ticked track' + (S.tracksToWrite > 1 ? 's' : '') + ' in rekordbox' : 'Nothing new to write on the ticked tracks';
+    $('apply').title = S.toWrite ? 'Sets them on ' + S.tracksToWrite + ' ticked track' + (S.tracksToWrite > 1 ? 's' : '') + ' in rekordbox, as hot cues and memory cues as the layout says' : 'Nothing new to write on the ticked tracks';
     renderRows();
   }
   var pendingDetail = null;
@@ -602,7 +705,7 @@
     var other = !D || D.u !== d.u;
     D = d; draft = {};
     d.draft.forEach(function (c) { draft[c.s] = c.b; });
-    if (other) { $('sheet').classList.remove('open'); hoverBar = 0; if (!draft[pad]) pad = Object.keys(draft)[0] || 'C'; }
+    if (other) { $('sheet').classList.remove('open'); hoverBar = 0; if (!draft[pad] || !used(pad)) pad = Object.keys(draft).filter(used)[0] || 'C'; }
     renderDetail();
   }
   rbm.onState = function (s) {

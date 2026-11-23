@@ -66,7 +66,7 @@ features:
 
 <div class="pd-shots">
 <figure><img src="/img/analysis.webp" alt="The Playlist Analysis window analysing a Spotify playlist, several tracks at once" loading="lazy"><figcaption>The analysis window: a whole Spotify playlist, several tracks at a time, with Beat This! grids, CNN keys and genres.</figcaption></figure>
-<figure><img src="/img/autocue.webp" alt="The Auto cues window with a track's waveform, its stems' sections and eight cue cards" loading="lazy"><figcaption>Auto cues: hot cues A to H placed from the track's arrangement, then fine-tuned by the bar.</figcaption></figure>
+<figure><img src="/img/autocue.webp" alt="The Auto cues window with a track's waveform, its stems' sections and eight cue cards" loading="lazy"><figcaption>Auto cues: cues placed from the track's arrangement, then fine-tuned by the bar.</figcaption></figure>
 <figure><img src="/img/trackmenu.webp" alt="rekordbox's track menu without greyed-out items, with the platendoos submenu open" loading="lazy"><figcaption>tidymenu: only what can be clicked, and the mods' windows in one submenu.</figcaption></figure>
 <figure><img src="/img/genres.webp" alt="The Genres window suggesting a genre for five selected tracks" loading="lazy"><figcaption>genres: a style model fills the Genre field from what the music sounds like.</figcaption></figure>
 </div>

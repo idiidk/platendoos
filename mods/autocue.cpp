@@ -1,4 +1,6 @@
-// autocue: hot cues A-H (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist's tracks
+// autocue: cues (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist's tracks, as hot cues
+// A-H, as memory cues, or both: the layout says per cue which pad it gets and whether it is a memory cue (older CDJs
+// show three or four hot cues only; every one has ten memory cues)
 // (Spotify ones read from the stream into memory by the spotifyaudio mod, or from a local file of the track, rbmod.h
 // "trackfiles"). Playlist menu: "Open auto cues window".
 //
@@ -15,12 +17,17 @@
 // The model goes through OpenRouter (any model; the key is in the OS's keychain, not in the config) or through the
 // Claude Code CLI installed on this computer (its own login, no key: `claude -p`, with the models it offers).
 //   config: autocue=0 to disable
-//           autocue_provider=openrouter   or claude: the local Claude Code CLI
+//           autocue_provider=openrouter   or claude: the local Claude Code CLI; none: no model, the built-in rules place the cues
 //           autocue_model=anthropic/claude-haiku-5.5   any model id from openrouter.ai/models
 //           autocue_claude_model=haiku   Claude Code's model (an alias or a full name)
 //           autocue_claude_path=         the claude program, if it isn't found by itself
 //           autocue_stems=1   0 analyses three bands of the mix instead of stems (faster: no separation)
 //           autocue_parallel=3   tracks analysed at once (one of them separates stems at a time)
+//           autocue_pads=ABCDEFGH   the hot cue pad of Intro, Build, Drop, Breakdown, Build 2, Drop 2, Outro and Fake drop, in that order (- for none); set in the window under Layout
+//           autocue_memory=00000000   per cue, in autocue_pads' order: 1 writes it as a memory cue too (or only, without a pad)
+//           autocue_build_bars=0   4, 8, 16 or 32 puts build cues that many bars before their drop (0: where the build starts)
+//           autocue_intro=sound   where the intro cue goes: sound (the first bar with sound), drums (the first bar with drums) or start (the track's first bar)
+//           autocue_outro_bars=0   16, 32 or 64 puts the outro cue that many bars before the track ends (0: where the last loud part ends)
 #include "../core/rbmod.h"
 #include "../core/library.h"
 #include "../core/webui.h"
@@ -69,6 +76,42 @@ char slotOfKind(int kind) {
     return 'M';
 }
 const char* slotName(char slot) { return sheet::slotNames()[slot - 'A']; }
+const int kMemoryKind = 0, kMemoryMax = 10;  // (a track holds ten memory cues)
+
+// The layout: where each cue goes. A cue is known by its letter in the sheet and to the model (A Intro ... H Fake
+// drop); its hot cue pad is the layout's, and so is whether it is written as a memory cue as well (or only).
+struct Layout {
+    char pad[8];    // per cue: 'A'-'H', or '-' for no pad
+    bool mem[8];    // per cue: a memory cue too
+    // The rules for placing them (the page's rulesets are sets of these); they hold for the model's cues too.
+    int buildBars;  // > 0: build cues go this many bars before their drop
+    int intro;      // the intro cue: 0 the first bar with sound, 1 the first bar with drums, 2 the track's first bar
+    int outroBars;  // > 0: the outro cue goes this many bars before the track ends
+};
+const char* const kIntro[] = {"sound", "drums", "start"};
+Layout g_layout{{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'}, {}, 0, 0, 0};  // g_lock
+Layout layoutFrom(const std::string& pads, const std::string& mem, int build, const std::string& intro, int outro) {
+    Layout l{};
+    bool taken[8] = {};
+    for (int i = 0; i < 8; i++) {
+        char p = i < (int)pads.size() ? (char)toupper((unsigned char)pads[i]) : '-';
+        l.pad[i] = p >= 'A' && p <= 'H' && !taken[p - 'A'] ? p : '-';  // (a pad holds one cue)
+        if (l.pad[i] != '-') taken[l.pad[i] - 'A'] = true;
+        l.mem[i] = i < (int)mem.size() && mem[i] == '1';
+    }
+    l.buildBars = build == 4 || build == 8 || build == 16 || build == 32 ? build : 0;
+    l.intro = intro == kIntro[1] ? 1 : intro == kIntro[2] ? 2 : 0;
+    l.outroBars = outro == 16 || outro == 32 || outro == 64 ? outro : 0;
+    return l;
+}
+std::string padsStr(const Layout& l) { return std::string(l.pad, 8); }
+std::string memStr(const Layout& l) {
+    std::string s;
+    for (bool m : l.mem) s += m ? '1' : '0';
+    return s;
+}
+char padOf(char slot) { return g_layout.pad[slot - 'A']; }   // g_lock held
+bool memOf(char slot) { return g_layout.mem[slot - 'A']; }
 
 volatile bool g_on;
 void* database() { return at<void* (*)(uintptr_t)>(A_dbGet)(A_dbHolder + g_slide); }
@@ -188,6 +231,7 @@ std::string g_key;  // the OpenRouter key, read from the keychain once (the OS m
 double g_cost = 0;  // OpenRouter's cost of this session's answers
 
 bool useClaude() { return cfgStr("autocue_provider", "openrouter") == "claude"; }
+bool noModel() { return cfgStr("autocue_provider", "openrouter") == "none"; }  // the rules' cues, and no model asked
 std::string model() { return useClaude() ? cfgStr("autocue_claude_model", "haiku") : cfgStr("autocue_model", "anthropic/claude-haiku-5.5"); }
 
 // The Claude Code CLI on this computer (looked for when the window opens).
@@ -196,7 +240,7 @@ struct Claude {
     std::string path, version, account, error;
     std::string models;  // for the dropdown, as JSON for the page
 } g_claude;  // g_lock
-bool canAsk() { return useClaude() ? g_claude.ok : g_hasKey; }  // g_lock held
+bool canAsk() { return noModel() ? false : useClaude() ? g_claude.ok : g_hasKey; }  // g_lock held
 std::string dataDir() { return plat::configDir() + "/autocue"; }
 
 // betterstems' HTDemucs, by service; false when that mod is off or has no model.
@@ -228,13 +272,73 @@ std::string num(double v, int decimals) {
     return b;
 }
 
+// The last bar with sound (1-based), from the waveform: where "bars before the track ends" counts from.
+int lastSoundBar(const sheet::Analysis& a) {
+    int cols = (int)a.amp.size(), c = cols - 1;
+    while (c > 0 && a.amp[c] < 0.02f) c--;
+    if (cols < 2 || a.duration <= 0) return a.bars;
+    double t = (c + 1.0) / cols * a.duration;
+    int bar = a.bars;
+    while (bar > 1 && a.barTimes[bar - 1] >= t) bar--;
+    return bar;
+}
+
+// A source's cues as the layout's rules place them: the intro cue on the first drums or the first bar, build cues a
+// fixed number of bars before their drop, the outro cue a fixed number of bars before the end. Bars are 1-based.
+std::vector<Cue> placed(std::vector<Cue> cues, const sheet::Analysis* an) {  // g_lock held
+    const Layout& l = g_layout;
+    if (!l.buildBars && !l.intro && !l.outroBars) return cues;
+    auto barOf = [&](char slot) {
+        for (const Cue& c : cues)
+            if (c.slot == slot) return c.bar;
+        return 0;
+    };
+    auto drop = [&](char slot) { cues.erase(std::remove_if(cues.begin(), cues.end(), [&](const Cue& c) { return c.slot == slot; }), cues.end()); };
+    if (l.buildBars) {
+        const std::pair<char, char> buildDrop[] = {{'B', 'C'}, {'E', 'F'}};
+        for (auto [build, at] : buildDrop) {
+            int d = barOf(at), from = barOf(build == 'B' ? 'A' : 'D');  // not before the intro, or inside the drop before
+            if (d <= 0 || d - l.buildBars < std::max(from, 1)) continue;         // (no room for it: the build stays where it starts)
+            drop(build);
+            cues.push_back({build, d - l.buildBars, std::to_string(l.buildBars) + " bars before the drop (the rules for build cues)"});
+        }
+    }
+    if (l.intro && an) {
+        int next = an->bars + 1, bar = 0;  // the intro cue stays before every other cue
+        for (const Cue& c : cues)
+            if (c.slot != 'A') next = std::min(next, c.bar);
+        std::string why;
+        if (l.intro == 2) bar = 1, why = "the track's first bar";
+        else {
+            // the drums' first clip of four bars or more (a fill before it isn't the beat); without stems, the low band's
+            const std::vector<sheet::Lane>& lane = an->lanes[an->stems ? sheet::DRUMS : 1];
+            for (const sheet::Lane& x : lane)
+                if (x.id != -2 && x.end - x.start >= 4) { bar = x.start + 1; break; }
+            why = an->stems ? "first bar with drums" : "first bar with low end";
+        }
+        if (bar >= 1 && bar < next) drop('A'), cues.push_back({'A', bar, why + " (the rules for the intro cue)"});
+    }
+    if (l.outroBars && an) {
+        int after = 0, bar = lastSoundBar(*an) - l.outroBars + 1;  // the outro cue stays after every other cue
+        for (const Cue& c : cues)
+            if (c.slot != 'G') after = std::max(after, c.bar);
+        if (bar > after) drop('G'), cues.push_back({'G', bar, std::to_string(l.outroBars) + " bars before the track ends (the rules for the outro cue)"});
+    }
+    std::sort(cues.begin(), cues.end(), [](const Cue& a, const Cue& b) { return a.slot < b.slot; });
+    return cues;
+}
+std::vector<Cue> modelCues(const Row& r) { return placed(r.ai.cues, r.an.get()); }
+std::vector<Cue> rulesCues(const Row& r) {  // (1-based, like the model's)
+    std::vector<Cue> out;
+    if (r.an)
+        for (const sheet::Cue& c : r.an->cues) out.push_back({c.slot, c.bar + 1, c.why});
+    return placed(out, r.an.get());
+}
+
 // The cues the draft starts from: the model's, else the rules'.
 std::map<char, double> defaultDraft(const Row& r) {
     std::map<char, double> d;
-    if (r.ai.status == "done" && !r.ai.cues.empty())
-        for (const Cue& c : r.ai.cues) d[c.slot] = c.bar;
-    else if (r.an)
-        for (const sheet::Cue& c : r.an->cues) d[c.slot] = c.bar + 1;
+    for (const Cue& c : !noModel() && r.ai.status == "done" && !r.ai.cues.empty() ? modelCues(r) : rulesCues(r)) d[c.slot] = c.bar;
     return d;
 }
 
@@ -253,11 +357,20 @@ int barMs(const sheet::Analysis& a, double pos) {  // 1-based; a part of a bar b
     return std::max(0, (int)std::lround(t * 1000));
 }
 
-// Per draft cue: 0 to write, 1 already in rekordbox, 2 its pad holds another cue.
+// Per draft cue, its hot cue: 0 to write, 1 already in rekordbox, 2 its pad holds another cue, -1 the layout gives it no pad.
 int padState(const Row& r, char slot, double bar) {
+    if (padOf(slot) == '-') return -1;
     int ms = r.an ? barMs(*r.an, bar) : -1;
     for (const CueCopy& c : r.existing)
-        if (c.kind == kindOf(slot)) return abs(c.inMs - ms) < 100 ? 1 : 2;
+        if (c.kind == kindOf(padOf(slot))) return abs(c.inMs - ms) < 100 ? 1 : 2;
+    return 0;
+}
+// And its memory cue: 0 to write, 1 already in rekordbox, -1 the layout makes it none.
+int memState(const Row& r, char slot, double bar) {
+    if (!memOf(slot)) return -1;
+    int ms = r.an ? barMs(*r.an, bar) : -1;
+    for (const CueCopy& c : r.existing)
+        if (c.kind == kMemoryKind && abs(c.inMs - ms) < 100) return 1;
     return 0;
 }
 
@@ -529,7 +642,9 @@ bool gridOf(const std::string& dat, std::vector<int>* ms, std::vector<int>* num)
 // After an analysis (or a cached one) came in: the draft and the model's turn. g_lock held.
 void analysed(Row& r, const std::string& source) {
     r.done = true, r.busy = false, r.force = false, r.state = "";
-    if (!r.edited && r.draft.empty()) r.draft = defaultDraft(r);
+    // (a draft nobody moved follows the layout and the model setting of now, not those it was saved under)
+    if (!r.edited) r.draft = defaultDraft(r);
+    else r.edited = r.draft != defaultDraft(r);
     g_sourceOf[r.uri] = source;
     r.version++;
     g_dirty = true;
@@ -575,7 +690,9 @@ void readTrack(int generation, int run, const std::string& uri) {
     std::vector<int16_t> pcm;
     int rate = 0;
     std::string whyNot;
+    double t0 = now();
     if (!readAudio(uri, path, &pcm, &rate, &whyNot)) return fail(whyNot);
+    double tAudio = now() - t0, tStems = 0, tWait = 0;
     size_t frames = pcm.size() / 2;
     std::vector<float> mono(frames);
     for (size_t i = 0; i < frames; i++) mono[i] = (pcm[2 * i] + pcm[2 * i + 1]) / 65536.f;
@@ -605,13 +722,16 @@ void readTrack(int generation, int run, const std::string& uri) {
             if (r->state != state) r->state = state, r->version++, g_dirty = true;
             return true;
         };
+        double s0 = now();
         haveStems = trackStems(L.empty() ? mono44 : L, L.empty() ? mono44 : R, !L.empty(), !uri.compare(0, 8, "spotify:"), st, &fromDisk,
             [&] {
                 if (!setState("Waiting for stems")) return false;
+                double w0 = now();
                 while (!sep.try_lock()) {
                     if (!live(generation, run)) return !(stopped = true);
                     std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 }
+                tWait = now() - w0;
                 return true;
             },
             [&](double done, bool model) { return setState((model ? "Separating " : "Reading stored stems ") + std::to_string((int)(done * 100)) + "%"); });
@@ -619,6 +739,7 @@ void readTrack(int generation, int run, const std::string& uri) {
             std::lock_guard<std::mutex> l(g_lock);
             return unclaim(uri);
         }
+        tStems = now() - s0 - tWait;
         if (haveStems) logf("autocue: %s: %d of %d stem chunks from the stem cache", uri.c_str(), fromDisk, (int)((duration * 44100 + kStemOut - 1) / kStemOut));
         if (!haveStems) source = sourceKey(uri, path, beatMs, false);  // (separation failed: the mix it is)
     }
@@ -631,7 +752,11 @@ void readTrack(int generation, int run, const std::string& uri) {
     std::vector<float>().swap(mono44);
     std::vector<double> bt;
     for (int ms : beatMs) bt.push_back(ms / 1000.0);
+    double a0 = now();
     auto an = std::make_shared<sheet::Analysis>(sheet::analyse(mix, haveStems ? st : nullptr, bt, beatNum, duration));
+    // where an analysis' time went (a slow one: the audio is a Spotify stream, or the stems weren't stored yet)
+    logf("autocue: %s (%.0f s of audio): reading %.1f s, stems %.1f s%s, arrangement %.1f s", uri.c_str(), duration, tAudio, tStems,
+         tWait >= 0.5 ? (" after waiting " + num(tWait, 1) + " s for another track's").c_str() : "", now() - a0);
     std::lock_guard<std::mutex> l(g_lock);
     Row* rp = rowOf(uri);
     if (!live(generation, run) || !rp) return unclaim(uri);
@@ -986,7 +1111,7 @@ void askModel(int generation, const std::string& uri, bool force) {
     {
         std::lock_guard<std::mutex> l(g_lock);
         Row* r = rowOf(uri);
-        if (generation != g_generation || !r || !r->an) { g_asking--; return pumpAsks(); }
+        if (generation != g_generation || !r || !r->an || noModel()) { g_asking--; return pumpAsks(); }
         before = r->ai;
         asked = r->an;
         sheetText = r->an->sheet, bars = r->an->bars;
@@ -1127,42 +1252,80 @@ void queueAsk(const std::string& uri, bool force) {  // g_lock held
 
 // ---- writing --------------------------------------------------------------------------------------------------
 
-int writable(const Row& r) {  // cues Write would set on this row
-    if (!r.tick || !r.an || r.id == 0) return 0;
-    int n = 0;
-    for (auto& [s, b] : r.draft) {
-        int st = padState(r, s, b);
-        n += st == 0 || (st == 2 && g_replace);
+// What Write cues does on a row: the cues to set, the ones in rekordbox that go first, and what stays out.
+struct Plan {
+    struct Item { char slot; int kind, ms; };
+    std::vector<Item> write;
+    std::vector<CueCopy> remove;
+    int kept = 0, noRoom = 0;  // pads that hold another cue, left alone; memory cues past the ten a track holds
+};
+Plan planOf(const Row& r) {  // g_lock held
+    Plan p;
+    if (!r.an || r.id == 0) return p;
+    std::vector<std::pair<int, char>> memory;  // ms, cue: the memory cues the draft wants, in the track's order
+    for (auto& [slot, bar] : r.draft) {
+        int ms = barMs(*r.an, bar);
+        if (ms < 0) continue;  // a bar the track doesn't have
+        int st = padState(r, slot, bar);
+        if (st == 2 && !g_replace) p.kept++;
+        else if (st == 0 || st == 2) {
+            if (st == 2)
+                for (const CueCopy& c : r.existing)
+                    if (c.kind == kindOf(padOf(slot))) p.remove.push_back(c);
+            p.write.push_back({slot, kindOf(padOf(slot)), ms});
+        }
+        if (memOf(slot)) memory.push_back({ms, slot});
     }
-    return n;
+    std::sort(memory.begin(), memory.end());
+    // (two cues on one spot, e.g. a build cue moved onto the breakdown: one memory cue)
+    memory.erase(std::unique(memory.begin(), memory.end(), [](auto& a, auto& b) { return abs(a.first - b.first) < 100; }), memory.end());
+    int held = 0;  // memory cues that stay
+    for (const CueCopy& c : r.existing) {
+        if (c.kind != kMemoryKind) continue;
+        bool wanted = std::any_of(memory.begin(), memory.end(), [&](auto& m) { return abs(m.first - c.inMs) < 100; });
+        if (g_replace && !memory.empty() && !wanted) p.remove.push_back(c);  // Replace: the track's memory cues become these
+        else held++;
+    }
+    for (auto& [ms, slot] : memory) {
+        bool there = std::any_of(r.existing.begin(), r.existing.end(), [&, ms = ms](const CueCopy& c) { return c.kind == kMemoryKind && abs(c.inMs - ms) < 100; });
+        if (there) continue;
+        if (held >= kMemoryMax) { p.noRoom++; continue; }
+        held++;
+        p.write.push_back({slot, kMemoryKind, ms});
+    }
+    if (p.write.empty()) p.remove.clear();  // (nothing new: nothing goes either)
+    return p;
+}
+
+int writable(const Row& r) {  // cues Write would set on this row
+    return r.tick ? (int)planOf(r).write.size() : 0;
 }
 
 void applyCues() {
     std::lock_guard<std::mutex> l(g_lock);
     g_undo.clear();
-    int written = 0, tracks = 0, kept = 0;  // kept: pads that hold another cue, left alone
+    int written = 0, memory = 0, tracks = 0, kept = 0, noRoom = 0;
     for (Row& r : g_rows) {
-        if (!writable(r)) continue;
+        if (!r.tick) continue;
+        Plan p = planOf(r);
+        kept += p.kept, noRoom += p.noRoom;
+        if (p.write.empty()) continue;
         Undo u{r.id, {}, {}};
-        for (auto& [slot, bar] : r.draft) {
-            int st = padState(r, slot, bar);
-            if (st == 1) continue;
-            if (st == 2 && !g_replace) { kept++; continue; }
-            int ms = barMs(*r.an, bar);
-            if (ms < 0) continue;  // a bar the track doesn't have
-            if (st == 2)
-                for (const CueCopy& c : r.existing)
-                    if (c.kind == kindOf(slot)) deleteCue(r.id, c.id), u.removed.push_back(c);
-            unsigned id = writeCue(r.id, kindOf(slot), ms, slotName(slot), kColors[slot - 'A']);
-            if (id) u.added.push_back(id), written++;
+        for (const CueCopy& c : p.remove) deleteCue(r.id, c.id), u.removed.push_back(c);
+        for (const Plan::Item& w : p.write) {
+            // (a memory cue has no pad colour: rekordbox's own for memory cues)
+            unsigned id = writeCue(r.id, w.kind, w.ms, slotName(w.slot), w.kind == kMemoryKind ? 0 : kColors[w.slot - 'A']);
+            if (id) u.added.push_back(id), written++, memory += w.kind == kMemoryKind;
         }
         if (!u.added.empty()) tracks++;
         if (!u.added.empty() || !u.removed.empty()) g_undo.push_back(std::move(u));
         r.existing = readCues(r.id);
         r.version++;
     }
-    g_status = "Wrote " + std::to_string(written) + " cue" + (written == 1 ? "" : "s") + " to " + std::to_string(tracks) + " track" + (tracks == 1 ? "" : "s") + "." +
-               (kept ? " " + std::to_string(kept) + " pad" + (kept == 1 ? "" : "s") + " already held another cue (tick Replace existing cues to overwrite)." : "");
+    g_status = "Wrote " + std::to_string(written) + " cue" + (written == 1 ? "" : "s") + (memory ? " (" + std::to_string(memory) + " as memory cues)" : "") + " to " + std::to_string(tracks) + " track" +
+               (tracks == 1 ? "" : "s") + "." +
+               (kept ? " " + std::to_string(kept) + " pad" + (kept == 1 ? "" : "s") + " already held another cue (tick Replace existing cues to overwrite)." : "") +
+               (noRoom ? " " + std::to_string(noRoom) + " memory cue" + (noRoom == 1 ? "" : "s") + " didn't fit (a track holds " + std::to_string(kMemoryMax) + ")." : "");
     logf("autocue: %s", g_status.c_str());
     g_dirty = true;
 }
@@ -1271,10 +1434,12 @@ std::string detailJson(const Row& r) {
     using web::jsonStr;
     std::string j = "{\"u\":" + jsonStr(r.uri) + ",\"title\":" + jsonStr(r.title) + ",\"artist\":" + jsonStr(r.artist) + ",\"state\":" + jsonStr(r.state) + ",\"ack\":" + std::to_string(r.cueAck);
     j += ",\"an\":" + (r.an ? analysisJson(*r.an) : std::string("null"));
-    j += ",\"ai\":{\"status\":" + jsonStr(r.ai.status) + ",\"model\":" + jsonStr(r.ai.model) + ",\"notes\":" + jsonStr(r.ai.notes) + ",\"error\":" + jsonStr(r.ai.error) + ",\"cues\":" + cuesJson(r.ai.cues) + "}";
+    j += ",\"ai\":{\"status\":" + jsonStr(r.ai.status) + ",\"model\":" + jsonStr(r.ai.model) + ",\"notes\":" + jsonStr(r.ai.notes) + ",\"error\":" + jsonStr(r.ai.error) + ",\"cues\":" + cuesJson(modelCues(r)) + "}";
+    j += ",\"rules\":" + cuesJson(rulesCues(r));  // (both as the layout's options place them)
     j += std::string(",\"edited\":") + (r.edited ? "true" : "false") + ",\"draft\":[";
     bool first = true;
-    for (auto& [s, b] : r.draft) j += std::string(first ? "" : ",") + "{\"s\":\"" + s + "\",\"b\":" + posStr(b) + ",\"p\":" + std::to_string(padState(r, s, b)) + "}", first = false;
+    for (auto& [s, b] : r.draft)
+        j += std::string(first ? "" : ",") + "{\"s\":\"" + s + "\",\"b\":" + posStr(b) + ",\"p\":" + std::to_string(padState(r, s, b)) + ",\"m\":" + std::to_string(memState(r, s, b)) + "}", first = false;
     j += "],\"existing\":[";
     first = true;
     for (const CueCopy& c : r.existing) j += std::string(first ? "" : ",") + "{\"s\":\"" + slotOfKind(c.kind) + "\",\"ms\":" + std::to_string(c.inMs) + ",\"c\":" + jsonStr(c.comment) + "}", first = false;
@@ -1296,13 +1461,15 @@ void sendState() {
         int w = writable(r);
         toWrite += w, tracksToWrite += w > 0;
         if (r.uri == g_selected) sel = &r;
-        // per row: the draft's slots with their state (lower case: in rekordbox already; '!' after: pad taken)
+        // per row: the draft's cues the layout writes, with their state (lower case: in rekordbox already; '!' after: pad taken)
         std::string cues;
-        bool allSet = !r.draft.empty();
+        bool allSet = false, any = false;
         for (auto& [s, bar] : r.draft) {
-            int p = padState(r, s, bar);
-            allSet &= p == 1;
-            cues += p == 1 ? (char)tolower(s) : s;
+            int p = padState(r, s, bar), m = memState(r, s, bar);
+            if (p < 0 && m < 0) continue;  // off in the layout
+            bool set = p != 0 && p != 2 && m != 0;
+            allSet = any ? allSet && set : set, any = true;
+            cues += set ? (char)tolower(s) : s;
             if (p == 2) cues += '!';
         }
         std::string state = r.state;
@@ -1313,11 +1480,12 @@ void sendState() {
     rows += "]";
     std::string j = "{\"name\":" + jsonStr(g_playlistName) + ",\"rows\":" + rows + ",\"status\":" + jsonStr(g_status) + ",\"reading\":" + b(g_workers > 0) +
                     ",\"usable\":" + std::to_string(usable) + ",\"toAnalyse\":" + std::to_string(toAnalyse) + ",\"done\":" + std::to_string(done) + ",\"asking\":" + std::to_string(asking) + ",\"toWrite\":" + std::to_string(toWrite) +
-                    ",\"tracksToWrite\":" + std::to_string(tracksToWrite) + ",\"canUndo\":" + b(!g_undo.empty()) + ",\"hasKey\":" + b(g_hasKey) + ",\"canAsk\":" + b(canAsk()) + ",\"provider\":\"" + (claude ? "claude" : "openrouter") +
+                    ",\"tracksToWrite\":" + std::to_string(tracksToWrite) + ",\"canUndo\":" + b(!g_undo.empty()) + ",\"hasKey\":" + b(g_hasKey) + ",\"canAsk\":" + b(canAsk()) + ",\"provider\":\"" + (noModel() ? "none" : claude ? "claude" : "openrouter") +
                     "\",\"claude\":{\"looked\":" + b(g_claude.looked) + ",\"ok\":" + b(g_claude.ok) + ",\"path\":" + jsonStr(g_claude.path) + ",\"version\":" + jsonStr(g_claude.version) +
                     ",\"account\":" + jsonStr(g_claude.account) + ",\"error\":" + jsonStr(g_claude.error) + "},\"model\":" + jsonStr(model()) +
                     ",\"models\":" + (models.empty() ? std::string("[]") : models) + ",\"useStems\":" + b(g_useStems) + ",\"stemsAvailable\":" + b(stemsAvailable()) +
-                    ",\"replace\":" + b(g_replace) + ",\"instructions\":" + jsonStr(g_instructions) + ",\"cost\":" + num(g_cost, 4) + ",\"sel\":" + jsonStr(g_selected);
+                    ",\"replace\":" + b(g_replace) + ",\"layout\":{\"pads\":\"" + padsStr(g_layout) + "\",\"mem\":\"" + memStr(g_layout) + "\",\"build\":" + std::to_string(g_layout.buildBars) + ",\"intro\":\"" + kIntro[g_layout.intro] + "\",\"outro\":" + std::to_string(g_layout.outroBars) +
+                    "},\"instructions\":" + jsonStr(g_instructions) + ",\"cost\":" + num(g_cost, 4) + ",\"sel\":" + jsonStr(g_selected);
     // the selected track in full, when it changed
     int version = sel ? sel->version : -2;
     if (sel && (version != g_sentVersion || g_selected != g_sentSelected)) j += ",\"detail\":" + detailJson(*sel);
@@ -1396,14 +1564,22 @@ void onMessage(const std::string& m) {
         g_dirty = true;
     };
     if (cmd == "ready") { checkKey(); loadModels(); checkClaude(false); std::lock_guard<std::mutex> l(g_lock); g_sentVersion = -1, g_dirty = true; }
-    else if (cmd == "provider") {  // openrouter or claude; tracks waiting for a model get this one's cues
-        bool claude = web::jsonGet(m, "value") == "claude";
-        setCfg("autocue_provider", claude ? "claude" : "openrouter");
+    else if (cmd == "provider") {  // openrouter, claude or none; tracks waiting for a model get this one's cues
+        std::string v = web::jsonGet(m, "value");
+        bool claude = v == "claude", none = v == "none";
+        setCfg("autocue_provider", claude ? "claude" : none ? "none" : "openrouter");
         if (claude) checkClaude(true);
         std::lock_guard<std::mutex> l(g_lock);
-        if (canAsk())
-            for (Row& r : g_rows)
-                if (r.an && r.ai.status == "nokey") queueAsk(r.uri, false);
+        if (none) g_askQueue.clear();
+        for (Row& r : g_rows) {
+            if (!r.an) continue;
+            if (none && r.ai.status == "queued") r.ai.status = r.ai.cues.empty() ? "nokey" : "done";
+            // without a model the cues are the rules'; with one, the answer it gave before (cues moved by hand stay)
+            if (!r.edited && r.draft != defaultDraft(r)) r.draft = defaultDraft(r), saveRow(r);
+            r.version++;
+            if (canAsk() && r.ai.status != "done") queueAsk(r.uri, false);
+        }
+        g_status = none ? "No model: the built-in rules place the cues." : "";
         g_dirty = true;
     }
     else if (cmd == "key") {
@@ -1447,6 +1623,23 @@ void onMessage(const std::string& m) {
         g_status = "New analyses use " + std::string(g_useStems ? "stems" : "the mix") + "; tracks done before keep theirs until analysed again.";
         g_dirty = true;
     } else if (cmd == "replace") { std::lock_guard<std::mutex> l(g_lock); g_replace = web::jsonGet(m, "on") == "true"; g_dirty = true; }
+    else if (cmd == "layout") {  // pads, memory cues and the rules for placing: every track's cues follow at once (the model isn't asked again)
+        Layout to = layoutFrom(web::jsonGet(m, "pads"), web::jsonGet(m, "mem"), atoi(web::jsonGet(m, "build").c_str()), web::jsonGet(m, "intro"), atoi(web::jsonGet(m, "outro").c_str()));
+        setCfg("autocue_pads", padsStr(to)), setCfg("autocue_memory", memStr(to)), setCfg("autocue_build_bars", std::to_string(to.buildBars));
+        setCfg("autocue_intro", kIntro[to.intro]), setCfg("autocue_outro_bars", std::to_string(to.outroBars));
+        std::lock_guard<std::mutex> l(g_lock);
+        g_layout = to;
+        for (Row& r : g_rows) {
+            if (!r.an) continue;
+            auto before = r.draft;
+            if (!r.edited) r.draft = defaultDraft(r);
+            else r.edited = r.draft != defaultDraft(r);
+            r.version++;
+            if (r.draft != before) saveRow(r);
+        }
+        g_status.clear();
+        g_dirty = true;
+    }
     else if (cmd == "select") { std::lock_guard<std::mutex> l(g_lock); g_selected = u; g_dirty = true; }
     else if (cmd == "tick") row([&](Row& r) { r.tick = web::jsonGet(m, "on") == "true"; });
     else if (cmd == "tickAll") {
@@ -1469,7 +1662,7 @@ void onMessage(const std::string& m) {
         std::string from = web::jsonGet(m, "from");
         if (from == "rules" && r.an) {
             r.draft.clear();
-            for (const sheet::Cue& c : r.an->cues) r.draft[c.slot] = c.bar + 1;
+            for (const Cue& c : rulesCues(r)) r.draft[c.slot] = c.bar;
             r.edited = true;
         } else r.draft = defaultDraft(r), r.edited = false;
         r.version++;
@@ -1498,7 +1691,7 @@ void showWindow(const std::string& id, const std::string& name) {
 
 // Scripted test runs: <configDir>/autocue_command (removed when read) holds "open [playlist id]" (the window, on that playlist, on a
 // selection of tracks ("selection:<n>", see selectionPlaylist in rbmod.h) or on the one the browser shows), "testkey <file>" (an OpenRouter key for this session, not stored), "dump" (the page's state with the selected track in full, to <configDir>/autocue/state.json) or
-// anything else as a message from the page, e.g. {"cmd":"analyse"}.
+// "clearmemory" (removes the selected track's memory cues, without an undo: for cleaning up after a test) or anything else as a message from the page, e.g. {"cmd":"analyse"}.
 void readCommand() {
     static double lastRead;
     double t = now();
@@ -1530,6 +1723,13 @@ void readCommand() {
         if (text.size() > 5 && !showPlaylistId(id) && !isSelection(id)) return logf("autocue: playlist not in the tree (yet)");
         if (id.empty()) return logf("autocue: no playlist shown");
         showWindow(id, playlistName(id));
+    } else if (text == "clearmemory") {  // the selected track's memory cues, gone for good (cleaning up after a test of them)
+        std::lock_guard<std::mutex> l(g_lock);
+        Row* r = rowOf(g_selected);
+        if (!r || !r->id) return;
+        for (const CueCopy& c : readCues(r->id))
+            if (c.kind == kMemoryKind) deleteCue(r->id, c.id);
+        r->existing = readCues(r->id), r->version++, g_dirty = true;
     } else if (text == "dump") {
         g_dumpNext = true, g_dirty = true;
         std::lock_guard<std::mutex> l(g_lock);
@@ -1556,6 +1756,7 @@ void tick() {
 
 void init() {
     g_useStems = cfgInt("autocue_stems", 1) != 0;
+    g_layout = layoutFrom(cfgStr("autocue_pads", "ABCDEFGH"), cfgStr("autocue_memory", "00000000"), cfgInt("autocue_build_bars", 0), cfgStr("autocue_intro", "sound"), cfgInt("autocue_outro_bars", 0));
     plat::readFile(dataDir() + "/instructions.txt", &g_instructions);
     std::error_code ec;
     std::filesystem::create_directories(plat::fsPath(dataDir()), ec);

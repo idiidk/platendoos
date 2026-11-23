@@ -114,16 +114,21 @@ Keeps the memory rekordbox's audio works with in RAM, so playback doesn't click 
 
 ### autocue
 
-Sets hot cues A–H (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist, Spotify tracks too (read from the stream into memory by spotifyaudio). [More →](/mods/autocue)
+Sets cues (intro, build, drop, breakdown, build 2, drop 2, outro, fake drop) on a playlist as hot cues A–H, as memory cues, or both, Spotify tracks too (read from the stream into memory by spotifyaudio). [More →](/mods/autocue)
 
 | Option | Default | Meaning |
 |---|---|---|
 | `autocue` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
+| `autocue_build_bars` | `0` | 4, 8, 16 or 32 puts build cues that many bars before their drop (0: where the build starts) |
 | `autocue_claude_model` | `haiku` | Claude Code's model (an alias or a full name) |
 | `autocue_claude_path` | *(empty)* | the claude program, if it isn't found by itself |
+| `autocue_intro` | `sound` | where the intro cue goes: sound (the first bar with sound), drums (the first bar with drums) or start (the track's first bar) |
+| `autocue_memory` | `00000000` | per cue, in autocue_pads' order: 1 writes it as a memory cue too (or only, without a pad) |
 | `autocue_model` | `anthropic/claude-haiku-5.5` | any model id from openrouter.ai/models |
+| `autocue_outro_bars` | `0` | 16, 32 or 64 puts the outro cue that many bars before the track ends (0: where the last loud part ends) |
+| `autocue_pads` | `ABCDEFGH` | the hot cue pad of Intro, Build, Drop, Breakdown, Build 2, Drop 2, Outro and Fake drop, in that order (- for none); set in the window under Layout |
 | `autocue_parallel` | `3` | tracks analysed at once (one of them separates stems at a time) |
-| `autocue_provider` | `openrouter` | or claude: the local Claude Code CLI |
+| `autocue_provider` | `openrouter` | or claude: the local Claude Code CLI; none: no model, the built-in rules place the cues |
 | `autocue_stems` | `1` | 0 analyses three bands of the mix instead of stems (faster: no separation) |
 
 ### badge
