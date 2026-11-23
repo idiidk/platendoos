@@ -1,13 +1,17 @@
 // See dsp.h: Accelerate.
 #include "dsp.h"
-#define ACCELERATE_NEW_LAPACK
 #include <Accelerate/Accelerate.h>
 #include <vector>
 
 namespace dsp {
 
 void sgemm(int m, int n, int k, const float* a, const float* b, float* c) {
+    // The classic CBLAS call: the newer one (ACCELERATE_NEW_LAPACK) only exists from macOS 13.3, and the mods run
+    // from 13.0. Same routine, same result; the SDK marks this one deprecated, hence the pragma.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.f, a, k, b, n, 0.f, c, n);
+#pragma clang diagnostic pop
 }
 
 struct RealFFT::Impl {

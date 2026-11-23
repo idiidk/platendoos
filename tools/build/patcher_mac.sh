@@ -25,7 +25,7 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/payload/rbmods"
 pdefs=(); [[ $edition == public ]] && pdefs=(-DRBM_PUBLIC=1)
 # (no build paths in the binary: they would carry the builder's user name)
-clang++ -std=c++20 -O2 -arch arm64 -fobjc-arc -Wall -I $out $pdefs -ffile-prefix-map="$root/=" -ffile-prefix-map="$HOME/=~/" -framework AppKit -framework WebKit \
+clang++ -std=c++20 -O2 -arch arm64 -mmacosx-version-min=13.0 -fobjc-arc -Wall -I $out $pdefs -ffile-prefix-map="$root/=" -ffile-prefix-map="$HOME/=~/" -framework AppKit -framework WebKit \
     -o "$app/Contents/MacOS/platendoos patcher" \
     $root/patcher/patcher.cpp $root/patcher/install_mac.mm $root/core/webui_mac.mm
 cat > "$app/Contents/Info.plist" <<PLIST

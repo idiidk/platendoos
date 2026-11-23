@@ -5,6 +5,14 @@ What changed per release, for people using platendoos. Downloads are on the
 installed platendoos in place (see [Installation](./installation#after-a-rekordbox-update)).
 
 
+## 0.4.2 (2026-11-23)
+
+- **macOS 13, 14 and 15 work again.** The macOS packages of earlier releases were built for the macOS version they
+  were made on (26) and needed system libraries that only macOS 15.4 and later have, so on older versions the
+  patcher and the mods couldn't start. They are built for macOS 13 and later now, as the patcher's requirements
+  always said. On macOS 13, betterstems' HTDemucs model can't load (it needs macOS 14): rekordbox's own engine
+  separates the stems there, as without the mod.
+
 ## 0.4.1 (2026-11-23)
 
 - **No more crash when a track loads with rekordbox set to three stems.** With rekordbox's STEMS set to three

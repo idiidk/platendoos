@@ -21,7 +21,9 @@ if [[ $edition == full ]]; then srcs+=("$here"/private/mods/*.(mm|cpp)(N)); else
 srcs=(${srcs:#*_win.*})
 srcs=(${srcs:#*_ort.*})   # ONNX Runtime backends (and the wrapper, engines/ort.cpp): Windows only, the mac ones are Core ML
 srcs=(${srcs:#*/engines/ort.cpp})
-clang++ -std=c++20 -O2 -arch arm64 -dynamiclib -fobjc-arc -framework AppKit -framework QuartzCore -framework Security -framework WebKit -framework CoreText -framework Accelerate -framework CoreML -framework AudioToolbox -framework AVFoundation -framework CoreMIDI -framework CoreAudio -lsqlite3 -lcompression -Wall -Wno-return-type-c-linkage -DPLATENDOOS_BUILD="\"$build\"" $defs \
+# -mmacosx-version-min: the oldest macOS the mods run on. Without it the compiler targets the macOS it runs on, and
+# the dylib then needs that version's system libraries (0.4.0 and 0.4.1 didn't start on macOS 13 to 15).
+clang++ -std=c++20 -O2 -arch arm64 -mmacosx-version-min=13.0 -dynamiclib -fobjc-arc -framework AppKit -framework QuartzCore -framework Security -framework WebKit -framework CoreText -framework Accelerate -framework CoreML -framework AudioToolbox -framework AVFoundation -framework CoreMIDI -framework CoreAudio -lsqlite3 -lcompression -Wall -Wno-return-type-c-linkage -DPLATENDOOS_BUILD="\"$build\"" $defs \
     -ffile-prefix-map="$here/=" -ffile-prefix-map="$HOME/=~/" -install_name @executable_path/librbmods.dylib \
     -o "$here/build/librbmods.dylib" $srcs
 print -r -- $edition > "$here/build/edition"
