@@ -1,4 +1,4 @@
-// rbmod: a small framework for mods injected into rekordbox (made for 7.2.19; macOS arm64 librbmods.dylib, Windows x64 rbmods.dll).
+// rbmod: a small framework for mods injected into rekordbox (made for 7.2.19; macOS librbmods.dylib, arm64 and x86_64, Windows x64 rbmods.dll).
 //
 //  - Addresses: rekordbox's functions, vtables and fields are found by name and from its own code at load
 //    (rbm::Addr, rbm::Offset below; on Windows from a per-build table), so an update that moves code doesn't break the mods; a mod whose
@@ -40,6 +40,14 @@ inline const char* editionName() { return kPublicEdition ? "public" : "full (int
 extern intptr_t g_slide;
 template <typename T> inline T at(uintptr_t a) { return (T)(a + g_slide); }
 
+// 1 in rekordbox's x86_64 slice on macOS (an Intel Mac, or Rosetta: docs/intel-mac.md), else 0. Not __x86_64__ alone:
+// the Windows build (clang-cl) defines that too.
+#if defined(__APPLE__) && defined(__x86_64__)
+#define RBM_MAC_X86 1
+#else
+#define RBM_MAC_X86 0
+#endif
+
 // An address in rekordbox, unslid (like the static addresses of the binary; at<T>() adds the slide). Found by
 // its mangled symbol (plus an offset, e.g. a vtable's address point at +0x10; "stub:_x" is an imported
 // function), or, for data without a symbol, by `find`, which decodes it from rekordbox's code (name then only
@@ -62,17 +70,31 @@ struct Addr {
 // method's slot in the vtable fn). `expected` is its value in the tested build (7.2.19), which it starts as.
 // In another build a field whose recipe doesn't resolve switches its mod off; tools/dev/recipes.py check tests
 // every recipe against a binary.
+//
+// The recipes name arm64 instructions. In rekordbox's x86_64 code (an Intel Mac, docs/intel-mac.md) most fields
+// have the same offset, and an Offset whose x86_64 value differs gives it as X86{value}: there the value is the
+// arm64 recipe's result (read from the arm64 half of the same file) plus the difference to `expected`.
+struct X86 {
+    size_t value = 0;
+    bool set = false;
+    X86() = default;
+    X86(size_t value) : value(value), set(true) {}
+};
 struct Offset {
     size_t expected;
     const char* fn;
     const char* kind;
     int nth;
+    intptr_t x86Delta;  // the x86_64 value minus the arm64 one (0: the same)
     const char* file;
     mutable size_t value;
     mutable bool ok = true;
     Offset(size_t expected, const char* fn, const char* kind, int nth, const char* file = __builtin_FILE());
+    Offset(size_t expected, const char* fn, const char* kind, int nth, X86 x86, const char* file = __builtin_FILE());
     Offset(const Offset&) = delete;
     operator size_t() const { return value; }
+    // The tested build's value on this architecture: expected, plus the X86{} difference in the x86_64 slice.
+    size_t expectedHere() const { return expected + (RBM_MAC_X86 ? x86Delta : 0); }
 };
 
 // Replaces a vtable slot (or any pointer in read-only data) with fn; returns the old value (nullptr if it
@@ -107,6 +129,22 @@ uintptr_t adrpAddBefore(uintptr_t site, int reg);            // address put in x
 uintptr_t adrpAdd(const char* fn, int nth);                  // address built by fn's nth adrp + add
 uintptr_t singleton(const char* caller, const char* get);    // juce::SingletonHolder that caller's first get() is on
 bool immediate(const char* fn, const char* kind, int nth, size_t* out);  // as Offset's recipes
+// In rekordbox's x86_64 slice (RBM_MAC_X86, docs/intel-mac.md) the finders above that read arm64 instructions answer
+// as follows:
+//  - callSite: the nth "call target" (E8 rel32, found by a byte scan of the caller; "stub:_x" is the __stubs entry).
+//    The compiler orders the calls differently in the two slices, so nth can differ from arm64's: check it there
+//    (tools/dev/rbbin.py's Binary(data, CPU_X86_64).calls) before using the same nth.
+//  - singleton: the holder's own symbol (every juce::SingletonHolder has one in both slices, e.g.
+//    __ZN2db10DatabaseIF15singletonHolderE, named after get()'s class); caller isn't read.
+//  - adrpAdd, adrpAddBefore: no arm64 code to read: 0 (a mod that needs one is off; use leaBefore or a symbol).
+//    insn reads the 4 bytes at a, which are x86 code there.
+//  - immediate (and every Offset): instruction recipes are read from the arm64 half of the same file on disk, "vt:"
+//    recipes from the running x86_64 vtables; immediate() itself adds no X86{} difference.
+// leaBefore: x86_64 only (0 on arm64). The address `lea <reg>, [rip + x]` puts in reg in the 48 bytes before site
+// (the closest one), reg in x86 numbering: 0 rax, 1 rcx, 2 rdx, 3 rbx, 6 rsi, 7 rdi, 8-15 r8-r15. For an
+// address passed to the call at site: arm64's x0, x1, x2, x3, x4, x5 are rdi (7), rsi (6), rdx (2), rcx (1), r8, r9
+// when the function returns no struct (else x8's pointer takes rdi and the rest move up by one).
+uintptr_t leaBefore(uintptr_t site, int reg);
 std::string rekordboxBuild();                                // LC_UUID of the running rekordbox
 bool testedBuild();                                          // the build the expected values come from
 bool checkedBuild();                                         // that one, or a later build every mod was run on
@@ -300,6 +338,12 @@ inline std::string trackFilesText(const char* key, int n = 0) {
 // 0.5 s.) Something that needs a model sooner loads it itself, as before.
 void startupTask(std::function<void()> fn);
 
+// rekordbox is quitting (macOS: from NSApplicationWillTerminate on). exit() then destroys the dylib's statics (its
+// mutexes too: a lock after that aborts), so a thread of a mod's own that runs for the app's lifetime calls
+// parkIfQuitting() in its loop and stops there for good. Windows: never set (ExitProcess ends the threads first).
+bool quitting();
+void parkIfQuitting();
+
 void menuAddSeparator(Menu* m);
 void menuAddItem(Menu* m, const char* text, std::function<void()> action);
 std::string tracksText(size_t n);       // "this track" / "5 tracks": how the track menu's items name the selection
@@ -447,6 +491,11 @@ private:
 // Marks the start of a stage of rekordbox's analysis on a CBeatAnalyzeThread (called on that thread; a stage of
 // one analysis counts once). Does nothing when no mod listens.
 void analysisMark(const void* thread, const char* stage);
+#if RBM_MAC_X86
+// Intel Macs: the analysis thread (CBeatAnalyzeThread) this call runs on, for the hooks inside its analyze() that take
+// it from a register on arm64 (x86_64 keeps it in a stack slot); nullptr on any other thread.
+const void* analysisThreadHere();
+#endif
 // The track URI the analysis thread works on; false if unknown (or this rekordbox build lacks the recipe).
 bool analysisSong(const void* thread, std::string* uri);
 // Stages of the track's analyses so far ("..." marks the stage still running), "" if none seen or timing isn't running.

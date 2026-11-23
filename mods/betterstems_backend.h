@@ -15,5 +15,13 @@ bool load(std::string* version);
 // [sources][4][bins][frames] and wave [sources][2][length]. One call at a time.
 bool predict(const float* mix, int length, const float* mag, int bins, int frames, int sources,
              std::vector<float>& spec, std::vector<float>& wave, std::string* error);
+// Releases the model after a load that succeeded (it is too slow here, or gave unusable stems). Not during a predict.
+void unload();
+
+// Windows and Intel Macs: HTDemucs is used only where it is fast: on a GPU that separates a segment (7.8 s of audio)
+// within kSlowSegment at launch (betterstems_slow=1: anyway). On a CPU a segment takes 2.5-5 s on all the cores it
+// gets (a track: two minutes of a 6-core PC at 75%, next to a playing deck), and an integrated GPU can be slower
+// still; rekordbox's own engine does a whole track in 15-30 s.
+constexpr double kSlowSegment = 1.0;  // s
 
 }  // namespace betterstems_backend

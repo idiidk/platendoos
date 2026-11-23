@@ -16,4 +16,12 @@ int chunkFrames(const Model::Impl& impl);
 // downbeat logits. Serialised internally (may be called from several threads).
 bool predictChunk(Model::Impl& impl, const float* mel, int len, float* beatOut, float* downOut);
 
+// Where the network may be too slow to make a DJ wait for it (Windows; Intel Macs): over kSlowChunk for one chunk
+// (30 s of audio; a 5-minute track is 10 chunks) on a GPU at load, or on the CPU at all (Model::slow()).
+constexpr double kSlowChunk = 1.0;  // s
+// One chunk of silence, twice when the first is slow (the first run also builds the GPU's pipeline): the time it
+// takes on this GPU, s (the faster run; 0 if the first run failed). Only for a GPU: on the CPU a chunk keeps the
+// cores busy for a second or more at launch, and the answer is known.
+double firstChunkTime(Model::Impl& impl);
+
 }  // namespace beatthis

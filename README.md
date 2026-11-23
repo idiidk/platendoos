@@ -6,7 +6,7 @@
 
 # platendoos
 
-platendoos is a set of mods for **rekordbox 7 on macOS** (Apple Silicon) **and Windows** (x64). It makes rekordbox faster and
+platendoos is a set of mods for **rekordbox 7 on macOS** (Apple Silicon; Intel in beta) **and Windows** (x64). It makes rekordbox faster and
 smoother, especially with Spotify, and adds a few features it doesn't have. You can tell a modded rekordbox
 by the small **PLATENDOOS** chip next to the rekordbox logo at the bottom left. Hover over it to see the
 build, or click it to see every mod and whether it's on.
@@ -133,9 +133,13 @@ The **platendoos patcher** installs platendoos for the rekordbox already on the 
 mods (no rekordbox files), so it can be sent to anyone with rekordbox 7. Download it from the
 [latest release](https://github.com/idiidk/platendoos/releases/latest) (what changed: [CHANGELOG.md](CHANGELOG.md)):
 
-- **macOS** (Apple Silicon): unzip `platendoos-patcher-mac-<version>.zip` and open **platendoos patcher**. The patcher
-  isn't notarised, so the first time macOS refuses it: open *System Settings > Privacy & Security* and choose
-  *Open Anyway* (or right-click the app, *Open*).
+- **macOS** (Apple Silicon; Intel Macs in beta): unzip `platendoos-patcher-mac-<version>.zip` and open
+  **platendoos patcher**. The patcher isn't notarised, so the first time macOS refuses it: open *System Settings >
+  Privacy & Security* and choose *Open Anyway* (or right-click the app, *Open*).
+- **Intel Macs are beta** (since 0.5.0): the same patcher installs platendoos there too, but it has only been tested
+  under Rosetta on an Apple Silicon Mac, not yet on a real Intel Mac. Speed (the GPU models), audio and the
+  FLX4 are unknown there. If you try it, the log (`~/Library/Logs/rekordbox-mods.log`) and a note of what you did
+  help a lot; rekordbox itself stays as it was. Details: [docs/intel-mac.md](docs/intel-mac.md).
 - **Windows** (x64): unzip `platendoos-windows-<version>.zip` anywhere and run **platendoos patcher.exe** in the
   `platendoos` folder. It isn't signed, so SmartScreen may warn: *More info > Run anyway*.
 
@@ -185,7 +189,7 @@ releasing; without one, the notes list the commits since the previous release).
 
 ### Building it yourself
 
-You need a Mac with Apple Silicon, rekordbox 7 in `/Applications/rekordbox 7/`, and Xcode's command line
+You need a Mac (Apple Silicon; an Intel Mac builds too, untested), rekordbox 7 in `/Applications/rekordbox 7/`, and Xcode's command line
 tools (`xcode-select --install`).
 
 ```sh
@@ -244,6 +248,8 @@ track loaded on a deck gets rekordbox's beat grid at once instead of waiting 15 
 analysed from the analysis window still get the Beat This! grid. `betterstems_slow=1` uses HTDemucs anyway,
 `bettergrid_slow=1` waits for Beat This! on a deck too. The numbers are in
 [docs/windows.md](docs/windows.md), under *Speed*.
+Intel Macs (beta, [docs/intel-mac.md](docs/intel-mac.md)) follow the same rules, with the Mac's GPU
+through Core ML.
 
 Also on Windows, the mods' own threads run one step below normal priority, so rekordbox's window and drawing
 go first (`worker_priority=-1`; `0`: normal, as before; `-2`: two steps down; the default is `0` with fewer than

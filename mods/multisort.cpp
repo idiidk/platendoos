@@ -39,8 +39,15 @@ static const Offset O_sorterChain{0x18, "__ZN6browse14ListViewSorter15compareEle
 static const int kWords = 1;  // a chain entry: its code address
 static size_t chainStart() { return O_sorterChain; }  // (the table has the chain's start itself)
 #else
-static const int kWords = 2;  // a chain entry: {address, this adjustment * 2 (+ 1: a vtable offset)}
+// a chain entry: {address, this adjustment * 2 (+ 1: a vtable offset)}; x86_64 (Intel Macs): {address (+ 1: a vtable
+// offset), this adjustment}, which ends the chain when the address is 0 (compareElements, 7.2.19 and 7.2.20)
+static const int kWords = 2;
 static size_t chainStart() { return O_sorterChain - 8; }
+#endif
+#if defined(__x86_64__) && !defined(_WIN32)
+static bool isNullLink(const uintptr_t* s) { return !s[0]; }
+#else
+static bool isNullLink(const uintptr_t* s) { return !s[0] && (kWords == 1 || !(s[1] & 1)); }
 #endif
 static const Offset O_sorterDir{0xb0, "__ZN6browse14ListViewSorter15compareElementsEii", "ldr x19", 1};  // ListViewSorter: 1 ascending, -1 descending (ends the chain)
 
@@ -87,8 +94,13 @@ template <int L> static int link(char* sorter, const char* a, const char* b) {
     if (l.col) return l.sign * compareColumn(l.col, a, b);
 #ifdef _WIN32
     return l.sign * ((int (*)(char*, const char*, const char*))l.fn)(sorter, a, b);
+#elif defined(__x86_64__)
+    // Itanium member function pointer, x86_64: adj = the this adjustment; fn + 1 is a vtable offset (fn & 1).
+    char* self = sorter + l.adj;
+    uintptr_t fn = l.fn & 1 ? *(uintptr_t*)(*(char**)self + l.fn - 1) : l.fn;
+    return l.sign * ((int (*)(char*, const char*, const char*))fn)(self, a, b);
 #else
-    // Itanium member function pointer: adj = this adjustment * 2, + 1 when fn is a vtable offset.
+    // Itanium member function pointer, arm64: adj = this adjustment * 2, + 1 when fn is a vtable offset.
     char* self = sorter + (l.adj >> 1);
     uintptr_t fn = l.adj & 1 ? *(uintptr_t*)(*(char**)self + l.fn) : l.fn;
     return l.sign * ((int (*)(char*, const char*, const char*))fn)(self, a, b);
@@ -118,7 +130,7 @@ static void chain(void* sorter, int col) {
     const int W = kWords;
     uintptr_t* slots = (uintptr_t*)((char*)sorter + chainStart());
     const int kSlots = (int)((O_sorterDir - chainStart()) / (8 * W));  // 10 in 7.2.19, the last one ends the chain
-    auto isNull = [](const uintptr_t* s) { return !s[0] && (kWords == 1 || !(s[1] & 1)); };
+    auto isNull = isNullLink;
     std::vector<uintptr_t> first(slots, slots + W * kSlots);  // the first column's chain: its function, then tie-breakers
 
     std::vector<Level> levels;

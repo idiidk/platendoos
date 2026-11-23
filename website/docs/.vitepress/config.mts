@@ -82,6 +82,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Building from source', link: '/internals/building' },
         { text: 'When rekordbox updates', link: '/internals/rekordbox-updates' },
         { text: 'Windows internals', link: '/internals/windows' },
+        { text: 'Intel Macs (beta)', link: '/internals/intel-mac' },
         { text: 'Editions', link: '/internals/editions' },
         { text: 'Licence and credits', link: '/internals/licence' },
       ], 'Under the hood'),

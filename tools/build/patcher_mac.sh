@@ -24,8 +24,8 @@ fi
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/payload/rbmods"
 pdefs=(); [[ $edition == public ]] && pdefs=(-DRBM_PUBLIC=1)
-# (no build paths in the binary: they would carry the builder's user name)
-clang++ -std=c++20 -O2 -arch arm64 -mmacosx-version-min=13.0 -fobjc-arc -Wall -I $out $pdefs -ffile-prefix-map="$root/=" -ffile-prefix-map="$HOME/=~/" -framework AppKit -framework WebKit \
+# (no build paths in the binary: they would carry the builder's user name; universal: it runs on Intel Macs too)
+clang++ -std=c++20 -O2 -arch arm64 -arch x86_64 -mmacosx-version-min=13.0 -fobjc-arc -Wall -I $out $pdefs -ffile-prefix-map="$root/=" -ffile-prefix-map="$HOME/=~/" -framework AppKit -framework WebKit \
     -o "$app/Contents/MacOS/platendoos patcher" \
     $root/patcher/patcher.cpp $root/patcher/install_mac.mm $root/core/webui_mac.mm
 cat > "$app/Contents/Info.plist" <<PLIST
@@ -40,7 +40,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <key>CFBundleShortVersionString</key><string>$build</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
-<key>LSArchitecturePriority</key><array><string>arm64</string></array>
+<key>LSArchitecturePriority</key><array><string>arm64</string><string>x86_64</string></array>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST

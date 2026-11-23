@@ -64,13 +64,21 @@ static const Offset O_ringWritePos{0x28, "__ZN10RingBuffer17setWriteSubscriptEiN
 
 namespace {
 
-const size_t kPage = 16384;
+// The VM page size: 16 KB on Apple Silicon, 4 KB on Intel (and under Rosetta). mincore() reports one byte per page.
+const size_t kPage = (size_t)getpagesize();
+// The most pages keepDecks looks at in one chunk at a time: 8 MB of audio (24 s at 44.1 kHz) in either half.
+#if defined(__x86_64__)
+constexpr size_t kMaxPagesAtOnce = 2048;
+#else
+constexpr size_t kMaxPagesAtOnce = 512;
+#endif
 
 enum RingState { kNew, kPinning, kPinned };
 // obj: the RingBuffer (null if it couldn't be told), maker: an address in the function that made it, pos: where it
 // wrote when last looked at.
 struct Ring { size_t bytes; RingState state; void* obj; void* maker; bool seen; int pos[2]; };
-// One deck buffer: its chunks in track order, each chunkBytes long (8 bytes per frame).
+// One deck buffer: its chunks in track order, each chunkBytes long (8 bytes per frame: a Float4 is two stereo frames
+// of two floats, in both halves; on x86_64 only rekordbox's Float2, which read() copies them out to, is 16 bytes).
 struct Buf { uint64_t id; size_t chunkBytes; int alive; std::vector<char*> chunks; };
 struct State {
     // FX buffers. Held for a map operation only, never across a system call: one FX (Helix) reallocates its
@@ -101,8 +109,8 @@ size_t g_codeBytes;
 
 void ringMade(void* p, size_t n, void* obj, void* maker) {
     if (!p || !n) return;  // also before init has read the switches: rekordbox makes most of them at launch
-    // obj is what rekordbox's function had in x19 at the call: its RingBuffer in the builds looked at. Believed only
-    // if that object's buffer is this one (it is stored before the bzero).
+    // obj is what rekordbox's function had in x19 at the call (x86_64: r12 or r14): its RingBuffer in the builds
+    // looked at. Believed only if that object's buffer is this one (it is stored before the bzero).
     if (obj && ((uintptr_t)obj & 7 || (uintptr_t)obj < 0x100000000 || *(void**)((char*)obj + O_ringBuf) != p)) obj = nullptr;
     std::lock_guard<std::mutex> l(st().ringLock);
     st().rings[p] = {n, kNew, obj, maker, false, {0, 0}};
@@ -261,7 +269,7 @@ void keepDecks() {
                     if (a1 <= a0) continue;
                     // The next 3 s are read every time, in memory or not: pages in use are the last ones macOS takes.
                     uintptr_t near1 = (uintptr_t)p + ((size_t)(ms + 3000) * rate / 1000 * 8 > c * chunkBytes ? (size_t)(ms + 3000) * rate / 1000 * 8 - c * chunkBytes : 0);
-                    char in[512];
+                    char in[kMaxPagesAtOnce];
                     size_t n = (a1 - a0) / kPage;
                     if (n > sizeof in) n = sizeof in;
                     if (mincore((void*)a0, n * kPage, in) != 0) continue;  // freed meanwhile
@@ -346,6 +354,7 @@ void keeper() {
     unsigned round = 0;
     for (;;) {
         usleep(250000);
+        parkIfQuitting();
         if (!g_on) continue;
         if (!g_code.empty() && g_readCode && now() - codeAt >= 4) codeAt = now(), readCode();
         if (g_fx && ++round % 4 == 0) findUsedRings(), pinRings();
@@ -403,21 +412,31 @@ RBM_MOD({.name = "audiomem", .init = init, .tick = tick, .enabled = &g_on});
 // ---- hooks -------------------------------------------------------------------------------------------------------
 
 // RingBuffer's constructors and getMemory: bzero(buffer, bytes) right after new float[n]. The RingBuffer itself is
-// in x19 there (the trampoline hands it on); the hook is entered by a jump, so one frame up is that function's own
-// return address: who made the buffer.
+// in x19 there (the trampoline hands it on; x86_64: r12 in the constructors, r14 in getMemory); the hook is entered
+// by a jump, so one frame up is that function's own return address: who made the buffer (all three keep a frame
+// pointer in both halves).
 extern "C" void rbm_ring_zero(void* p, size_t n, void* obj, int which) {
     void (*orig)(void*, size_t) = which == 0 ? RBM_ORIG(ring_zero0, void (*)(void*, size_t))
                                 : which == 1 ? RBM_ORIG(ring_zero1, void (*)(void*, size_t)) : RBM_ORIG(ring_zero2, void (*)(void*, size_t));
     orig(p, n);
     ringMade(p, n, obj, __builtin_return_address(1));
 }
+#if defined(__aarch64__)
 #define RING_ZERO(i)                                                                                   \
     asm(".text\n.p2align 2\n.globl _rbm_hook_ring_zero" #i "\n_rbm_hook_ring_zero" #i ":\n"            \
         "mov x2, x19\nmov w3, #" #i "\nb _rbm_ring_zero\n");
 RING_ZERO(0)
 RING_ZERO(1)
 RING_ZERO(2)
-// ... and delete[] buffer.
+#elif defined(__x86_64__)
+#define RING_ZERO(i, reg)                                                                              \
+    asm(".text\n.p2align 4\n.globl _rbm_hook_ring_zero" #i "\n_rbm_hook_ring_zero" #i ":\n"            \
+        "movq %" #reg ", %rdx\nmovl $" #i ", %ecx\njmp _rbm_ring_zero\n");
+RING_ZERO(0, r12)
+RING_ZERO(1, r12)
+RING_ZERO(2, r14)
+#endif
+// ... and delete[] buffer (x86_64: the destructors' delete[] is a tail call, which a plain hook takes as it is).
 #define RING_FREE(i)                                                         \
     extern "C" void rbm_hook_ring_free##i(void* p) {                        \
         ringFreed(p);                                                        \
@@ -437,6 +456,23 @@ PAGEBUF_CTOR(1)
 PAGEBUF_CTOR(2)
 
 // Inside it: one new[] per chunk ...
+#if defined(__x86_64__)
+// (x86_64: posix_memalign(&p, 16, n), freed with free. calloc's blocks are 16-byte aligned, as every malloc block.)
+extern "C" int rbm_hook_pagebuf_new(void** out, size_t align, size_t n) {
+    void* p = nullptr;
+    int r = 0;
+    Buf* b = t_building;
+    if (b && g_lazy && n >= kPage && align <= 16) {
+        if ((p = calloc(1, n))) *out = p, t_fresh = p, g_lazyChunks++, g_lazyBytes += (long)n;
+    }
+    if (!p) r = RBM_ORIG(pagebuf_new, int (*)(void**, size_t, size_t))(out, align, n), p = r == 0 ? *out : nullptr;
+    if (b && p) {
+        if (b->chunks.empty()) b->chunkBytes = n;
+        if (n == b->chunkBytes) b->chunks.push_back((char*)p);
+    }
+    return r;
+}
+#else
 extern "C" void* rbm_hook_pagebuf_new(size_t n) {
     void* p = nullptr;
     Buf* b = t_building;
@@ -452,6 +488,7 @@ extern "C" void* rbm_hook_pagebuf_new(size_t n) {
     }
     return p;
 }
+#endif
 
 // ... and its bzero.
 extern "C" void rbm_hook_pagebuf_zero(void* p, size_t n) {
@@ -459,7 +496,7 @@ extern "C" void rbm_hook_pagebuf_zero(void* p, size_t n) {
     RBM_ORIG(pagebuf_zero, void (*)(void*, size_t))(p, n);
 }
 
-// ~PageBuffer: delete[] of each chunk.
+// ~PageBuffer: delete[] of each chunk (x86_64: free).
 extern "C" void rbm_hook_pagebuf_free(void* p) {
     if (p) {
         std::lock_guard<std::mutex> l(st().lock);

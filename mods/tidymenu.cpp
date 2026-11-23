@@ -34,9 +34,11 @@ const Addr A_itemCopy{"__ZN4juce9PopupMenu4ItemC1ERKS1_"};
 #ifndef _WIN32  // (Windows: addItem destroys its argument itself)
 const Addr A_itemDtor{"__ZN4juce9PopupMenu4ItemD1Ev"};
 #endif
-const Offset S_item{0x70, "__ZN4juce9PopupMenu12addSeparatorEv", "movz x10", 0};         // sizeof(PopupMenu::Item)
-const Offset O_itemEnabled{0x64, "__ZN4juce9PopupMenu4ItemC2ERKS1_", "ldr x20", 9};      // Item::isEnabled (bool)
-const Offset O_itemSeparator{0x66, "__ZN4juce9PopupMenu4ItemC2ERKS1_", "ldr x20", 11};   // Item::isSeparator (bool)
+// (x86_64, Intel Macs: the Item's std::function is 0x30 bytes, not 0x20, and 16-aligned: sizeof 0x80, the flags 0x10
+// later; addSeparator's "shl rsi, 7" and the copy constructor's byte copies, 7.2.19 and 7.2.20)
+const Offset S_item{0x70, "__ZN4juce9PopupMenu12addSeparatorEv", "movz x10", 0, X86{0x80}};         // sizeof(PopupMenu::Item)
+const Offset O_itemEnabled{0x64, "__ZN4juce9PopupMenu4ItemC2ERKS1_", "ldr x20", 9, X86{0x74}};      // Item::isEnabled (bool)
+const Offset O_itemSeparator{0x66, "__ZN4juce9PopupMenu4ItemC2ERKS1_", "ldr x20", 11, X86{0x76}};   // Item::isSeparator (bool)
 const size_t kMenuSize = 0x40;   // room for a PopupMenu (0x18)
 const size_t kItemRoom = 0x200;  // room for an Item (S_item, checked)
 

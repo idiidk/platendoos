@@ -198,6 +198,7 @@ int main(int argc, char** argv) {
         auto t0 = std::chrono::steady_clock::now();
         if (!m.load(argv[1], &err, cu)) { fprintf(stderr, "load: %s\n", err.c_str()); return 1; }
         printf("model loaded in %.0f ms\n", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        printf("device: %s%s\n", m.device().c_str(), m.slow() ? " (slow: rekordbox's grid on a deck)" : "");
         if (synth) { synthTest(m); return 0; }
         std::vector<float> x = readF32(file);
         if (x.empty()) { fprintf(stderr, "cannot read %s\n", file.c_str()); return 1; }

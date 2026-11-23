@@ -91,14 +91,14 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #bettergrid_halfbeat=1
 #   0: while it waits, the deck doesn't show rekordbox's own grid meanwhile (quickdeck)
 #bettergrid_rb_first=1
-#   Windows: 1: also wait for Beat This! for a track on a deck where it is slow (it runs on the
-#   CPU, or on a GPU that needs over a second for 30 s of audio)
+#   Windows, Intel Macs: 1: also wait for Beat This! for a track on a deck where it is slow (it
+#   runs on the CPU, or on a GPU that needs over a second for 30 s of audio)
 #bettergrid_slow=0
 #   header name of the column
 #bettergrid_title=BT BPM
-#   seconds the analysis waits for the combined grid at most (60 on Windows)
+#   seconds the analysis waits for the combined grid at most (60 on Windows and Intel Macs)
 #bettergrid_wait=60
-#   0: no first run of the model at launch (macOS)
+#   0: no first run of the model at launch (Apple Silicon)
 #bettergrid_warmup=1
 #   0 keeps the models off the GPU: Beat This! and the genre model run on the CPU, stems come from
 #   rekordbox's own engine
@@ -132,7 +132,7 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #   Windows: 1: HTDemucs also where it is slow (on the CPU, or on a GPU that needs over a second
 #   for a segment); 0: rekordbox's own engine separates there
 #betterstems_slow=0
-#   0: no first run of the model at launch (macOS)
+#   0: no first run of the model at launch (Apple Silicon)
 #betterstems_warmup=1
 
 # ---- fastwave ----
@@ -407,16 +407,16 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #bettergrid_halfbeat=1
 #   0: while it waits, the deck doesn't show rekordbox's own grid meanwhile (quickdeck)
 #bettergrid_rb_first=1
-#   Windows: 1: also wait for Beat This! for a track on a deck where it is slow (it runs on the
-#   CPU, or on a GPU that needs over a second for 30 s of audio)
+#   Windows, Intel Macs: 1: also wait for Beat This! for a track on a deck where it is slow (it
+#   runs on the CPU, or on a GPU that needs over a second for 30 s of audio)
 #bettergrid_slow=0
 #   header name of the column
 #bettergrid_title=BT BPM
-#   seconds the analysis waits for the combined grid at most (60 on Windows)
+#   seconds the analysis waits for the combined grid at most (60 on Windows and Intel Macs)
 #bettergrid_wait=20
-#   0: no first run of the model at launch (macOS)
+#   0: no first run of the model at launch (Apple Silicon)
 #bettergrid_warmup=1
-#   0 keeps bettergrid on the CPU
+#   0 keeps bettergrid on the CPU (Intel Macs: stems come from rekordbox's own engine then)
 #gpu=1
 
 # ---- betterkey ----
@@ -444,7 +444,10 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #   while a deck plays: a rest after each model segment, this many times the segment's own time (1
 #   = the stems take twice as long and the GPU is free half the time)
 #betterstems_live_rest=0
-#   0: no first run of the model at launch (macOS)
+#   Windows, Intel Macs: 1: HTDemucs also where it is slow (on the CPU, or on a GPU that needs
+#   over a second for a segment); 0: rekordbox's own engine separates there
+#betterstems_slow=0
+#   0: no first run of the model at launch (Apple Silicon)
 #betterstems_warmup=1
 
 # ---- fastwave ----

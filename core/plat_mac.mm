@@ -38,6 +38,11 @@ void onMainAfter(double seconds, std::function<void()> fn) {
     dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), dispatch_get_main_queue(),
                      box(std::move(fn)), runBlock);
 }
+void onQuit(std::function<void()> fn) {
+    auto f = std::make_shared<std::function<void()>>(std::move(fn));
+    [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationWillTerminateNotification object:nil
+                                                     queue:nil usingBlock:^(NSNotification*) { (*f)(); }];
+}
 void everyOnMain(double seconds, std::function<void()> fn) {
     dispatch_source_t t = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
     uint64_t ns = (uint64_t)(seconds * NSEC_PER_SEC);

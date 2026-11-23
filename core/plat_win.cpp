@@ -124,6 +124,8 @@ void onMainAfter(double seconds, std::function<void()> fn) {
     onMain([seconds, box] { addTimer(seconds, std::move(*box), false); });
 }
 
+// (ExitProcess ends every thread before the DLL's statics are destroyed: nothing to stop first)
+void onQuit(std::function<void()>) {}
 void everyOnMain(double seconds, std::function<void()> fn) {
     if (!g_wnd) {
         std::lock_guard<std::mutex> l(g_mainMx);

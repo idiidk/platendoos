@@ -65,10 +65,14 @@ static const Addr A_ctviSub{"__ZNK6browse18CustomTreeViewItem10getSubItemEi"};  
 static const Addr A_ctviSetOpen{"__ZN6browse18CustomTreeViewItem7setOpenEb"};  // browse::CustomTreeViewItem::setOpen(bool)
 static const Addr A_ctviIdString{"__ZNK6browse18CustomTreeViewItem23getItemIdentifierStringEv"};  // browse::CustomTreeViewItem::getItemIdentifierString() const
 static const Addr A_mediaNames{"GetMediaName's table", [] {  // BrowseMediaSelect::GetMediaName's juce::String table (21):
+#if RBM_MAC_X86
+    return symbol("__ZL15aStrButtonNames");  // the x86_64 slice has a symbol for it
+#else
     const char* fn = "__ZN17BrowseMediaSelect12GetMediaNameE21mediaSelectButtonType";  // adrp/add x8, add x1, x8, #0x418
     size_t add;
     uintptr_t page = adrpAdd(fn, 0);
     return page && immediate(fn, "add x8", 1, &add) ? page + add : 0;
+#endif
 }};
 static const Addr A_btvChangeMedia{"__ZN6browse16BrowseTreeViewer15ChangeMediaTypeE21mediaSelectButtonType"};  // browse::BrowseTreeViewer::ChangeMediaType(mediaSelectButtonType)
 static const Offset O_ctvRoot{0x158, "__ZNK6browse14CustomTreeView15getSelectedItemEi", "ldr x0", 0};
@@ -91,12 +95,6 @@ static const Offset V_lvLoadTrack{0x428, "__ZTVN6browse10ListViewerE", "vt:__ZN6
 static const Offset O_trackPath{0x98, "__ZNK2db12RowDataTrack13isSpotifyFileEv", "add x0", 0};  // RowDataTrack: file path / streaming URI (juce::String)
 
 intptr_t g_slide;
-
-const Addr kHookOrig[HK_COUNT] = {
-#define HOOK(name, caller, nth, count, target, kind) {target, intptr_t(0), "hooks.def"},
-#include "../hooks.def"
-#undef HOOK
-};
 
 // UTF-8 (String(char const*) would read the bytes as Latin-1 and mangle non-ASCII paths and names).
 JStr::JStr(const char* s) { at<void (*)(JStr*, const char*)>(A_stringCtorUTF8)(this, s); }
@@ -872,6 +870,12 @@ std::string playlistName(const std::string& id) {
     return s ? s->name : "Selection of an earlier session";
 }
 
+static std::atomic<bool> g_quitting{false};
+bool quitting() { return g_quitting; }
+void parkIfQuitting() {
+    while (g_quitting) std::this_thread::sleep_for(std::chrono::seconds(60));
+}
+
 void startupTask(std::function<void()> fn) {
     static std::mutex lock;
     static std::deque<std::function<void()>> tasks;
@@ -1208,6 +1212,10 @@ void start() {
     // macOS: start() runs from image_mac.mm's constructor, before the mods' static RBM_MOD registrations, so
     // mods() is still empty here; the main-thread step below does it for them.
     latchSwitches();
+    plat::onQuit([] {
+        g_quitting = true;
+        logf("rbmods: rekordbox quits: the mods' own threads stop");
+    });
     // Mods' init runs on the main thread once the app is up (all static registrations are done by then).
     plat::onMain([] {
         checkBuild();

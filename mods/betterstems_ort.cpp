@@ -24,11 +24,9 @@ std::string modelPath() { return plat::resourcesDir() + "/htdemucs.onnx"; }
 
 bool installed() { return std::filesystem::exists(plat::fsPath(modelPath())); }
 
-// HTDemucs is used only where it is fast: on a GPU (DirectML) that separates a segment (7.8 s of audio) within
-// kSlowSegment. On the CPU a segment takes 2.5-5 s on all the cores it gets (a track: two minutes of a 6-core PC at
-// 75%, next to a playing deck), and an integrated GPU can be slower still; rekordbox's own engine does a whole
-// track in 15-30 s. There this returns false and rekordbox's engine separates. betterstems_slow=1: HTDemucs anyway.
-const double kSlowSegment = 1.0;  // s
+// HTDemucs is used only where it is fast: on a GPU (DirectML) that separates a segment within kSlowSegment
+// (betterstems_backend.h). Elsewhere this returns false and rekordbox's engine separates. betterstems_slow=1:
+// HTDemucs anyway.
 
 bool load(std::string* version) {
     std::string path = modelPath(), err;
@@ -106,6 +104,11 @@ bool predict(const float* mix, int length, const float* mag, int bins, int frame
     spec = std::move(out[0]);
     wave = std::move(out[1]);
     return true;
+}
+
+void unload() {
+    if (g_session) ort::close(*g_session);
+    g_session.reset();
 }
 
 }  // namespace betterstems_backend

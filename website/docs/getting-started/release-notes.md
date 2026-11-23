@@ -5,6 +5,23 @@ What changed per release, for people using platendoos. Downloads are on the
 installed platendoos in place (see [Installation](./installation#after-a-rekordbox-update)).
 
 
+## 0.5.0 (2026-11-23)
+
+- **Intel Macs, in beta.** The macOS patcher now also installs platendoos on Intel Macs (rekordbox 7.2.19 and
+  7.2.20), with every mod. It is **not tested on a real Intel Mac yet**: it was tested under Rosetta on an Apple
+  Silicon Mac, which runs the same Intel code but says little about speed. On an Intel Mac the patcher says it is
+  beta. Where the Mac's graphics are too slow for the neural networks (or with `gpu=0`), it works as on Windows:
+  stems come from rekordbox's own engine and a track on a deck gets rekordbox's beat grid at once (the analysis
+  window still waits for the Beat This! grid). If you try it, the log (`~/Library/Logs/rekordbox-mods.log`) and a
+  note of what you did help a lot. Details: [Intel Macs](/internals/intel-mac).
+- **No more crash report when quitting rekordbox** (macOS). A background thread of the mods could still
+  be running while rekordbox shut down and abort the quit; the mods' own threads now stop as soon as rekordbox
+  starts quitting.
+- **Stems that come out as noise switch HTDemucs off** (Windows, Intel Macs). Each piece of separated audio is
+  checked; if the graphics card returns noise instead of stems, rekordbox's own engine separates for the rest of
+  the session and the log says why.
+- The beat-detection warm-up at launch no longer uses the models of another copy of platendoos (a test install).
+
 ## 0.4.2 (2026-11-23)
 
 - **macOS 13, 14 and 15 work again.** The macOS packages of earlier releases were built for the macOS version they

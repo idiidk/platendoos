@@ -17,6 +17,7 @@ namespace rbm::plat {
 void onMain(std::function<void()> fn);                    // run on rekordbox's main (message) thread, later
 void onMainAfter(double seconds, std::function<void()> fn);
 void everyOnMain(double seconds, std::function<void()> fn);  // a repeating main-thread timer, for the app's lifetime
+void onQuit(std::function<void()> fn);  // on the main thread when the app is about to quit (macOS; Windows: never)
 bool isMainThread();
 void background(std::function<void()> fn);                // on a shared pool of worker threads
 void parallelFor(size_t n, const std::function<void(size_t)>& fn);  // fn(0..n-1) on several threads; returns when done

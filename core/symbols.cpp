@@ -39,11 +39,13 @@ void resolve(const Offset& o) {
         o.ok = found;
         return;
     }
+    // In the x86_64 slice the instruction recipes give the arm64 value (image_mac.mm reads them from the arm64 half of
+    // the file): plus the X86{} difference.
     if (immediate(o.fn, o.kind, o.nth, &v)) {
-        o.value = v;
+        o.value = v + (RBM_MAC_X86 ? o.x86Delta : 0);
         o.ok = true;
     } else {
-        o.value = o.expected;
+        o.value = o.expectedHere();
         o.ok = false;
     }
 }
@@ -74,11 +76,47 @@ Addr::Addr(const char* what, uintptr_t (*find)(), const char* file) : name(what)
     addrs().push_back(this);
     resolve(*this);
 }
-Offset::Offset(size_t expected, const char* fn, const char* kind, int nth, const char* file)
-    : expected(expected), fn(fn), kind(kind), nth(nth), file(file), value(expected) {
+Offset::Offset(size_t expected, const char* fn, const char* kind, int nth, const char* file) : Offset(expected, fn, kind, nth, X86(), file) {}
+Offset::Offset(size_t expected, const char* fn, const char* kind, int nth, X86 x86, const char* file)
+    : expected(expected), fn(fn), kind(kind), nth(nth), x86Delta(x86.set ? (intptr_t)x86.value - (intptr_t)expected : 0), file(file), value(expected) {
     offsets().push_back(this);
     resolve(*this);
 }
+
+// Each hook's original target (RBM_ORIG): the target of its hooks.def line. In the x86_64 slice that is its first
+// HOOK_X86 line's where it has one ("" for a hook never patched there: no address); image_mac.mm then takes the
+// target of the site the patcher actually patched from the marker's table of originals (imageResolve).
+#if RBM_MAC_X86
+namespace {
+struct X86Target { const char* name; const char* target; };
+constexpr X86Target kX86Targets[] = {
+#define HOOK(name, caller, nth, count, target, kind)
+#define HOOK_X86(name, caller, nth, count, target, kind) {#name, (caller)[0] ? target : ""},
+#include "../hooks.def"
+#undef HOOK_X86
+#undef HOOK
+    {"", ""},
+};
+constexpr bool sameName(const char* a, const char* b) {
+    while (*a && *a == *b) a++, b++;
+    return *a == *b;
+}
+constexpr const char* hookTarget(const char* name, const char* target) {
+    for (const X86Target& t : kX86Targets)
+        if (sameName(t.name, name)) return t.target;
+    return target;
+}
+}  // namespace
+#define RBM_HOOK_TARGET(name, target) hookTarget(#name, target)
+#else
+#define RBM_HOOK_TARGET(name, target) target
+#endif
+const Addr kHookOrig[HK_COUNT] = {
+#define HOOK(name, caller, nth, count, target, kind) {RBM_HOOK_TARGET(name, target), intptr_t(0), "hooks.def"},
+#include "../hooks.def"
+#undef HOOK
+};
+#undef RBM_HOOK_TARGET
 
 // Windows: a mod some of whose hooks have no site in this build (image_win.cpp).
 void modOffForHooks(const char* mod) { g_off.insert(mod); }
@@ -97,17 +135,17 @@ void checkBuild() {
 #endif
     int selfTest = 0;
     for (const Offset* o : offsets()) {
-        if (o->ok && o->value == o->expected) continue;
+        if (o->ok && o->value == o->expectedHere()) continue;
         if (tested) {  // the expected value is right here: a recipe that disagrees is out of date
             selfTest++;
             logf("rbmods: field recipe %s / %s #%d gives %s, expected %#zx (%s)", o->fn, o->kind, o->nth,
-                 o->ok ? "another value" : "nothing", o->expected, o->file);
-            o->value = o->expected;
+                 o->ok ? "another value" : "nothing", o->expectedHere(), o->file);
+            o->value = o->expectedHere();
         } else if (!o->ok) {
             missing[modOf(o->file)].push_back(std::string("field in ") + o->fn);
         } else {
 #ifndef _WIN32  // Windows: every field differs from mac's expected value; the table is the source
-            logf("rbmods: field from %s moved: %#zx -> %#zx", o->fn, o->expected, o->value);
+            logf("rbmods: field from %s moved: %#zx -> %#zx", o->fn, o->expectedHere(), o->value);
 #endif
         }
     }

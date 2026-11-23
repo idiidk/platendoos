@@ -8,7 +8,12 @@ set -euo pipefail
 here=${0:A:h:h:h}
 src=${1:A}
 out=${TMPDIR:-/tmp}/rbm-hotload-$$-$(date +%s%N).dylib
-clang++ -std=c++20 -O1 -arch arm64 -dynamiclib -fobjc-arc -framework AppKit -framework AVFoundation -framework Accelerate \
+# Built for the architecture rekordbox runs as: x86_64 on an Intel Mac or under Rosetta (P_TRANSLATED, 0x20000, in its
+# process flags; docs/intel-mac.md), else arm64.
+arch=arm64
+pid=$(pgrep -x rekordbox 2>/dev/null | head -1 || true)
+if [[ $(uname -m) == x86_64 ]] || { [[ -n $pid ]] && (( 0x$(ps -p $pid -o flags= | tr -d ' ') & 0x20000 )) }; then arch=x86_64; fi
+clang++ -std=c++20 -O1 -arch $arch -dynamiclib -fobjc-arc -framework AppKit -framework AVFoundation -framework Accelerate \
     -lsqlite3 -undefined dynamic_lookup -I"$here/core" -o "$out" "$src"
 codesign --force --sign - "$out" 2>/dev/null
 dir=~/Library/Application\ Support/rekordbox-mods

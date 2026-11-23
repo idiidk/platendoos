@@ -6,7 +6,7 @@ The models and the Windows address tables are build inputs that live in the
 
 ## macOS
 
-You need a Mac with Apple Silicon, rekordbox 7 in `/Applications/rekordbox 7/`, and Xcode's command line tools
+You need a Mac (Apple Silicon; an Intel Mac builds too, untested), rekordbox 7 in `/Applications/rekordbox 7/`, and Xcode's command line tools
 (`xcode-select --install`).
 
 ```sh

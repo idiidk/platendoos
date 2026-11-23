@@ -8,12 +8,18 @@ computer:
 
 | | File | What's in it |
 |---|---|---|
-| **macOS** (Apple Silicon) | `platendoos-patcher-mac-<version>.zip` | the app **platendoos patcher** |
+| **macOS** (Apple Silicon; Intel in beta) | `platendoos-patcher-mac-<version>.zip` | the app **platendoos patcher** |
 | **Windows** (x64) | `platendoos-windows-<version>.zip` | a `platendoos` folder with **platendoos patcher.exe**, `platendoos.exe` and the mods |
 
 What changed in each version: [Release notes](./release-notes).
 
 ## macOS
+
+::: warning Intel Macs: beta
+The patcher installs platendoos on Intel Macs too, but it has only been tested under Rosetta on an Apple Silicon
+Mac so far. If you try it on an Intel Mac, the log (`~/Library/Logs/rekordbox-mods.log`) and what you did help a
+lot. Your own rekordbox stays as it was. [Details](/internals/intel-mac).
+:::
 
 1. **Unzip** `platendoos-patcher-mac-<version>.zip` and open **platendoos patcher**.
 2. **Gatekeeper.** The patcher isn't notarised, so the first time macOS refuses to open it. Open

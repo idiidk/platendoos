@@ -185,7 +185,12 @@ static const Addr A_scanProcessor{"__ZN12DjController31IControllerPerformancePro
 static const Addr A_jogProcessor{"__ZN6djplay12JogProcessorC2EiN4juce6StringEPN12DjController31IControllerPerformanceProcessorE"};
 static const char* kGetProperty = "__ZN6djplay15DeviceComponent18operateGetPropertyEiRN4juce6StringERKNS1_10IdentifierERNS_13DeviceVariantE";
 static const Addr A_getProperty{kGetProperty};
+#if defined(__x86_64__) && !defined(_WIN32)
+// Intel Macs: the one operateGetProperty call there, the Identifier in rcx (`lea rcx, [rip + x]`; 7.2.19 and 7.2.20)
+static const Addr A_vinylId{"Identifier \"Vinyl\"", [] { return leaBefore(callSite(kFlx4Ctor, kGetProperty, 0), 1); }};
+#else
 static const Addr A_vinylId{"Identifier \"Vinyl\"", [] { return adrpAddBefore(callSite(kFlx4Ctor, kGetProperty, 0), 3); }};
+#endif
 static const Addr A_deviceComponent{"__ZN6djplay15DeviceComponentC1EiN4juce6StringEb"};
 static const Addr A_deviceComponentDtor{"__ZN6djplay15DeviceComponentD1Ev"};
 static const Addr A_variantVtable{"__ZTVN6djplay13DeviceVariantE", 0x10};
@@ -236,7 +241,11 @@ static void keepTempo(void* player, int deck) {
 // rekordbox's channel level meters (peak, dB; what its level meter on the controller shows)
 static const char* kEngineGet = "__ZN4juce15SingletonHolderIN8djengine10DjEngineIFENS_15CriticalSectionELb0EE3getEv";
 static const Addr A_engineGet{kEngineGet};
+#if defined(__x86_64__) && !defined(_WIN32)
+static const Addr A_engine{"__ZN8djengine10DjEngineIF15singletonHolderE"};  // Intel Macs: the holder's own symbol
+#else
 static const Addr A_engine{"SingletonHolder<DjEngineIF>", [] { return adrpAdd("__ZN22ChannelLevelDeviceUnit13timerCallbackEi", 0); }};  // (via x21)
+#endif
 static const Addr A_djSystem{"__ZNK8djengine10DjEngineIF11getDjSystemEv"};
 static const Addr A_mixerState{"__ZNK8DjSystem13getMixerStateEi"};
 static const Addr A_channelLevel{"__ZThn392_NK11DjMixerUnit25getChannelLevelMeterValueEib"};  // on its IDjMixerState: (channel 0-3, left)
@@ -710,7 +719,7 @@ static int g_prevPhys[2][128];
 static const Addr A_setColour{"__ZN4juce9Component9setColourEiNS_6ColourE", intptr_t(0), ""};
 static const Addr A_findColour{"__ZNK4juce9Component10findColourEib", intptr_t(0), ""};
 static const Addr A_labelSetFont{"__ZN4juce5Label7setFontERKNS_4FontE", intptr_t(0), ""};
-static const Offset O_labelFont{0x1b0, "__ZNK4juce5Label7getFontEv", "add x0", 0, ""};  // juce::Label: its Font
+static const Offset O_labelFont{0x1b0, "__ZNK4juce5Label7getFontEv", "add x0", 0, X86{0x1e8}, ""};  // juce::Label: its Font
 static const Addr A_fontMake{"__ZN4juce4FontC1Efi", intptr_t(0), ""};
 static const Addr A_fontCopy{"__ZN4juce4FontC1ERKS0_", intptr_t(0), ""};
 static const Addr A_fontFree{"__ZN4juce4FontD1Ev", intptr_t(0), ""};
@@ -858,6 +867,16 @@ static void setFourDeckLayout(bool four) {
     void** actVt = *(void***)(main + 568);
     bool viaTarget = actVt && actVt[4] == (void*)(A_performThunk + g_slide);
     size_t targetOffset = 568;
+#elif defined(__x86_64__)
+    // Intel Macs: the thunk is "push rbp; mov rbp, rsp; add rdi, -imm" (48 81 C7 imm32, or 48 83 C7 imm8):
+    // -0x290 in 7.2.19 and 7.2.20, as the 656 in its name.
+    const uint8_t* p = at<const uint8_t*>(A_performThunk);
+    int32_t imm = 0;
+    bool frame = p[0] == 0x55 && p[1] == 0x48 && p[2] == 0x89 && p[3] == 0xE5 && p[4] == 0x48 && p[6] == 0xC7;
+    if (frame && p[5] == 0x81) memcpy(&imm, p + 7, 4);
+    else if (frame && p[5] == 0x83) imm = (int8_t)p[7];
+    bool viaTarget = imm < 0;
+    size_t targetOffset = (size_t)-(int64_t)imm;
 #else
     uint32_t ins = *at<const uint32_t*>(A_performThunk);
     bool viaTarget = (ins & 0xFFC003FF) == 0xD1000000;

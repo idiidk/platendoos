@@ -17,9 +17,23 @@
 //     Another site for the hook `name` (a HOOK line above it), used when that one isn't found: where a newer
 //     rekordbox has the same call after the code around it moved. It is no hook of its own (no index), the
 //     patchers try a hook's sites in order, and the code that includes this file doesn't see it unless it asks.
+//
+//   HOOK_X86(name, caller, nth, count, target, kind)
+//     The hook's site in rekordbox's x86_64 slice (Intel Macs, docs/intel-mac.md), where it isn't the one its HOOK /
+//     HOOK_OR lines describe: the compiler orders the same calls differently there (nth), or calls other functions
+//     (target, count, kind). A hook's x86_64 sites are its HOOK_X86 lines if it has any (tried in order, like
+//     HOOK_OR), else its HOOK / HOOK_OR lines. The kinds in x86_64 code: -1 "call <target>" (E8 rel32), -2 "jmp
+//     <target>" (E9 rel32), n >= 0 "lea <any register>, [rip + <target>]" (only the rel32 changes). A hook whose
+//     site doesn't exist there gets HOOK_X86(name, "", 0, 0, "", 0): never patched on x86_64. Like HOOK_OR it is no
+//     hook of its own, and the code that includes this file doesn't see it unless it asks. tools/dev/hookorder.py
+//     checks that every hook's x86_64 site is the same call as its arm64 one.
 #ifndef HOOK_OR
 #define HOOK_OR(name, caller, nth, count, target, kind)
 #define RBM_HOOK_OR_UNUSED
+#endif
+#ifndef HOOK_X86
+#define HOOK_X86(name, caller, nth, count, target, kind)
+#define RBM_HOOK_X86_UNUSED
 #endif
 
 // keycolumn: ListViewer::paintCell -> bl ListViewer::getString (plain-text cells)
@@ -52,6 +66,9 @@ HOOK(spotify_rev_library, "__ZN2db13SpotifyBridge26getNewPlaylistsAndSetCacheERK
 //   refreshListItem lambda (sidebar quick check / track cache wipe), two sites
 HOOK(spotify_rev_item1, "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge15refreshListItemEvE4$_21NS_9allocatorIS4_EEFvPN4juce13ThreadPoolJobEEEclEOS9_", 4, 6, "__ZN4juceneERKNS_6StringES2_", -1)
 HOOK(spotify_rev_item2, "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge15refreshListItemEvE4$_21NS_9allocatorIS4_EEFvPN4juce13ThreadPoolJobEEEclEOS9_", 5, 6, "__ZN4juceneERKNS_6StringES2_", -1)
+//   (x86_64: the same six calls in another order)
+HOOK_X86(spotify_rev_item1, "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge15refreshListItemEvE4$_21NS_9allocatorIS4_EEFvPN4juce13ThreadPoolJobEEEclEOS9_", 5, 6, "__ZN4juceneERKNS_6StringES2_", -1)
+HOOK_X86(spotify_rev_item2, "__ZNSt3__110__function6__funcIZNK2db13SpotifyBridge15refreshListItemEvE4$_21NS_9allocatorIS4_EEFvPN4juce13ThreadPoolJobEEEclEOS9_", 2, 6, "__ZN4juceneERKNS_6StringES2_", -1)
 // spotifyfix: Client::onRequestClientTokenCallback -> bl Service::setClientTokenDirect (the new client token; runs
 //   with the Client's lock held, and takes the Service's token lock: the other order from Auth::getClientToken)
 HOOK(spotify_token_set, "__ZN9streaming7spotify6Client28onRequestClientTokenCallbackEPKc15DJDownloadError", 0, 1, "__ZN9streaming7spotify7Service20setClientTokenDirectERKN4juce6StringE", -1)
@@ -124,6 +141,9 @@ HOOK(itunes_reading, "__ZN2db16DatabaseMediator11execAnalyzeEPNS_16DBCommandAnal
 HOOK(fr_loadStatus, "__ZN6djplay9UiManager16changeLoadStatusENS_9ePlayerIDEb", 0, 1, "__ZN13MainComponent11getInstanceEv", -1)
 // screeninfo: JUCE's per-vblank repaint -> [[[view window] screen] deviceDescription] (a new dictionary each time)
 HOOK(screen_desc, "__ZN4juce19NSViewComponentPeer14AsyncRepainter17handleAsyncUpdateEv", 0, 1, "_objc_msgSend$deviceDescription", -1)
+//   (x86_64: the call is a "call r14" of objc_msgSend, no site of its own; screeninfo points rekordbox's selector
+//   reference at a method of its own there instead)
+HOOK_X86(screen_desc, "", 0, 0, "", 0)
 // spotifylog: StreamingLog::run -> bl FileLogger::trimFileSize after every batch of lines (rewrites the 1 MB log)
 HOOK(log_trim, "__ZN9streaming12StreamingLog3runEv", 0, 1, "__ZN4juce10FileLogger12trimFileSizeERKNS_4FileEx", -1)
 // artcache: ArtworkCache::Pimpl::addImageToCache -> bl OwnedArray<Item>::removeRange(0, 50) once it holds ~26 MB
@@ -146,6 +166,13 @@ HOOK(an_yield2, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 2, 6, "__ZN4juce6
 HOOK(an_yield3, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 3, 6, "__ZN4juce6Thread5yieldEv", -1)
 HOOK(an_yield4, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 4, 6, "__ZN4juce6Thread5yieldEv", -1)
 HOOK(an_yield5, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 5, 6, "__ZN4juce6Thread5yieldEv", -1)
+//   (x86_64: the same six, the first one last: after notifyProgress)
+HOOK_X86(an_yield0, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 5, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK_X86(an_yield1, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 0, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK_X86(an_yield2, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 1, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK_X86(an_yield3, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 2, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK_X86(an_yield4, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 3, 6, "__ZN4juce6Thread5yieldEv", -1)
+HOOK_X86(an_yield5, "__ZN8analyzer18CBeatAnalyzeThread7analyzeEv", 4, 6, "__ZN4juce6Thread5yieldEv", -1)
 // midipoll: DeviceServer::timerCallback (every 150 ms, alternating) -> bl MIDI_DeviceCheck (rescans CoreMIDI devices)
 HOOK(midi_check, "__ZN6djplay12DeviceServer13timerCallbackEi", 0, 1, "__ZN6djplay12DeviceServer16MIDI_DeviceCheckEv", -1)
 // flx4: DeviceMidi::run (a controller's MIDI thread) -> bl midiInDataForThread, for every message from the controller
@@ -220,6 +247,9 @@ HOOK(fastwave_init1, "__ZN6djplay14WidgetWaveView14initializeWaveEllPNS_8SongInf
 //   (its 3 bl startTimer calls: (2, 300), (4, 100), (1, 500); a 4th is a "b" tail call)
 HOOK(fastwave_check, "__ZN6djplay14WidgetWaveView13timerCallbackEi", 1, 3, "__ZN4juce10MultiTimer10startTimerEii", -1)
 HOOK(fastwave_retry, "__ZN6djplay14WidgetWaveView13timerCallbackEi", 2, 3, "__ZN4juce10MultiTimer10startTimerEii", -1)
+//   (x86_64: two calls, (4, 100) and (1, 500); the (2, 300) start jumps to the second: the hooks check id and ms)
+HOOK_X86(fastwave_check, "__ZN6djplay14WidgetWaveView13timerCallbackEi", 0, 2, "__ZN4juce10MultiTimer10startTimerEii", -1)
+HOOK_X86(fastwave_retry, "__ZN6djplay14WidgetWaveView13timerCallbackEi", 1, 2, "__ZN4juce10MultiTimer10startTimerEii", -1)
 // fastwave: WidgetPlayerDJ::operateWavePartUpdateMuted -> bl WidgetWaveView::setWavePartSelected (a stem muted/unmuted;
 //   it ends in resizedFrame) and WidgetWaveView::resizedFrame -> bl MultiTimer::startTimer(1, 500) (rebuild delay)
 HOOK(fastwave_muted, "__ZN6djplay14WidgetPlayerDJ26operateWavePartUpdateMutedEv", 0, 1, "__ZN6djplay14WidgetWaveView19setWavePartSelectedEbbbb", -1)
@@ -258,6 +288,8 @@ HOOK(bfx_pitchEchoDelay2, "__ZN13PitchEchoCore13processEffectEPfS0_i", 1, 2, "__
 //   fading out first; and every call of RollBufferReader::read (Roll, Reverse Roll: tail calls; Slip Roll: 4), where the
 //   wrap gets its crossfade
 HOOK(bfx_rollWrap, "__ZN16RollBufferReader4readEPfS0_i", 1, 2, "__ZN10SignalGate5closeEv", -1)
+//   (x86_64: the other close() comes first)
+HOOK_X86(bfx_rollWrap, "__ZN16RollBufferReader4readEPfS0_i", 0, 2, "__ZN10SignalGate5closeEv", -1)
 HOOK(bfx_rollRead1, "__ZN8RollCore21processEffectInternalEPfS0_i", 0, 1, "__ZN16RollBufferReader4readEPfS0_i", -2)
 HOOK(bfx_rollRead2, "__ZN15ReverseRollCore21processEffectInternalEPfS0_i", 0, 1, "__ZN16RollBufferReader4readEPfS0_i", -2)
 HOOK(bfx_rollRead3, "__ZN12SlipRollCore21processEffectInternalEPfS0_i", 0, 4, "__ZN16RollBufferReader4readEPfS0_i", -1)
@@ -295,7 +327,22 @@ HOOK(pagebuf_ctor2, "__ZN6rbxfrm17PagingAudioSource9setReaderENS_18RefCountedObj
 HOOK(pagebuf_new, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", 0, 2, "stub:__Znam", -1)
 HOOK(pagebuf_zero, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", 0, 1, "stub:_bzero", -1)
 HOOK(pagebuf_free, "__ZN6rbxfrm10PageBufferINS_6Float4EiED2Ev", 0, 1, "stub:__ZdaPv", -1)
+//   (x86_64: the zeroing is ___bzero, the two destructors tail-call delete[] ("pop rbp; jmp"), and PageBuffer's
+//   chunks come from posix_memalign(&p, 16, n) and go back with free: the loop's call is the first of the
+//   destructor's nine, a tenth is its tail jmp. getMemory's delete[] and the three constructor calls are as on arm64)
+HOOK_X86(ring_zero0, "__ZN10RingBufferC2Eii", 0, 1, "stub:___bzero", -1)
+HOOK_X86(ring_zero1, "__ZN10RingBufferC1Eii", 0, 1, "stub:___bzero", -1)
+HOOK_X86(ring_zero2, "__ZN10RingBuffer9getMemoryEib", 0, 1, "stub:___bzero", -1)
+HOOK_X86(ring_free0, "__ZN10RingBufferD2Ev", 0, 1, "stub:__ZdaPv", -2)
+HOOK_X86(ring_free1, "__ZN10RingBufferD1Ev", 0, 1, "stub:__ZdaPv", -2)
+HOOK_X86(pagebuf_new, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", 0, 1, "stub:_posix_memalign", -1)
+HOOK_X86(pagebuf_zero, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", 0, 1, "stub:___bzero", -1)
+HOOK_X86(pagebuf_free, "__ZN6rbxfrm10PageBufferINS_6Float4EiED2Ev", 0, 9, "stub:_free", -1)
 #ifdef RBM_HOOK_OR_UNUSED
 #undef HOOK_OR
 #undef RBM_HOOK_OR_UNUSED
+#endif
+#ifdef RBM_HOOK_X86_UNUSED
+#undef HOOK_X86
+#undef RBM_HOOK_X86_UNUSED
 #endif

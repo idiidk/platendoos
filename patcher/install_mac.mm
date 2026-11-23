@@ -10,6 +10,7 @@
 #include <copyfile.h>
 #include <stdarg.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 
 namespace {
 
@@ -38,6 +39,24 @@ sleep 1
 exit 0)";
 
 NSString* ns(const std::string& s) { return [NSString stringWithUTF8String:s.c_str()] ?: @""; }
+
+// An Intel Mac (it runs rekordbox's x86_64 code); an Apple Silicon Mac says arm64 even to a translated process.
+bool intelMac() {
+    int arm = 0;
+    size_t size = sizeof arm;
+    return sysctlbyname("hw.optional.arm64", &arm, &size, nullptr, 0) != 0 || !arm;
+}
+
+// "x of y found" for the x86_64 slice, with the first hooks left out ("" when all are there or it has none).
+std::string intelSites(const macho::Result& r) {
+    const macho::ArchResult* x = r.arch(macho::kX86_64);
+    if (!x || x->patched == x->total) return "";
+    std::string s = std::to_string(x->patched) + " of " + std::to_string(x->total) + " found";
+    for (size_t i = 0; i < x->skipped.size() && i < 3; i++) s += (i ? "; " : ": ") + x->skipped[i];
+    if (x->skipped.size() > 3) s += "; …";
+    return s;
+}
+
 std::string str(NSString* s) { return s ? std::string(s.UTF8String) : std::string(); }
 
 std::string destPath() {
@@ -275,7 +294,21 @@ Target find() {
         add(r.patched ? "warn" : "fail", "Hook sites", sites + ": " + miss);
         if (!r.patched) say("fail", "This rekordbox version is too different for platendoos.");
     }
-    t.mods = modChecks(r.found, true);
+    // The Intel (x86_64) code has its own sites: mentioned when some are missing, and what an Intel Mac's mods go by.
+    const macho::ArchResult* x86 = r.arch(macho::kX86_64);
+    if (std::string sites86 = intelSites(r); !sites86.empty())
+        add(x86->patched ? "warn" : "fail", "Hook sites (Intel)", sites86);
+    bool intel = intelMac();
+    if (intel && !x86) {
+        add("fail", "Program", "no Intel (x86_64) code");
+        say("fail", "This rekordbox has no code for Intel Macs.");
+    }
+    if (intel && x86) {  // (new in 0.5.0: tested under Rosetta only)
+        add("warn", "Intel Mac", "beta: platendoos has not been tested on a real Intel Mac yet");
+        say("warn", "Intel Macs are new (beta): tested only under Rosetta so far. If something goes wrong, the log in "
+                    "~/Library/Logs/rekordbox-mods.log helps; plain rekordbox stays as it was.");
+    }
+    t.mods = modChecks(intel && x86 ? x86->found : r.found, true);
 
     if (!payOk) add("fail", "Mods", "the patcher's own files are missing (" + pay + ")"), say("fail", "The patcher is incomplete. Download it again.");
     else add("ok", "Mods", "librbmods.dylib, models and windows (" + humanSize((double)paySize) + ")");
@@ -295,7 +328,8 @@ Target find() {
                          runningAt(t.dest) ? "installed and running: it will be quit and replaced" : "installed: it will be replaced");
 
     if (!payOk) t.problem = "The patcher is incomplete.";
-    else if (r.patched == 0) t.problem = "This rekordbox version is too different.";
+    else if (intel && !x86) t.problem = "This rekordbox has no code for Intel Macs.";
+    else if (r.patched == 0 || (intel && !x86->patched)) t.problem = "This rekordbox version is too different.";
     else if (freeBytes && freeBytes < need) t.problem = "Not enough disk space.";
     t.supported = t.problem.empty();
     return t;
@@ -328,7 +362,9 @@ std::string build(const Target& t, const Options& o, const Step& step, NSString*
     if (!writeAll(binPath + ".new", bin.data(), bin.size()) || rename((binPath + ".new").c_str(), binPath.c_str()) != 0)
         return "The patched program couldn't be written.";
     chmod(binPath.c_str(), 0755);
-    step("  " + std::to_string(r.patched) + " of " + std::to_string(macho::kHookCount) + " hooks in place", 3 / N);
+    std::string intel = intelSites(r);
+    step("  " + std::to_string(r.patched) + " of " + std::to_string(macho::kHookCount) + " hooks in place" +
+         (intel.empty() ? "" : " (Intel code: " + intel + ")"), 3 / N);
 
     step("Adding the mods, their models and windows", 3.5 / N);
     std::string pay = payload();

@@ -126,12 +126,13 @@ extern "C" Model* rbm_hook_tf_model2(Model* m, const std::string& path, bool a, 
 }
 
 // windows-optional: tf_madmom
-#if defined(__aarch64__)
+#if defined(__aarch64__) || (defined(__APPLE__) && defined(__x86_64__))
 // Warm-up. The first beat detection after a launch also loads the model (~1.3 s) and has TensorFlow optimise the graph on
 // its first run (another ~1 s), so the first track loaded gets its grid ~2 s later than the rest. madmom's call (its two
 // model paths, the sample rate and the flag that picks the model; madmom::analyze(String, String, float* L, float* R, int,
-// long long frames, bool) -> a result through x8) is noted in a file, and at the next launch it runs once in the background
-// on a few seconds of quiet noise, once for each model: that leaves loaded, already optimised models in the pool.
+// long long frames, bool) -> a result in memory: through x8, on x86_64 a pointer in rdi) is noted in a file, and at
+// the next launch it runs once in the background on a few seconds of quiet noise, once for each model: that leaves
+// loaded, already optimised models in the pool.
 static std::string warmupFile() { return plat::configDir() + "/tfpool_warmup.txt"; }
 static std::atomic<bool> g_noted{false};
 
@@ -151,6 +152,7 @@ extern "C" void rbm_tf_note(const JStr* a, const JStr* b, const float*, const fl
         fclose(f);
     }
 }
+#if defined(__aarch64__)
 extern "C" void* rbm_orig_tf_madmom() { return RBM_ORIG(tf_madmom, void*); }
 // The call site's arguments (x0-x7) and result pointer (x8) go on to the original untouched.
 asm(R"(
@@ -176,6 +178,17 @@ _rbm_hook_tf_madmom:
     ldp  x29, x30, [sp], #0x60
     br   x16
 )");
+#else
+// Intel Macs: the result pointer is the first argument (rdi; returned in rax), the Strings are pointers to the
+// caller's copies (rsi, rdx; the caller destroys them), L and R in rcx and r8, the rate in r9d, the frame count and
+// the flag on the stack (7.2.19 and 7.2.20, AnalyzeJobBeatDetector's madmom::analyze overload): a plain C hook.
+extern "C" void* rbm_hook_tf_madmom(void* result, const JStr* a, const JStr* b, float* L, float* R, int rate,
+                                    long long frames, bool flag) {
+    rbm_tf_note(a, b, L, R, rate, frames, flag);
+    return RBM_ORIG(tf_madmom, void* (*)(void*, const JStr*, const JStr*, float*, float*, int, long long, bool))(
+        result, a, b, L, R, rate, frames, flag);
+}
+#endif
 
 namespace {
 struct MadmomResult { alignas(16) char bytes[4096]; };  // (bigger than the real one; its contents are left alone)
@@ -191,6 +204,13 @@ static void warmUp() {
         fclose(f);
     }
     if (lines.size() < 4) return;  // not noted yet: after the first beat detection
+#ifdef __APPLE__
+    // The models are in the app's own Resources: one noted by another copy of the app (platendoos and a test install
+    // share the config folder) is this app's same file.
+    const std::string res = "/Contents/Resources/", own = plat::resourcesDir().substr(0, plat::resourcesDir().rfind('/') + 1);
+    for (int i = 0; i < 2; i++)
+        if (size_t p = lines[i].find(res); p != std::string::npos && own.size() > 1) lines[i] = own + lines[i].substr(p + res.size());
+#endif
     std::thread([lines] {
         std::this_thread::sleep_for(std::chrono::seconds(3));  // after rekordbox's own start-up work
         {

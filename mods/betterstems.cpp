@@ -9,7 +9,9 @@
 // stems apart from rekordbox's (their cache key has the model's name). Off without the model.
 //   config: betterstems=0 to disable
 //           betterstems_grid_first=1   0: stems of a track that is being analysed start at once, next to its beat detection
-//           betterstems_warmup=1       0: no first run of the model at launch (macOS)
+//           betterstems_warmup=1       0: no first run of the model at launch (Apple Silicon)
+//           betterstems_slow=0         Windows, Intel Macs: 1: HTDemucs also where it is slow (on the CPU, or on a
+//                                      GPU that needs over a second for a segment); 0: rekordbox's own engine separates there
 //           betterstems_live_rest=0    while a deck plays: a rest after each model segment, this many times the segment's
 //                                      own time (1 = the stems take twice as long and the GPU is free half the time)
 #include <string.h>
@@ -97,11 +99,93 @@ static std::mutex g_lock;  // the model (one prediction at a time: it fills the 
 static std::atomic<int> g_state;  // 0 not loaded, 1 loading, 2 loaded, -1 unavailable
 static std::string g_version;
 
+static bool segment(const float* l, const float* r, std::vector<float>& out, double* modelTime = nullptr);
+
+#if RBM_MAC_X86
+using betterstems_backend::kSlowSegment;
+
+// An Intel Mac, as Windows (betterstems_ort.cpp, betterstems_backend.h): HTDemucs is kept only where it is fast. On
+// the GPU one segment of a test signal, twice when the first is slow (the first run also builds the GPU's pipeline:
+// it is the warm-up Apple Silicon runs too, and it is checked like every segment, below); over kSlowSegment
+// rekordbox's own engine separates. On the CPU (gpu=0 betterstems_slow=1) nothing runs at launch.
+static bool fastEnough() {
+    bool anyway = cfgInt("betterstems_slow", 0) != 0;
+    if (!cfgInt("gpu", 1)) return true;  // (betterstems_slow=1: the backend didn't load it otherwise)
+    std::vector<float> l(kL), r(kL), out;
+    unsigned seed = 1;
+    for (int i = 0; i < kL; i++) {  // a kick at 120 BPM over a bass note and a little noise (-25 dB)
+        double t = (double)i / 44100, beat = fmod(t, 0.5);
+        seed = seed * 1664525u + 1013904223u;
+        float noise = ((int)(seed >> 16) - 32768) / 32768.f;
+        float v = (float)(0.25 * exp(-beat * 20) * sin(2 * M_PI * 55 * beat * (1 + 2 * exp(-beat * 40))) +
+                          0.06 * sin(2 * M_PI * 41.2 * t) + 0.01 * noise);
+        l[i] = v, r[i] = v * 0.9f;
+    }
+    double took = 0;
+    for (int i = 0; i < 2 && (i == 0 || took > kSlowSegment); i++) {
+        double t;
+        if (!segment(l.data(), r.data(), out, &t)) return false;  // (segment said why)
+        took = i ? std::min(took, t) : t;
+    }
+    logf("betterstems: a segment takes %.2f s on the GPU (Core ML)", took);
+    if (!anyway && took > kSlowSegment) {
+        logf("betterstems: HTDemucs is slow on this GPU (over %.1f s a segment): rekordbox's own engine separates "
+             "(betterstems_slow=1 for HTDemucs anyway)", kSlowSegment);
+        std::lock_guard<std::mutex> lk(g_lock);
+        betterstems_backend::unload();
+        return false;
+    }
+    return true;
+}
+#endif
+
 static void loadModel() {
     int expect = 0;
     if (!g_state.compare_exchange_strong(expect, 1)) return;
-    g_state = betterstems_backend::load(&g_version) ? 2 : -1;
+    bool ok = betterstems_backend::load(&g_version);
+#if RBM_MAC_X86
+    ok = ok && fastEnough();
+#endif
+    g_state = ok ? 2 : -1;
 }
+
+#if RBM_MAC_X86 || defined(_WIN32)
+// Windows and Intel Macs: whichever GPU is there runs HTDemucs, and one (on Windows, cause unknown) gave noise
+// instead of stems. Each segment's stems are checked: finite, and no source, nor what the sources leave of the mix,
+// much louder than the mix (with a floor for quiet passages). Unusable stems switch HTDemucs off for the session.
+const double kLouder = 2, kLeft = 0.5;  // a source's RMS, the sources' sum's error's: at most this times the mix's
+static bool usable(const float* l, const float* r, const std::vector<float>& out, std::string* why) {
+    double mix = 0, loudest = 0, rest = 0;
+    for (int i = 0; i < kL; i++) mix += (double)l[i] * l[i] + (double)r[i] * r[i];
+    for (int c = 0; c < 2; c++) {
+        const float* in = c ? r : l;
+        for (int i = 0; i < kL; i++) {
+            double sum = 0;
+            for (int s = 0; s < kSources; s++) {
+                float v = out[(size_t)(s * 2 + c) * kL + i];
+                if (!std::isfinite(v)) {
+                    *why = "not finite";
+                    return false;
+                }
+                sum += v;
+            }
+            rest += (sum - in[i]) * (sum - in[i]);
+        }
+    }
+    for (int s = 0; s < kSources; s++) {
+        double e = 0;
+        for (int i = 0; i < 2 * kL; i++) e += (double)out[(size_t)s * 2 * kL + i] * out[(size_t)s * 2 * kL + i];
+        loudest = std::max(loudest, e);
+    }
+    double m = sqrt(mix / (2 * kL)), src = sqrt(loudest / (2 * kL)), res = sqrt(rest / (2 * kL)), quiet = 0.01;
+    if (src <= kLouder * m + quiet && res <= kLeft * m + quiet) return true;
+    char b[128];
+    snprintf(b, sizeof b, "the mix at %.1f dB, a source at %.1f dB, the sources' sum off by %.1f dB",
+             20 * log10(m + 1e-9), 20 * log10(src + 1e-9), 20 * log10(res + 1e-9));
+    *why = b;
+    return false;
+}
+#endif
 
 namespace {
 bool active() {
@@ -115,8 +199,9 @@ std::string version() { return active() ? g_version : ""; }
 
 const double kGridFirst = 8;  // s a segment waits at most for an analysis' beat stage (betterstems_grid_first)
 
-// One model segment (kL samples, planar stereo) -> sources (kSources x 2 x kL, added to out).
-static bool segment(const float* l, const float* r, std::vector<float>& out) {
+// One model segment (kL samples, planar stereo) -> sources (kSources x 2 x kL, added to out). *modelTime: the model's
+// own time, s.
+static bool segment(const float* l, const float* r, std::vector<float>& out, double* modelTime) {
     std::vector<float> mix(2 * kL), mag((size_t)4 * kBins * kFrames);
     memcpy(mix.data(), l, kL * sizeof(float));
     memcpy(mix.data() + kL, r, kL * sizeof(float));
@@ -143,6 +228,7 @@ static bool segment(const float* l, const float* r, std::vector<float>& out) {
             logf("betterstems: prediction failed: %s", err.c_str());
             return false;
         }
+        if (modelTime) *modelTime = now() - t0;
         if (timed < 3) logf("betterstems: segment %d took %.2f s in the model", ++timed, now() - t0);
     }
     out.assign(wave.begin(), wave.end());  // the waveform branch, plus the spectrogram branch's inverse
@@ -151,6 +237,18 @@ static bool segment(const float* l, const float* r, std::vector<float>& out) {
             const float* re = spec.data() + (size_t)(s * 4 + 2 * c) * kBins * kFrames;
             inverse(re, re + (size_t)kBins * kFrames, out.data() + (size_t)(s * 2 + c) * kL);
         }
+#if RBM_MAC_X86 || defined(_WIN32)
+    if (std::string why; !usable(l, r, out, &why)) {
+        bool first = g_state.exchange(-1) != -1;
+        std::lock_guard<std::mutex> lk(g_lock);
+        if (first) {
+            logf("betterstems: HTDemucs gave unusable stems (%s): it is off until rekordbox restarts, rekordbox's own "
+                 "engine separates", why.c_str());
+            betterstems_backend::unload();
+        }
+        return false;
+    }
+#endif
     return true;
 }
 
@@ -191,7 +289,7 @@ static void init() {
     if (betterstems_backend::installed())
         startupTask([] {
             loadModel();
-#ifndef _WIN32
+#if !defined(_WIN32) && !RBM_MAC_X86  // (an Intel Mac ran its timed segments in loadModel)
             // One segment of silence, so the first track of the session doesn't pay for the model's first run (the
             // GPU pipeline is built then: it took 6 s when it met Beat This!'s first run on a deck load).
             if (g_state != 2 || !cfgInt("betterstems_warmup", 1)) return;

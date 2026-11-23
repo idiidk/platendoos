@@ -35,6 +35,21 @@ namespace rbm {
 
 static bool usable() { return !versionOff("analysis"); }
 
+#if defined(__APPLE__) && defined(__x86_64__)
+// Intel Macs: the hooks inside CBeatAnalyzeThread::analyze() that take the thread from a register on arm64 (x20)
+// have none on x86_64, where analyze() keeps it in a stack slot. analyze() runs on that thread itself: its only
+// caller is CBeatAnalyzeThread::run() (a tail call; run() is referenced only by the class' vtable, the juce::Thread
+// run slot), in 7.2.19 and 7.2.20. So the current juce thread is the analysis, if it is a CBeatAnalyzeThread.
+static const Addr A_currentThread{"__ZN4juce6Thread16getCurrentThreadEv", intptr_t(0), "analysis"};
+static const Addr A_tiThread{"__ZTIN4juce6ThreadE", intptr_t(0), "analysis"};
+static const Addr A_tiAnalyzeThread{"__ZTIN8analyzer18CBeatAnalyzeThreadE", intptr_t(0), "analysis"};
+const void* analysisThreadHere() {
+    if (!usable()) return nullptr;
+    void* t = at<void* (*)()>(A_currentThread)();
+    return t ? dynCast(t, at<void*>(A_tiThread), at<void*>(A_tiAnalyzeThread)) : nullptr;
+}
+#endif
+
 bool analysisSong(const void* thread, std::string* uri) {
     if (!thread || !usable()) return false;
     void* source = *(void* const*)((const char*)thread + O_threadSource);
@@ -137,7 +152,7 @@ extern "C" void rbm_hook_an_wait2(int ms) { streamWait(ms); RBM_ORIG(an_wait2, v
         "ldp q6, q7, [sp, #0xc0]\nldp q4, q5, [sp, #0xa0]\nldp q2, q3, [sp, #0x80]\nldp q0, q1, [sp, #0x60]\n" \
         "ldr x8, [sp, #0x50]\nldp x6, x7, [sp, #0x40]\nldp x4, x5, [sp, #0x30]\nldp x2, x3, [sp, #0x20]\nldp x0, x1, [sp, #0x10]\n" \
         "ldp x29, x30, [sp], #0xe0\nbr x16\n");
-#else
+#elif defined(_WIN32)
 // Windows (MSVC x64): the hook saves the argument registers (rcx, rdx, r8, r9, xmm0-3), calls analysisMark with
 // the thread (`thr`: the call's first argument is the thread, else null = the analysis thread's current one), then
 // jumps to the original with every argument register untouched. (Stack arguments and the return address are
@@ -163,11 +178,35 @@ MARK_HOOK(an_poll, x0, "poll")
 MARK_HOOK(an_phrase, x20, "phrase")
 MARK_HOOK(an_embed, x20, "similarity")
 MARK_HOOK(an_seek, x0, "seek table")
-#else
+#elif defined(_WIN32)
 MARK_HOOK(an_poll, x0, "poll", THREAD_IS_ARG0)
 MARK_HOOK(an_phrase, x20, "phrase", NO_THREAD)
 MARK_HOOK(an_embed, x20, "similarity", NO_THREAD)
 MARK_HOOK(an_seek, x0, "seek table", NO_THREAD)  // inlined: the hook is the seek-table builder's call
+#else
+// Intel Macs (x86_64 SysV): plain hooks with the callees' own signatures, read from the calls in analyze()
+// (7.2.19 and 7.2.20 alike). A struct result is an ordinary first argument (rdi) there, so nothing needs assembly.
+// No register holds the analysis thread at the phrase and similarity calls (analyze() keeps it in a stack slot):
+// those ask for the current juce thread (analysisThreadHere), and a null thread is the analysis thread's last one.
+extern "C" bool rbm_hook_an_poll(const void* thread) {  // juce::Thread::threadShouldExit() const: rdi = the thread
+    analysisMark(thread, "poll");
+    return RBM_ORIG(an_poll, bool (*)(const void*))(thread);
+}
+// SongStructureAnalyze::Analyze_AB(this, float const* (rsi), float const* (rdx), int (ecx)); nothing returned
+extern "C" void rbm_hook_an_phrase(void* self, const float* a, const float* b, int n) {
+    analysisMark(analysisThreadHere(), "phrase");
+    RBM_ORIG(an_phrase, void (*)(void*, const float*, const float*, int))(self, a, b, n);
+}
+// feature_extractor::embed(std::string const& (rsi), int (edx), bool (ecx), bool (r8d)): its result is returned in
+// memory, the caller's buffer in rdi (and rax on return). The bools are passed on as the caller set the registers.
+extern "C" void* rbm_hook_an_embed(void* result, const void* path, int n, int a, int b) {
+    analysisMark(analysisThreadHere(), "similarity");
+    return RBM_ORIG(an_embed, void* (*)(void*, const void*, int, int, int))(result, path, n, a, b);
+}
+extern "C" void rbm_hook_an_seek(void* thread) {  // CBeatAnalyzeThread::createSeekTable(): rdi = the thread
+    analysisMark(thread, "seek table");
+    RBM_ORIG(an_seek, void (*)(void*))(thread);
+}
 #endif
 
 // ---- audio of the track being analysed ------------------------------------------------------------
@@ -333,8 +372,17 @@ _rbm_hook_key_specialInfo:
     mov  x3, x20
     b    _rbm_key_specialInfo
 )");
-#else
+#elif defined(_WIN32)
 // Windows: no trampoline; the table's "hookreg key_specialInfo r15 3" line passes the thread (r15) as argument 3 of rbm_key_specialInfo.
+#else
+// Intel Macs: SetSepcialInfo(this = the job controller (rdi), AnalyzeJobs (esi: 2 = key), shared_ptr<void> by value
+// (rdx: a pointer to the caller's copy, which the caller destroys)); returns a bool in al. No register holds the
+// thread: the current one, the analysis thread (analysisThreadHere). Without it the call just goes on.
+extern "C" uint64_t rbm_hook_key_specialInfo(void* controller, int job, void* const* info) {
+    if (const void* thread = analysisThreadHere())
+        return rbm_key_specialInfo(controller, job, info, (const char*)thread);
+    return RBM_ORIG(key_specialInfo, uint64_t (*)(void*, int, void* const*))(controller, job, info);
+}
 #endif
 
 // Beat job of the same analysis: logged so the log shows which tracks rekordbox really analyses.
@@ -356,6 +404,13 @@ _rbm_hook_beat_specialInfo:
     mov  x3, x20
     b    _rbm_beat_specialInfo
 )");
-#else
+#elif defined(_WIN32)
 // Windows: no trampoline; the table's "hookreg beat_specialInfo r15 3" line passes the thread (r15) as argument 3 of rbm_beat_specialInfo.
+#else
+// Intel Macs: as key_specialInfo (esi = 3, the beat job).
+extern "C" uint64_t rbm_hook_beat_specialInfo(void* controller, int job, void* const* info) {
+    if (const void* thread = analysisThreadHere())
+        return rbm_beat_specialInfo(controller, job, info, (const char*)thread);
+    return RBM_ORIG(beat_specialInfo, uint64_t (*)(void*, int, void* const*))(controller, job, info);
+}
 #endif

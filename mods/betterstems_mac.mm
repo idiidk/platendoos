@@ -65,6 +65,16 @@ bool installed() { return [NSFileManager.defaultManager fileExistsAtPath:package
 // Both give the same version (the weights' size), so stems already cached stay valid.
 bool load(std::string* version) {
     @autoreleasepool {
+#if RBM_MAC_X86
+        // An Intel Mac, as Windows (betterstems_ort.cpp): HTDemucs only on a GPU that is fast enough (betterstems.cpp
+        // times it); with gpu=0 rekordbox's own engine separates, unless betterstems_slow=1.
+        bool gpu = cfgInt("gpu", 1) != 0;
+        if (!gpu && !cfgInt("betterstems_slow", 0)) {
+            logf("betterstems: gpu=0, and HTDemucs is slow on the CPU: rekordbox's own engine separates "
+                 "(betterstems_slow=1 for HTDemucs anyway)");
+            return false;
+        }
+#endif
         NSFileManager* fm = NSFileManager.defaultManager;
         NSError* err = nil;
         NSString* compiled = [NSString stringWithUTF8String:(plat::resourcesDir() + "/htdemucs.mlmodelc").c_str()];
@@ -92,6 +102,9 @@ bool load(std::string* version) {
         }
         MLModelConfiguration* cfg = [MLModelConfiguration new];
         cfg.computeUnits = MLComputeUnitsCPUAndGPU;  // the Neural Engine can't compile it
+#if RBM_MAC_X86
+        if (!gpu) cfg.computeUnits = MLComputeUnitsCPUOnly;
+#endif
         double t = now();
         MLModel* m = [MLModel modelWithContentsOfURL:[NSURL fileURLWithPath:compiled] configuration:cfg error:&err];
         if (!m) {
@@ -102,7 +115,8 @@ bool load(std::string* version) {
         stat(weights.fileSystemRepresentation, &st);
         *version = "htdemucs-" + std::to_string((long long)st.st_size);
         g_model = m;
-        logf("betterstems: HTDemucs loaded in %.1f s from %s", now() - t, compiled.UTF8String);
+        logf("betterstems: HTDemucs loaded in %.1f s from %s%s", now() - t, compiled.UTF8String,
+             RBM_MAC_X86 ? (cfg.computeUnits == MLComputeUnitsCPUOnly ? " on the CPU" : " for the GPU") : "");
         return true;
     }
 }
@@ -124,5 +138,7 @@ bool predict(const float* mix, int length, const float* mag, int bins, int frame
         return true;
     }
 }
+
+void unload() { g_model = nil; }
 
 }  // namespace betterstems_backend

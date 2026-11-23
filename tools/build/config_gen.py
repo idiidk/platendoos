@@ -14,7 +14,7 @@ FULL_ONLY_OPTS = set()
 SKIP = {'analyze_playlist', 'flx4_inject', 'flx4_dump'}
 # Defaults that aren't a plain literal in the call, or differ per platform.
 DEFAULTS = {'analyze_timeout': {'mac': '90', 'win': '180'}, 'bettergrid_wait': {'mac': '20', 'win': '60'}}
-GPU = {'mac': '0 keeps bettergrid on the CPU', 'win': "0 keeps the models off the GPU: Beat This! and the genre model run on the CPU, stems come from rekordbox's own engine"}
+GPU = {'mac': "0 keeps bettergrid on the CPU (Intel Macs: stems come from rekordbox's own engine then)", 'win': "0 keeps the models off the GPU: Beat This! and the genre model run on the CPU, stems come from rekordbox's own engine"}
 # README's first sentence says too little for these.
 SUMMARY = {'badge': "The PLATENDOOS chip: its window shows the versions, every mod and whether it's on, and opens the log and this file.",
            'bettergrid': "Better beat grids: combines the Beat This! beat tracker's tempo and bar starts with beats placed on the hits in the audio.",

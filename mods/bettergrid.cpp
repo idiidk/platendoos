@@ -55,11 +55,11 @@
 //           bettergrid_halfbeat=1   rekordbox's beats half a beat off the beat: 1 moved when Beat This!'s beats and the kick band (its onsets, or its level clearly higher between) both say so, 2 when Beat This!'s beats alone say so, 0 never
 //           bettergrid_bars=1    rekordbox's and Beat This!'s bar starts differ: the music's changes (barphase.h) pick one; 0 the kick-in rule alone
 //           bettergrid_genre=1   the track's genre (genres mod) picks the tempo's octave; 0 never
-//           bettergrid_warmup=1  0: no first run of the model at launch (macOS)
-//           bettergrid_wait=20   seconds the analysis waits for the combined grid at most (60 on Windows)
+//           bettergrid_warmup=1  0: no first run of the model at launch (Apple Silicon)
+//           bettergrid_wait=20   seconds the analysis waits for the combined grid at most (60 on Windows and Intel Macs)
 //           bettergrid_rb_first=1  0: while it waits, the deck doesn't show rekordbox's own grid meanwhile (quickdeck)
-//           bettergrid_slow=0    Windows: 1: also wait for Beat This! for a track on a deck where it is slow (it
-//                                runs on the CPU, or on a GPU that needs over a second for 30 s of audio)
+//           bettergrid_slow=0    Windows, Intel Macs: 1: also wait for Beat This! for a track on a deck where it is
+//                                slow (it runs on the CPU, or on a GPU that needs over a second for 30 s of audio)
 //           bettergrid_title=BT BPM   header name of the column
 //           bettergrid_debug=0   1: log the first beats of both grids (development)
 #include "../core/rbmod.h"
@@ -504,17 +504,17 @@ static void gridPrefetch(const void* thread) {
     if (!g_on || g_model < 0) return;
     std::string uri = songPath(thread);
     if (uri.empty()) return;
-#ifdef _WIN32
+#if defined(_WIN32) || RBM_MAC_X86
     // Where Beat This! is slow (on the CPU 15-25 s a track, which the analysis would wait for; or a slow GPU), a
     // track that is on a deck keeps rekordbox's own grid, which shows as soon as rekordbox has it: a DJ is waiting
     // for it. Tracks analysed from the Analysis window or the collection wait for Beat This! as before.
-    // bettergrid_slow=1: wait on a deck too.
+    // bettergrid_slow=1: wait on a deck too. (Windows and Intel Macs: on Apple Silicon it is never slow.)
     if (!cfgInt("bettergrid_slow", 0) && model().slow()) {
         bool onDeck = false;
         for (int ch = 0; ch < deckCount(); ch++) onDeck |= deckPath(ch) == uri;
         if (onDeck) {
-            logf("bettergrid: Beat This! is slow on this PC (%s): rekordbox's grid for the track on the deck, at once  %s",
-                 model().device().c_str(), uri.c_str());
+            logf("bettergrid: Beat This! is slow on this %s (%s): rekordbox's grid for the track on the deck, at once"
+                 "  %s", RBM_MAC_X86 ? "Mac" : "PC", model().device().c_str(), uri.c_str());
             return;
         }
     }
@@ -1002,9 +1002,10 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
         abandon(job);
         return out;
     }
-#ifdef _WIN32
-    // Beat This! on the CPU (ONNX Runtime) is several times slower than Core ML on a Mac: in a batch of analyses on
-    // a 6-core PC it needs 30-50 s past rekordbox's own grid. Waiting holds only this analysis thread.
+#if defined(_WIN32) || RBM_MAC_X86
+    // Beat This! on the CPU (ONNX Runtime) is several times slower than Core ML on Apple Silicon: in a batch of
+    // analyses on a 6-core PC it needs 30-50 s past rekordbox's own grid (an Intel Mac's CPU: over 20 s under
+    // Rosetta). Waiting holds only this analysis thread.
     double wait = cfgNum("bettergrid_wait", 60);
 #else
     double wait = cfgNum("bettergrid_wait", 20);
@@ -1222,7 +1223,7 @@ extern "C" void rbm_hook_grid_save(void* thread, const BeatArray* beats) {
     orig(thread, &a);
 }
 
-// CBeatAnalyzeThread::analyze: its beat list = the beat job's beats (thread from x20).
+// CBeatAnalyzeThread::analyze: its beat list = the beat job's beats (thread from x20; Intel Macs: see below).
 #ifndef _WIN32
 extern "C" void* rbm_grid_assign(void* dst, const void* src, const void* thread) {
     void* ret = RBM_ORIG(grid_assign, void* (*)(void*, const void*))(dst, src);
@@ -1252,6 +1253,14 @@ extern "C" void* rbm_grid_assign(void* controller, int job, void* thread) {
     Applied mine;
     if (appliedTo(thread, &mine)) assign(*(BeatArray*)((char*)result + 8), mine.beats);
     return result;
+}
+#else
+// Intel Macs: Array<DetailedBeatInfo>::operator=(this = analyze()'s beat list (rdi), source = the beat job's result
+// + 8 (rsi)) -> this (rax), one call in analyze() (7.2.19 and 7.2.20). No register holds the thread there: the
+// current juce thread is the analysis (core/analysis.cpp); without it the copy is rekordbox's own.
+extern "C" void* rbm_hook_grid_assign(void* dst, const void* src) {
+    if (const void* thread = analysisThreadHere()) return rbm_grid_assign(dst, src, thread);
+    return RBM_ORIG(grid_assign, void* (*)(void*, const void*))(dst, src);
 }
 #endif
 
@@ -1359,7 +1368,7 @@ static void init() {
             // meets the stems model's first run when the track is loaded on a deck)
             startupTask([] {
                 if (!model().loaded()) return;
-#ifndef _WIN32
+#if !defined(_WIN32) && !RBM_MAC_X86  // (an Intel Mac ran a chunk on the GPU when it loaded the model, to time it)
                 if (!cfgInt("bettergrid_warmup", 1)) return;
                 double t0 = now();
                 const int rate = 22050;

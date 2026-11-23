@@ -493,6 +493,7 @@ static void moverMain() {
     long long movedBytes = 0;
     for (bool first = true;; first = false) {
         if (!first) std::this_thread::sleep_for(std::chrono::seconds(1));
+        parkIfQuitting();
         if (!g_on) continue;
         // what waits (also what a previous run left there); unfinished files of a previous run go
         std::vector<std::pair<std::string, long long>> staged;
@@ -1245,6 +1246,7 @@ static void watchMain() {
     std::string listed, judged;  // the folder g_names is of; the one g_external was judged for
     bool first = true, counted = false;
     for (;;) {
+        parkIfQuitting();
         std::string d = dir();
         g_lookSince = plat::monotonic();
         if (d != made) {

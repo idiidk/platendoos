@@ -46,10 +46,11 @@ public:
     bool load(const std::string& mlmodelcPath, std::string* err = nullptr,
               ComputeUnits units = ComputeUnits::CpuAndGpu);
     bool loaded() const { return impl_ != nullptr; }
-    // Where it runs, for the log: "Core ML" (mac), or ONNX Runtime's "CPU" / "GPU (DirectML)" / "CPU (no GPU: ...)".
+    // Where it runs, for the log: "Core ML" (Apple Silicon), "Core ML, CPU" / "Core ML, GPU, 0.12 s a chunk" (Intel
+    // Macs), or ONNX Runtime's "CPU" / "GPU (DirectML)" / "CPU (no GPU: ...)".
     std::string device() const;
-    // The ONNX Runtime backend (Windows) only: the network is too slow here to make a DJ wait for it: it runs on the
-    // CPU, or on a GPU that needed over a second for one chunk (30 s of audio) when the model was loaded.
+    // Windows and Intel Macs (always false on Apple Silicon): the network is too slow here to make a DJ wait for it:
+    // it runs on the CPU, or on a GPU that needed over a second for one chunk (30 s of audio) when it was loaded.
     bool slow() const;
     // mono: audio at sampleRate (any rate; resampled to 22.05 kHz internally). Needs > 1 s of audio,
     // otherwise returns an empty Result.

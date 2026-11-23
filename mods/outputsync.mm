@@ -447,9 +447,16 @@ static const Addr A_pageResized{"__ZN17ItemPageComponent7resizedEv"};
 static const char* kSwitchLnfGet = "__ZN4juce15SingletonHolderIN6djplay38PreferenceToggleAndColorBoxLookAndFeelENS_15CriticalSectionELb0EE3getEv";
 static const Addr A_switchLnfGet{kSwitchLnfGet};
 static const Addr A_switchLnf{"SingletonHolder<PreferenceToggleAndColorBoxLookAndFeel>", [] { return singleton("__ZN20ExtensionEnableVideoC2Ev", kSwitchLnfGet); }};
-// std::function<void()> callbacks (32 bytes, __f_ last): Button::onClick, Slider::onValueChange
-static const Offset O_onClickF{0x118, "__ZN4juce6Button16sendClickMessageERKNS_12ModifierKeysE", "ldr x21", 7};
-static const Offset O_onValueChangeF{0x118, "__ZN4juce6Slider5Pimpl17handleAsyncUpdateEv", "ldr", 7};
+// std::function<void()> callbacks (libc++: a small buffer of three pointers, then __f_; 32 bytes on arm64, 48 on
+// x86_64, where the buffer is 16-aligned): Button::onClick, Slider::onValueChange. The recipes read __f_.
+static const Offset O_onClickF{0x118, "__ZN4juce6Button16sendClickMessageERKNS_12ModifierKeysE", "ldr x21", 7, X86{0x120}};
+static const Offset O_onValueChangeF{0x118, "__ZN4juce6Slider5Pimpl17handleAsyncUpdateEv", "ldr", 7, X86{0x120}};
+// Where __f_ is in a std::function: after the buffer, which is 3 pointers rounded up to max_align_t's alignment
+// (0x18 on arm64, 0x20 on x86_64). Ours and rekordbox's are the same libc++ (std::__1).
+static constexpr size_t kMaxAlign = alignof(std::max_align_t);
+static constexpr size_t kFunctionF = (3 * sizeof(void*) + kMaxAlign - 1) / kMaxAlign * kMaxAlign;
+static_assert(sizeof(std::function<void()>) == (kFunctionF + sizeof(void*) + kMaxAlign - 1) / kMaxAlign * kMaxAlign,
+              "libc++ std::function: buffer, then __f_");
 // ItemPageComponent's rows (juce::Array<Component*>: data, then the count at +0xc) and a component's width/height
 static const Offset O_pageRows{0x100, "__ZN17ItemPageComponent7resizedEv", "add", 1};
 static const Offset O_compHeight{0x44, "__ZN17ItemPageComponent7resizedEv", "ldr", 2};
@@ -481,7 +488,17 @@ static void setColour(void* c, int id, uint32_t argb) { fn<void (*)(void*, int, 
 static void setBounds(void* c, int x, int y, int w, int h) { fn<void (*)(void*, int, int, int, int)>(A_setBounds)(c, x, y, w, h); }
 static void add(void* parent, void* c) { fn<void (*)(void*, void*, int)>(A_addAndMakeVisible)(parent, c, -1); }
 static void setToggle(void* b, bool on) { fn<void (*)(void*, bool, int)>(A_setToggleState)(b, on, 0); }  // dontSendNotification
-static std::function<void()>& callback(void* c, const Offset& f) { return *(std::function<void()>*)((char*)c + f - 0x18); }
+static std::function<void()>& callback(void* c, const Offset& f) {
+    return *(std::function<void()>*)((char*)c + f - kFunctionF);
+}
+
+// sizeof the juce objects the row makes (operator new before their constructors, every call in rekordbox; 7.2.19 and
+// 7.2.20 alike). They hold std::functions, which are bigger on x86_64 (Intel Macs).
+#if defined(__x86_64__)
+enum : size_t { kToggleSize = 0x220, kLabelSize = 0x260, kSliderSize = 0x200 };
+#else
+enum : size_t { kToggleSize = 0x1f8, kLabelSize = 0x220, kSliderSize = 0x1a8 };
+#endif
 
 static void* g_row;        // the row, made once and never deleted (rekordbox only detaches its rows)
 static void* g_switch;     // its juce::ToggleButtons and juce::Slider
@@ -491,8 +508,8 @@ static void* g_after;      // the page row the mod's row follows (AudioDevice)
 static void* g_page;       // the page it was added to
 
 static void* toggle(void* row, const char* text, int x, int y, void* lnf, void* sample, uint32_t textColour) {
-    void* b = ::operator new(0x1f8);
-    memset(b, 0, 0x1f8);
+    void* b = ::operator new(kToggleSize);
+    memset(b, 0, kToggleSize);
     JStr t(text);
     fn<void (*)(void*, const JStr*)>(A_toggleCtor)(b, &t);
     add(row, b);
@@ -505,8 +522,8 @@ static void* toggle(void* row, const char* text, int x, int y, void* lnf, void* 
     return b;
 }
 static void* label(void* row, const char* text, int x, int y, int w, uint32_t colour) {
-    void* l = ::operator new(0x220);
-    memset(l, 0, 0x220);
+    void* l = ::operator new(kLabelSize);
+    memset(l, 0, kLabelSize);
     JStr name(""), t(text);
     fn<void (*)(void*, const JStr*, const JStr*)>(A_labelCtor)(l, &name, &t);
     add(row, l);
@@ -540,8 +557,8 @@ static void* makeRow(void* page) {
     };
 
     label(row, "Fine-tune", 48, 46, 90, text);
-    void* sl = ::operator new(0x1a8);
-    memset(sl, 0, 0x1a8);
+    void* sl = ::operator new(kSliderSize);
+    memset(sl, 0, kSliderSize);
     fn<void (*)(void*, int, int)>(A_sliderCtor)(sl, 0, 2);  // LinearHorizontal, TextBoxRight
     add(row, sl);
     setBounds(sl, 140, 46, 300, 22);

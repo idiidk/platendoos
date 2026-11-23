@@ -22,8 +22,6 @@ struct Model::Impl {
     double chunkTime = 0;   // s one chunk took on the GPU when the model was loaded (0: not measured)
 };
 
-const double kSlowChunk = 1.0;  // s a chunk; a 5-minute track is 10 chunks
-
 static bool onGpu(const Model::Impl& I) { return ort::provider(*I.session).rfind("GPU", 0) == 0; }
 
 std::string Model::device() const {
@@ -59,18 +57,8 @@ bool Model::load(const std::string& path, std::string* err, ComputeUnits units) 
         else if (l.find("beat") != std::string::npos) impl->beatName = k;
     }
     if (impl->beatName.empty() || impl->downName.empty()) return fail("cannot identify beat/downbeat outputs");
-    // On a GPU: one chunk of silence, twice when the first is slow (the first run also builds the GPU's pipeline).
-    // It tells how fast this GPU is: an integrated one can be slower than the CPU. Not on the CPU, where a chunk
-    // keeps the cores busy for a second or more at launch and the answer is known.
-    if (onGpu(*impl)) {
-        std::vector<float> mel((size_t)impl->chunk * kMels, 0.f), beat(impl->chunk), down(impl->chunk);
-        for (int i = 0; i < 2 && (i == 0 || impl->chunkTime > kSlowChunk); i++) {
-            auto t0 = std::chrono::steady_clock::now();
-            if (!predictChunk(*impl, mel.data(), impl->chunk, beat.data(), down.data())) break;
-            double t = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-            impl->chunkTime = i ? std::min(impl->chunkTime, t) : t;
-        }
-    }
+    // On a GPU: how fast it is (an integrated one can be slower than the CPU). Not on the CPU (beatthis_backend.h).
+    if (onGpu(*impl)) impl->chunkTime = firstChunkTime(*impl);
     impl_ = impl;
     return true;
 }

@@ -24,13 +24,18 @@
 //           betterfx_reverb=1  the Beat FX Reverb (the new reverb sound)
 //           betterfx_echo=1  Echo and Pitch Echo: no dips while the tempo changes
 //           betterfx_roll=1  Roll, Reverse Roll and Slip Roll: no dip on every repeat
-// macOS only for now (.mm): the Windows tables don't have these classes yet.
+// macOS only for now (.mm): the Windows tables don't have these classes yet. Apple Silicon and Intel Macs.
 #include "../core/rbmod.h"
 #include "betterfx_dsp.h"
 #include <atomic>
 
 using namespace rbm;
 
+// Intel Macs (rekordbox's x86_64 half, docs/intel-mac.md): the same. Every offset has the same value in both halves
+// (recipes.py check --x86), and so do the layouts written into this file (Filter's coefficients, RingBuffer's channel
+// pointers and length, the roll reader's 12 bytes of loop parameters, juce::AudioBuffer). Denormals: rekordbox's audio
+// device callback and every juce::Thread switch flush-to-zero on (MXCSR FTZ) before any effect runs, as they do on
+// arm64 (FPCR FZ), so the filters' and the reverb's tails never reach denormal floats (tools/dev/betterfx_test.cpp).
 static volatile bool g_on = true;
 static bool g_filterOn = true, g_eqOn = true, g_reverbOn = true, g_echoOn = true, g_rollOn = true;
 
@@ -535,8 +540,8 @@ static void rollRead(RollReadFn orig, void* reader, float* L, float* R, int n) {
 // The loop end: rekordbox would close the gate (fade out while reading on, then jump). Jump now, gate stays open.
 extern "C" void rbm_hook_bfx_rollWrap(void* gate) {
     char* r = (char*)gate - O_rollGate;
-    void* ring = *(void**)(r + O_rollRing);
-    RollState* st = g_on && g_rollOn ? g_rollState.find(r) : nullptr;
+    RollState* st = g_on && g_rollOn ? g_rollState.find(r) : nullptr;  // (first: off, its fields may be unresolved)
+    void* ring = st ? *(void**)(r + O_rollRing) : nullptr;
     if (!st || st->call.reader != r || st->call.count >= 16 || !ring || ringLen(ring) <= 0)
         return RBM_ORIG(bfx_rollWrap, GateFn)(gate);
     RollCall& call = st->call;

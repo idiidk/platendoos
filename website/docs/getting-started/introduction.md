@@ -1,6 +1,6 @@
 # Introduction
 
-platendoos is a set of mods for **rekordbox 7 on macOS** (Apple Silicon) **and Windows** (x64). It makes
+platendoos is a set of mods for **rekordbox 7 on macOS** (Apple Silicon; Intel in beta) **and Windows** (x64). It makes
 rekordbox faster and smoother, especially with Spotify, and adds a few features it doesn't have.
 
 You can tell a modded rekordbox by the small **PLATENDOOS** chip next to the rekordbox logo at the bottom left.
@@ -64,7 +64,9 @@ off, and rekordbox runs as normal. More in [When rekordbox updates](/internals/r
 
 ## Requirements
 
-- **macOS:** a Mac with Apple Silicon and rekordbox 7 in `/Applications/rekordbox 7/`.
+- **macOS:** a Mac with Apple Silicon and rekordbox 7 in `/Applications/rekordbox 7/`, macOS 13 or later.
+  **Intel Macs are beta:** the patcher installs there too, but platendoos has only been tested under Rosetta so
+  far, not on a real Intel Mac.
 - **Windows:** an x64 PC with rekordbox 7.2.19 or 7.2.20 installed (in `C:\Program Files\rekordbox`). The mods'
   windows need WebView2, which Windows 11 has built in. A DirectX 12 graphics card is used when it's fast enough
   (see [Windows notes](/guides/windows)).

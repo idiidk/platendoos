@@ -1,9 +1,14 @@
 // Offline checks of mods/betterfx_dsp.h: responses, transparency at the centre, peaks, sweep smoothness.
 //   clang++ -std=c++17 -O2 -o /tmp/bfxtest tools/dev/betterfx_test.cpp && /tmp/bfxtest
 #include "../../mods/betterfx_dsp.h"
+#include <float.h>
 #include <stdio.h>
+#include <chrono>
 #include <vector>
 #include <functional>
+#if defined(__x86_64__)
+#include <xmmintrin.h>
+#endif
 
 static const double FS = 44100;
 static int failures = 0;
@@ -245,6 +250,62 @@ int main() {
             bfx::Fdn::scrubPool();
         }
     }
+    // Denormals: each effect fed a burst of noise, then a minute of silence in 512-sample blocks. The flush-to-zero
+    // mode is what rekordbox's audio threads run with (juce::FloatVectorOperations::enableFlushToZeroMode(true) in its
+    // audio device callback and in every juce::Thread: MXCSR FTZ on x86_64, FPCR FZ on arm64); without it the tails
+    // reach denormal floats, which x86 CPUs compute slowly (not measurable under Rosetta: its time is only printed).
+    printf("Denormals\n");
+    for (int ftz = 0; ftz < 2; ftz++) {
+#if defined(__x86_64__)
+        unsigned saved = _mm_getcsr();
+        _mm_setcsr(ftz ? saved | 0x8000 : saved & ~0x8040u);
+#elif defined(__aarch64__)
+        uint64_t saved = __builtin_arm_rsr64("fpcr");
+        __builtin_arm_wsr64("fpcr", ftz ? saved | (1ull << 24) : saved & ~(1ull << 24));
+#endif
+        static int16_t knob[256];
+        static float q[256], gain[256];
+        for (int i = 0; i < 256; i++) knob[i] = (int16_t)i, q[i] = 0.4f, gain[i] = i > 128 ? 6.0f * (i - 128) / 127 : 0;
+        bfx::CfxFilter cfx;
+        bfx::Nxs2Eq eq;
+        eq.knobTable = knob, eq.qTable = q, eq.gainTable = gain;
+        bfx::Isolator iso;
+        bfx::Fdn fdn;
+        fdn.alloc();
+        const char* names[4] = {"Color FX Filter", "EQ", "isolator", "reverb"};
+        for (int fx = 0; fx < 4; fx++) {
+            long denormal = 0;
+            uint32_t seed = 7;
+            auto t0 = std::chrono::steady_clock::now();
+            for (int blk = 0; blk < 60 * 44100 / 512; blk++) {
+                float L2[512], R2[512];
+                for (int i = 0; i < 512; i++) {
+                    seed = seed * 1664525 + 1013904223;
+                    L2[i] = R2[i] = blk < 40 ? ((seed >> 9) / 4194304.0f - 1) * 0.5f : 0;
+                }
+                float* ch[2] = {L2, R2};
+                float t[3] = {200, 127.5f, 255};
+                double ti[3] = {1.5, 1, 0.5};
+                if (fx == 0) cfx.process(L2, R2, 512, 0.3, 0.9, true, FS);
+                if (fx == 1) eq.process(ch, 2, 0, 512, t, FS);
+                if (fx == 2) iso.process(ch, 2, 0, 512, ti, FS);
+                if (fx == 3) fdn.process(L2, R2, 512, 6, 1.5, FS);
+                for (int i = 0; i < 512; i++)
+                    denormal += (L2[i] != 0 && fabsf(L2[i]) < FLT_MIN) + (R2[i] != 0 && fabsf(R2[i]) < FLT_MIN);
+            }
+            double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+            printf("    %s, %s: %ld denormal output samples (%.0f ms for 60 s)\n", names[fx],
+                   ftz ? "flush to zero" : "no flush", denormal, ms);
+            if (ftz) check(denormal == 0, "flush to zero (rekordbox's audio threads): no denormal output");
+        }
+        fdn.release();
+#if defined(__x86_64__)
+        _mm_setcsr(saved);
+#elif defined(__aarch64__)
+        __builtin_arm_wsr64("fpcr", saved);
+#endif
+    }
+
     printf(failures ? "%d FAILED\n" : "all passed\n", failures);
     return failures ? 1 : 0;
 }

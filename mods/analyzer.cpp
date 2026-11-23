@@ -749,8 +749,16 @@ _rbm_hook_an_begin:
     mov  x1, x20
     b    _rbm_an_begin
 )");
-#else
+#elif defined(_WIN32)
 // Windows: no trampoline; the table's "hookreg an_begin r15 1" line makes the thunk pass the thread (r15) as argument 1 of rbm_an_begin.
+#else
+// Intel Macs: SingletonHolder<CAnalyzerIF>::get(holder in rdi) -> CAnalyzerIF* (rax), the first call of analyze()
+// (7.2.19 and 7.2.20). No register holds the thread there (analyze() keeps it in a stack slot): the current juce
+// thread is the analysis (core/analysis.cpp). Without it the call just goes on.
+extern "C" void* rbm_hook_an_begin(void* holder) {
+    if (const void* thread = analysisThreadHere()) return rbm_an_begin(holder, (const char*)thread);
+    return RBM_ORIG(an_begin, void* (*)(void*))(holder);
+}
 #endif
 
 // A run without decks is going and no deck is being loaded (a DJ's load still pauses analyses to go first).
@@ -933,7 +941,7 @@ extern "C" void rbm_hook_analyze_completed(const char* player, unsigned id, long
     RBM_ORIG(analyze_completed, void (*)(const char*, unsigned, long long, void*))(player, id, arg, param);
 }
 
-// PlayHistoryManager::timerCallback -> DatabaseIF::addTrackToPlayHistory(id); x19 is the manager.
+// PlayHistoryManager::timerCallback -> DatabaseIF::addTrackToPlayHistory(id); x19 is the manager (rbx on x86_64).
 extern "C" void rbm_history_add(void* db, unsigned id, const char* manager) {
     int ch = *(const int*)(manager + O_historyDeck);
     if (g_on && ch >= 0 && ch < 8 && !g_owned[ch].empty()) {
@@ -954,8 +962,19 @@ _rbm_hook_history_add:
     mov  x2, x19
     b    _rbm_history_add
 )");
-#else
+#elif defined(_WIN32)
 // Windows: no trampoline; the table's "hookreg history_add rbx 2" line passes the manager (rbx) as argument 2 of rbm_history_add.
+#else
+// Intel Macs: timerCallback keeps the manager (this) in rbx; the call is addTrackToPlayHistory(db in rdi, id in esi)
+// (7.2.19 and 7.2.20).
+asm(R"(
+    .text
+    .p2align 4
+    .globl _rbm_hook_history_add
+_rbm_hook_history_add:
+    movq %rbx, %rdx
+    jmp  _rbm_history_add
+)");
 #endif
 
 // ---- run ----------------------------------------------------------------------------------

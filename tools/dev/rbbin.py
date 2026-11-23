@@ -1,35 +1,49 @@
-"""Reads rekordbox's arm64 binary: its symbols (rekordbox isn't stripped), sections and the few arm64
-instructions the mods locate things by. Used by patch_binary.py and the address tools; core/symbols.mm does
-the same at runtime.
+"""Reads rekordbox's binary: its symbols (rekordbox isn't stripped), sections and the few instructions the mods
+locate things by, in the arm64 slice (the default) or the x86_64 one. Used by patch_binary.py and the address
+tools; core/symbols.mm does the same at runtime.
 
-    b = Binary(open(path, "rb").read())
+    b = Binary(open(path, "rb").read())               # arm64; Binary(data, CPU_X86_64) for the Intel slice
     b.sym("__ZN2db10DatabaseIF16isCollectionSongERKN4juce6StringERNS_12RowDataTrackE")  -> address
-    b.calls(caller, target)          -> addresses of the "bl target" inside caller, in order
-    b.jumps(caller, target)          -> addresses of the "b target" (tail calls) inside caller, in order
+    b.calls(caller, target)          -> addresses of the "bl target" inside caller, in order (x86_64: call rel32)
+    b.jumps(caller, target)          -> addresses of the "b target" (tail calls) inside caller, in order (jmp rel32)
+    b.adrs(caller, target, reg)      -> "adr xreg, target" (x86_64: "lea <any register>, [rip + target]")
+x86_64 code is found by a byte scan for the opcode and the exact rel32, without decoding instructions: for hooks.def's
+sites that finds the same ones a disassembler does (docs/intel-mac.md).
 """
 import bisect
 import struct
 
 TEXT_BASE = 0x100000000
 LC_SEGMENT_64, LC_SYMTAB, LC_DYSYMTAB, LC_UUID = 0x19, 0x2, 0xB, 0x1B
+CPU_ARM64, CPU_X86_64 = 0x0100000C, 0x01000007
+ARCH_NAMES = {CPU_ARM64: "arm64", CPU_X86_64: "x86_64"}
+
+
+def slices(data):
+    """The architectures in the file, in its order: [(cputype, offset of the slice)]."""
+    if struct.unpack_from("<I", data, 0)[0] == 0xFEEDFACF:  # thin
+        return [(struct.unpack_from("<i", data, 4)[0], 0)]
+    assert struct.unpack_from(">I", data, 0)[0] == 0xCAFEBABE, "expected a fat or 64-bit Mach-O binary"
+    n = struct.unpack_from(">I", data, 4)[0]
+    return [struct.unpack_from(">iiI", data, 8 + 20 * i)[::2] for i in range(n)]
+
+
+def slice_offset(data, cpu):
+    for c, off in slices(data):
+        if c == cpu:
+            return off
+    raise SystemExit("no %s slice" % ARCH_NAMES.get(cpu, hex(cpu)))
 
 
 def arm64_slice(data):
-    if struct.unpack_from("<I", data, 0)[0] == 0xFEEDFACF:  # thin
-        return 0
-    assert struct.unpack_from(">I", data, 0)[0] == 0xCAFEBABE, "expected a fat or arm64 Mach-O binary"
-    n = struct.unpack_from(">I", data, 4)[0]
-    for i in range(n):
-        cpu, _, off, size, _ = struct.unpack_from(">iiIII", data, 8 + 20 * i)
-        if cpu == 0x0100000C:
-            return off
-    raise SystemExit("no arm64 slice")
+    return slice_offset(data, CPU_ARM64)
 
 
 class Binary:
-    def __init__(self, data):
+    def __init__(self, data, cpu=CPU_ARM64):
         self.data = data
-        self.base = arm64_slice(data)
+        self.cpu = cpu
+        self.base = slice_offset(data, cpu)
         self.segments, self.sections = {}, {}
         self.uuid = None
         ncmds, self.sizeofcmds = struct.unpack_from("<II", data, self.base + 16)
@@ -109,14 +123,47 @@ class Binary:
         for va in range(fn, self.function_end(fn), 4):
             yield va, self.u32(va)
 
+    def code(self, fn):
+        o = self.fo(fn)
+        return self.data[o:o + self.function_end(fn) - fn]
+
     def calls(self, caller, target):
+        if self.cpu == CPU_X86_64:
+            return self.rel32(caller, target, 0xE8)
         return [va for va, w in self.insns(caller) if bl_target(va, w) == target]
 
     def jumps(self, caller, target):
+        if self.cpu == CPU_X86_64:
+            return self.rel32(caller, target, 0xE9)
         return [va for va, w in self.insns(caller) if b_target(va, w) == target]
 
     def adrs(self, caller, target, reg):
+        if self.cpu == CPU_X86_64:
+            return self.leas(caller, target)
         return [va for va, w in self.insns(caller) if w & 0x9F00001F == 0x10000000 | reg and adr_target(va, w) == target]
+
+    # ---- x86_64: byte scans ----
+
+    def rel32(self, caller, target, op):
+        """x86_64: every <op> rel32 (E8 call, E9 jmp) inside caller that reaches target."""
+        code, out = self.code(caller), []
+        i = code.find(op.to_bytes(1, "little"))
+        while 0 <= i <= len(code) - 5:
+            if caller + i + 5 + struct.unpack_from("<i", code, i + 1)[0] == target:
+                out.append(caller + i)
+            i = code.find(op.to_bytes(1, "little"), i + 1)
+        return out
+
+    def leas(self, caller, target):
+        """x86_64: every "lea reg, [rip + target]" (48 / 4C 8D, ModRM mod 00 rm 101) inside caller, at its REX byte."""
+        code, out = self.code(caller), []
+        i = code.find(b"\x8D", 1)
+        while 0 < i <= len(code) - 6:
+            if code[i - 1] in (0x48, 0x4C) and code[i + 1] & 0xC7 == 0x05 and \
+                    caller + i + 6 + struct.unpack_from("<i", code, i + 2)[0] == target:
+                out.append(caller + i - 1)
+            i = code.find(b"\x8D", i + 1)
+        return out
 
 
 # ---- arm64 ---------------------------------------------------------------------------------

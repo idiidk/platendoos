@@ -217,6 +217,19 @@ Result postprocess(const float* beat, const float* down, int frames) {
 
 // ---- the network (beatthis_backend.h) ---------------------------------------------------------
 
+double firstChunkTime(Model::Impl& I) {
+    const int cs = chunkFrames(I);
+    std::vector<float> mel((size_t)cs * kMels, 0.f), beat(cs), down(cs);
+    double took = 0;
+    for (int i = 0; i < 2 && (i == 0 || took > kSlowChunk); i++) {
+        double t0 = nowMs();
+        if (!predictChunk(I, mel.data(), cs, beat.data(), down.data())) break;
+        double t = (nowMs() - t0) / 1000;
+        took = i ? std::min(took, t) : t;
+    }
+    return took;
+}
+
 Result Model::analyzeMel(const float* mel, int T, Debug* dbg) const {
     Result res;
     if (!impl_ || T <= 0) return res;

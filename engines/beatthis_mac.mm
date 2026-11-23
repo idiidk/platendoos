@@ -5,6 +5,7 @@
 #import <CoreML/CoreML.h>
 #import <Foundation/Foundation.h>
 
+#include <stdio.h>
 #include <mutex>
 
 namespace beatthis {
@@ -20,9 +21,29 @@ struct Model::Impl {
     NSArray<NSNumber*>* inShape = nil;
     int chunk = kChunk;
     std::mutex mu;   // serialises predict calls
+    bool gpu = true;   // asked for the GPU (gpu=0: CPU only)
+    double chunkTime = 0;   // s one chunk took when the model was loaded (Intel Macs, on the GPU; 0: not measured)
 };
 
+// On Apple Silicon the network is fast everywhere; an Intel Mac may run it on the CPU (2.5-3x slower in Core ML than
+// in ONNX Runtime on the same CPU) or a weak GPU: there it is measured at load and judged as on Windows
+// (beatthis_backend.h, kSlowChunk).
+#if defined(__x86_64__)
+std::string Model::device() const {
+    if (!impl_) return "-";
+    if (!impl_->gpu) return "Core ML, CPU";
+    char b[64];
+    snprintf(b, sizeof b, "Core ML, GPU, %.2f s a chunk%s", impl_->chunkTime,
+             impl_->chunkTime > kSlowChunk ? ": slow" : "");
+    return b;
+}
+
+bool Model::slow() const { return impl_ && (!impl_->gpu || impl_->chunkTime > kSlowChunk); }
+#else
 std::string Model::device() const { return "Core ML"; }
+
+bool Model::slow() const { return false; }
+#endif
 
 bool Model::load(const std::string& path, std::string* err, ComputeUnits units) {
     @autoreleasepool {
@@ -54,6 +75,10 @@ bool Model::load(const std::string& path, std::string* err, ComputeUnits units) 
             else if ([k.lowercaseString containsString:@"beat"]) impl->beatName = k;
         }
         if (!impl->beatName || !impl->downName) return fail("cannot identify beat/downbeat outputs");
+        impl->gpu = units != ComputeUnits::CpuOnly;
+#if defined(__x86_64__)
+        if (impl->gpu) impl->chunkTime = firstChunkTime(*impl);
+#endif
         impl_ = impl;
         return true;
     }
