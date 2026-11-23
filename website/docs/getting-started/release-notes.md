@@ -5,6 +5,19 @@ What changed per release, for people using platendoos. Downloads are on the
 installed platendoos in place (see [Installation](./installation#after-a-rekordbox-update)).
 
 
+## 0.5.1 (2026-11-23)
+
+- **HTDemucs stems that were noise on some graphics cards** (Windows). On some cards the stems came out as a loud
+  high-pitched noise with a white waveform (0.5.0 noticed that and fell back to rekordbox's own engine). The cause
+  is a fault in DirectML, which rekordbox ships: it mixes up the two halves of an operation the HTDemucs model
+  used 48 times. The model no longer uses that operation, so these cards now get HTDemucs stems, at the same
+  speed. Stems separated with HTDemucs on Windows before are made again (the model's file changed), so noise
+  that was stored is not used again.
+- **A graphics card that still gives unusable stems** gets two more tries before rekordbox's own engine takes
+  over: HTDemucs without DirectML's graph fusion (about 10% slower), then in DirectML's safe mode. A test segment
+  at launch decides this before any track. `betterstems_safe=1` or `2` starts in one of these modes. The log now
+  names the graphics card and its driver version.
+
 ## 0.5.0 (2026-11-23)
 
 - **Intel Macs, in beta.** The macOS patcher now also installs platendoos on Intel Macs (rekordbox 7.2.19 and

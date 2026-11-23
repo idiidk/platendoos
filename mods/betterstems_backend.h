@@ -15,6 +15,14 @@ bool load(std::string* version);
 // [sources][4][bins][frames] and wave [sources][2][length]. One call at a time.
 bool predict(const float* mix, int length, const float* mag, int bins, int frames, int sources,
              std::vector<float>& spec, std::vector<float>& wave, std::string* error);
+// The model gave unusable stems while it ran at safety level `than` (level() just before that predict): it is opened
+// again one level safer where there is one (Windows, on the GPU: 1 without DirectML's graph fusion, 2 DirectML's safe
+// mode), still within kSlowSegment. true if it now runs safer than `than` (also when another call got it there),
+// false if there is nothing safer (the caller then unloads it). Not during a predict.
+int level();
+bool safer(int than);
+// The model runs on a GPU (so a test segment at launch costs little).
+bool onGpu();
 // Releases the model after a load that succeeded (it is too slow here, or gave unusable stems). Not during a predict.
 void unload();
 

@@ -28,37 +28,38 @@ bool installed() { return std::filesystem::exists(plat::fsPath(modelPath())); }
 // (betterstems_backend.h). Elsewhere this returns false and rekordbox's engine separates. betterstems_slow=1:
 // HTDemucs anyway.
 
-bool load(std::string* version) {
-    std::string path = modelPath(), err;
-    std::error_code ec;
-    auto size = std::filesystem::file_size(plat::fsPath(path), ec);
-    if (ec) return false;
-    bool gpu = cfgInt("gpu", 1) != 0, anyway = cfgInt("betterstems_slow", 0) != 0;
-    const char* own = "rekordbox's own engine separates (betterstems_slow=1 for HTDemucs anyway)";
-    if (!gpu && !anyway) {
-        logf("betterstems: gpu=0, and HTDemucs is slow on the CPU: %s", own);
-        return false;
-    }
+namespace {
+const char* kOwn = "rekordbox's own engine separates (betterstems_slow=1 for HTDemucs anyway)";
+
+const char* const kLevel[] = {"", " without graph fusion", " in DirectML's safe mode"};
+
+// Opens the model; safe: ort.h's gpuSafe (1 without DirectML's graph fusion, 2 its safe mode). On a GPU: a segment of silence, twice when the first is
+// slow (the first run also builds the GPU's pipeline, so the first track doesn't pay for it). It tells how fast this
+// GPU is: over kSlowSegment (or on the CPU) null, unless betterstems_slow=1.
+std::shared_ptr<ort::Session> openTimed(const std::string& path, bool gpu, bool anyway, int safe) {
+    std::string err;
     double t = now();
     unsigned hw = std::thread::hardware_concurrency();
     // (the CPU threads: half the cores, so a playing deck and rekordbox's analysis keep the others)
-    auto s = ort::open(path, (int)std::clamp<unsigned>(hw / 2, 2, 8), &err, gpu, !anyway);
+    auto s = ort::open(path, (int)std::clamp<unsigned>(hw / 2, 2, 8), &err, gpu, !anyway || safe > 0, safe);
     if (!s) {
-        if (gpu && !anyway && err.rfind("no GPU session", 0) == 0)
-            logf("betterstems: HTDemucs can't run on a GPU here (%s), and it is slow on the CPU: %s", err.c_str(), own);
+        if (gpu && (!anyway || safe) && err.rfind("no GPU session", 0) == 0)
+            logf("betterstems: HTDemucs can't run on a GPU here%s (%s)%s%s", kLevel[safe], err.c_str(),
+                 safe ? "" : ", and it is slow on the CPU: ", safe ? "" : kOwn);
         else
             logf("betterstems: loading the model failed: %s", err.c_str());
-        return false;
+        return nullptr;
     }
     const auto &in = ort::inputNames(*s), &out = ort::outputNames(*s);
     if (in.size() != 2 || out.size() != 2 || in[0] != "mix" || in[1] != "mag" || out[0] != "spec" || out[1] != "wave") {
         logf("betterstems: the model has unexpected inputs/outputs");
-        return false;
+        ort::close(*s);
+        return nullptr;
     }
-    logf("betterstems: HTDemucs loaded in %.1f s from %s on the %s", now() - t, path.c_str(), ort::provider(*s).c_str());
-    // On a GPU: a segment of silence, twice when the first is slow (the first run also builds the GPU's pipeline, so
-    // the first track doesn't pay for it). It tells how fast this GPU is.
+    std::string name = ort::gpuName();
     bool onGpu = ort::provider(*s).rfind("GPU", 0) == 0;
+    logf("betterstems: HTDemucs loaded in %.1f s from %s on the %s%s%s", now() - t, path.c_str(),
+         ort::provider(*s).c_str(), onGpu && !name.empty() ? ": " : "", onGpu ? name.c_str() : "");
     const auto &mixShape = ort::inputShape(*s, 0), &magShape = ort::inputShape(*s, 1);
     size_t mixN = 1, magN = 1;
     for (int64_t d : mixShape) mixN *= d > 0 ? (size_t)d : 0;
@@ -79,13 +80,52 @@ bool load(std::string* version) {
         onGpu = ort::provider(*s).rfind("GPU", 0) == 0;  // (a run that fails on the GPU moves the session to the CPU)
         if (took > 0) logf("betterstems: a segment takes %.2f s on the %s", took, ort::provider(*s).c_str());
         if (!anyway && (!onGpu || took > kSlowSegment)) {
-            logf("betterstems: HTDemucs is slow on this GPU (over %.1f s a segment): %s", kSlowSegment, own);
+            logf("betterstems: HTDemucs is slow on this GPU%s (over %.1f s a segment): %s", kLevel[safe], kSlowSegment, kOwn);
             ort::close(*s);
-            return false;
+            return nullptr;
         }
     }
+    return s;
+}
+
+int g_level;  // the session's gpuSafe
+}  // namespace
+
+bool load(std::string* version) {
+    std::string path = modelPath();
+    std::error_code ec;
+    auto size = std::filesystem::file_size(plat::fsPath(path), ec);
+    if (ec) return false;
+    bool gpu = cfgInt("gpu", 1) != 0, anyway = cfgInt("betterstems_slow", 0) != 0;
+    if (!gpu && !anyway) {
+        logf("betterstems: gpu=0, and HTDemucs is slow on the CPU: %s", kOwn);
+        return false;
+    }
+    int safe = gpu ? std::clamp(cfgInt("betterstems_safe", 0), 0, 2) : 0;
+    auto s = openTimed(path, gpu, anyway, safe);
+    if (!s) return false;
+    g_level = safe;
     *version = "htdemucs-onnx-" + std::to_string((unsigned long long)size);
     g_session = s;
+    return true;
+}
+
+// The GPU gave unusable stems. (One PC's did: noise ~100 dB over the mix, from DirectML's fused graph getting the
+// model's Splits wrong; the model has none since, tools/models/htdemucs_onnx.py. This is for whatever else a GPU or
+// its driver gets wrong.) First without DirectML's graph fusion, then DirectML's safe mode. (The stems' cache key
+// stays the model's: the same weights, and correct stems are the same stems.)
+int level() { return g_level; }
+bool onGpu() { return g_session && ort::provider(*g_session).rfind("GPU", 0) == 0; }
+
+bool safer(int than) {
+    if (g_level > than) return g_session != nullptr;
+    if (!g_session || g_level >= 2 || ort::provider(*g_session).rfind("GPU", 0) != 0) return false;
+    logf("betterstems: trying the GPU%s", kLevel[g_level + 1]);
+    auto s = openTimed(modelPath(), true, cfgInt("betterstems_slow", 0) != 0, g_level + 1);
+    if (!s) return false;
+    ort::close(*g_session);
+    g_session = s;
+    g_level++;
     return true;
 }
 

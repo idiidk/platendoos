@@ -139,6 +139,10 @@ bool predict(const float* mix, int length, const float* mag, int bins, int frame
     }
 }
 
+int level() { return 0; }
+bool onGpu() { return true; }
+bool safer(int) { return false; }  // (Core ML: the CPU alone is the only other choice, and it is slow)
+
 void unload() { g_model = nil; }
 
 }  // namespace betterstems_backend

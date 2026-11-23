@@ -303,6 +303,17 @@ What the mods do about it (Windows only):
 - No chunk or segment is run at launch on the CPU: the answer is known, and it would keep the cores busy for
   seconds while rekordbox starts.
 
+- **A GPU that computes wrong stems** (0.5.1). One PC's stems from HTDemucs were noise ~100 dB over the mix, with
+  no error from DirectML. The cause, found with `tools/win/dmltest` (rekordbox's own onnxruntime.dll and
+  DirectML.dll under Wine, where the same happens): DirectML's fused graph gives the first output of a `Split` the
+  data of its second on some GPUs. The model no longer has a Split (`tools/models/htdemucs_onnx.py` writes them as
+  Slices: the same numbers, the same speed). For anything else of the kind every segment's stems are checked
+  (`usable()` in `betterstems.cpp`; one segment of a test signal at launch too), and unusable ones make the model
+  load again, first without DirectML's graph fusion ("GPU (DirectML, no graph fusion)", ~10% slower), then in
+  DirectML's safe mode (also without the GPU maker's own kernels and with ONNX Runtime's basic optimisations only),
+  each still within the 1.0 s limit; then rekordbox's own engine separates. `betterstems_safe=1` or `2` starts in
+  one of these modes. The log names the GPU and its driver version.
+
 Both "slow GPU" rules ran on the PC with the limits lowered to 0.1 s in a test build (the RX 580 then counts as
 slow: HTDemucs released, rekordbox's engine separated, the grid at once). They have not run on a real integrated
 GPU.

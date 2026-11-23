@@ -199,7 +199,8 @@ every compute-unit setting, with results equal to arm64 (checked under Rosetta).
     at all (`betterstems_slow=1`: HTDemucs anyway, on the CPU).
   - **Stems that are noise** (Windows and Intel Macs): every segment's stems are checked (finite, no source over
     twice the mix's level, the sources adding up to the mix within half its level, with a -40 dB floor); bad stems
-    switch HTDemucs off for the session and rekordbox's engine separates.
+    switch HTDemucs off for the session and rekordbox's engine separates (Windows first tries two safer GPU
+    modes: docs/windows.md, *A GPU that computes wrong stems*).
   - Under Rosetta on this M-series Mac (its GPU): Beat This! 0.70 s a chunk, HTDemucs 1.00 s a segment, so both
     kept; `gpu=0`: Beat This! on the CPU, slow (the deck rule fired, and other tracks went past 20 s), HTDemucs
     not loaded.

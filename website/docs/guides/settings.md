@@ -160,11 +160,11 @@ Better beat grids: combines the Beat This! beat tracker's tempo and bar starts w
 | `bettergrid_genre` | `1` | the track's genre (genres mod) picks the tempo's octave; 0 never |
 | `bettergrid_halfbeat` | `1` | rekordbox's beats half a beat off the beat: 1 moved when Beat This!'s beats and the kick band (its onsets, or its level clearly higher between) both say so, 2 when Beat This!'s beats alone say so, 0 never |
 | `bettergrid_rb_first` | `1` | 0: while it waits, the deck doesn't show rekordbox's own grid meanwhile (quickdeck) |
-| `bettergrid_slow` | `0` | Windows: 1: also wait for Beat This! for a track on a deck where it is slow (it runs on the CPU, or on a GPU that needs over a second for 30 s of audio) |
+| `bettergrid_slow` | `0` | Windows, Intel Macs: 1: also wait for Beat This! for a track on a deck where it is slow (it runs on the CPU, or on a GPU that needs over a second for 30 s of audio) |
 | `bettergrid_title` | `BT BPM` | header name of the column |
-| `bettergrid_wait` | `20` (macOS), `60` (Windows) | seconds the analysis waits for the combined grid at most (60 on Windows) |
-| `bettergrid_warmup` | `1` | 0: no first run of the model at launch (macOS) |
-| `gpu` | `1` | macOS: 0 keeps bettergrid on the CPU. Windows: 0 keeps the models off the GPU: Beat This! and the genre model run on the CPU, stems come from rekordbox's own engine |
+| `bettergrid_wait` | `20` (macOS), `60` (Windows) | seconds the analysis waits for the combined grid at most (60 on Windows and Intel Macs) |
+| `bettergrid_warmup` | `1` | 0: no first run of the model at launch (Apple Silicon) |
+| `gpu` | `1` | macOS: 0 keeps bettergrid on the CPU (Intel Macs: stems come from rekordbox's own engine then). Windows: 0 keeps the models off the GPU: Beat This! and the genre model run on the CPU, stems come from rekordbox's own engine |
 
 ### betterkey
 
@@ -188,8 +188,9 @@ Separates stems with HTDemucs v4 instead of rekordbox's own engine: cleaner stem
 | `betterstems` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 | `betterstems_grid_first` | `1` | 0: stems of a track that is being analysed start at once, next to its beat detection |
 | `betterstems_live_rest` | `0` | while a deck plays: a rest after each model segment, this many times the segment's own time (1 = the stems take twice as long and the GPU is free half the time) |
-| `betterstems_slow` | `0` | Windows: 1: HTDemucs also where it is slow (on the CPU, or on a GPU that needs over a second for a segment); 0: rekordbox's own engine separates there |
-| `betterstems_warmup` | `1` | 0: no first run of the model at launch (macOS) |
+| `betterstems_safe` | `0` | Windows: 1: the GPU without DirectML's graph fusion from the start, 2: in DirectML's safe mode (also without the GPU maker's own kernels). Both are tried by themselves, in this order, when the GPU gives unusable stems |
+| `betterstems_slow` | `0` | macOS: Windows, Intel Macs: 1: HTDemucs also where it is slow (on the CPU, or on a GPU that needs over a second for a segment); 0: rekordbox's own engine separates there. Windows: Windows: 1: HTDemucs also where it is slow (on the CPU, or on a GPU that needs over a second for a segment); 0: rekordbox's own engine separates there |
+| `betterstems_warmup` | `1` | 0: no first run of the model at launch (Apple Silicon) |
 
 ### fastwave
 

@@ -75,7 +75,7 @@ print -r -- '1 ICON "platendoos.ico"' > $obj/icon.rc
 # compile in parallel, only what changed. Any header of ours newer than an object rebuilds it (headers aren't
 # tracked per file: a changed core/defaultoff.h once left core.cpp's object, and so the mods' defaults, stale).
 newest_h=( $root/(core|mods|engines|patcher)/*.(h|inc)(N) $root/private/mods/*.(h|inc)(N) )
-newest_h=( ${newest_h}(N.om[1]) )
+newest_h=$(ls -t $newest_h | head -1)   # (one file: a glob qualifier on the array sorted nothing, and no header was ever newer)
 # (RBM_JOBS=<n>: at most n compiles at a time, for when the Mac is close to its process limit and forks fail)
 objs=()
 pids=()

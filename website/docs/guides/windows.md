@@ -33,6 +33,9 @@ enough. The log says what they use.
 - **HTDemucs stems** only on a GPU that separates a segment within 1 s (timed at launch; the log says e.g. "a segment
   takes 0.47 s on the GPU (DirectML)"). Otherwise rekordbox's own engine makes the stems: HTDemucs on the processor
   would keep most cores busy for two minutes per track. `betterstems_slow=1` uses it anyway.
+- **Stems are checked.** If the graphics card returns noise instead of stems, HTDemucs is tried again in two safer
+  modes of DirectML (a little slower), and if those fail too rekordbox's own engine separates for the rest of the
+  session. The log says which happened. `betterstems_safe=1` or `2` starts in a safer mode.
 - **Beat This! grids**: where it is slow (the processor, or a GPU that needs over a second for 30 s of audio), a
   track loaded on a **deck** gets rekordbox's beat grid at once instead of waiting 15 to 25 s for Beat This!. Tracks
   analysed from the analysis window still get the Beat This! grid. `bettergrid_slow=1` waits on a deck too.

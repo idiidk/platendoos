@@ -129,6 +129,10 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #   while a deck plays: a rest after each model segment, this many times the segment's own time (1
 #   = the stems take twice as long and the GPU is free half the time)
 #betterstems_live_rest=0
+#   Windows: 1: the GPU without DirectML's graph fusion from the start, 2: in DirectML's safe mode
+#   (also without the GPU maker's own kernels). Both are tried by themselves, in this order, when
+#   the GPU gives unusable stems
+#betterstems_safe=0
 #   Windows: 1: HTDemucs also where it is slow (on the CPU, or on a GPU that needs over a second
 #   for a segment); 0: rekordbox's own engine separates there
 #betterstems_slow=0

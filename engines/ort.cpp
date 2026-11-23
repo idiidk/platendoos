@@ -1,6 +1,7 @@
 #include "ort.h"
 #include "onnxruntime_c_api.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <mutex>
 #include <thread>
@@ -8,6 +9,7 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <dxgi.h>
 #else
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -23,6 +25,7 @@ struct Session {
     std::vector<std::string> inNames, outNames;
     std::vector<std::vector<int64_t>> inShapes;
     std::string provider = "CPU";
+    int safe = 0;                   // open's gpuSafe
     std::mutex* runLock = nullptr;  // DirectML: one Run at a time per session (it doesn't support concurrent ones)
     std::string path;               // to open it again on the CPU when the GPU fails at run time
     int threads = 1;
@@ -135,7 +138,17 @@ OrtStatus* createSession(Session& s, const std::string& path, int threads, bool 
     if (!st && gpu) {  // DirectML needs memory patterns off and sequential execution
         st = api->DisableMemPattern(opts);
         if (!st) st = api->SetSessionExecutionMode(opts, ORT_SEQUENTIAL);
-        if (!st) st = g_appendDml(opts, 0);
+        // (gpuSafe, ort.h) 1: DirectML's graph fusion off. 2, safe mode: also the GPU vendor's own kernels
+        // (DirectML's "metacommands": a driver bug there gives wrong results, not an error) and ONNX Runtime's bigger
+        // fusions off; through the provider's options then, on device 0 as g_appendDml(opts, 0).
+        if (!st && s.safe >= 1) st = api->AddSessionConfigEntry(opts, "ep.dml.disable_graph_fusion", "1");
+        if (!st && s.safe >= 2) {
+            const char* keys[] = {"device_id", "disable_metacommands"};
+            const char* values[] = {"0", "True"};
+            st = api->SetSessionGraphOptimizationLevel(opts, ORT_ENABLE_BASIC);
+            if (!st) st = api->SessionOptionsAppendExecutionProvider(opts, "DML", keys, values, 2);
+        } else if (!st)
+            st = g_appendDml(opts, 0);
     }
     if (!st) {
 #ifdef _WIN32
@@ -151,18 +164,21 @@ OrtStatus* createSession(Session& s, const std::string& path, int threads, bool 
 
 }  // namespace
 
-std::shared_ptr<Session> open(const std::string& path, int threads, std::string* err, bool gpu, bool gpuOnly) {
+std::shared_ptr<Session> open(const std::string& path, int threads, std::string* err, bool gpu, bool gpuOnly,
+                              int gpuSafe) {
     const OrtApi* api = loadApi(err);
     if (!api) return nullptr;
     std::shared_ptr<Session> s(new Session, [](Session*) {});
     s->api = api;
-    s->path = path, s->threads = threads;
+    s->path = path, s->threads = threads, s->safe = gpu ? gpuSafe : 0;
     OrtStatus* st = api->CreateEnv(ORT_LOGGING_LEVEL_ERROR, "platendoos", &s->env);
     std::string why;
     if (!st && gpu && !g_appendDml) why = "this onnxruntime has no DirectML";
     if (!st && gpu && g_appendDml) {
         st = createSession(*s, path, threads, true, &why);
-        if (!st && s->session) s->provider = "GPU (DirectML)", s->runLock = new std::mutex;
+        if (!st && s->session)
+            s->provider = s->safe >= 2 ? "GPU (DirectML, safe mode)" : s->safe ? "GPU (DirectML, no graph fusion)" : "GPU (DirectML)",
+            s->runLock = new std::mutex;
     }
     if (!st && !s->session && gpu && gpuOnly) {
         if (err) *err = "no GPU session: " + why;
@@ -235,6 +251,38 @@ void shutdown() {
 
 const std::vector<std::string>& inputNames(const Session& s) { return s.inNames; }
 const std::string& provider(const Session& s) { return s.provider; }
+
+std::string gpuName() {
+#ifdef _WIN32
+    static std::once_flag once;
+    static std::string name;
+    std::call_once(once, [] {  // (DirectML's device 0 is DXGI's adapter 0; dxgi.dll is loaded, not linked)
+        typedef HRESULT(WINAPI * CreateFactory)(REFIID, void**);
+        HMODULE h = LoadLibraryW(L"dxgi.dll");
+        auto create = h ? (CreateFactory)GetProcAddress(h, "CreateDXGIFactory1") : nullptr;
+        IDXGIFactory1* f = nullptr;
+        if (!create || FAILED(create(__uuidof(IDXGIFactory1), (void**)&f))) return;
+        IDXGIAdapter1* a = nullptr;
+        DXGI_ADAPTER_DESC1 d;
+        if (SUCCEEDED(f->EnumAdapters1(0, &a)) && SUCCEEDED(a->GetDesc1(&d))) {
+            char b[256];
+            int n = WideCharToMultiByte(CP_UTF8, 0, d.Description, -1, b, sizeof b, nullptr, nullptr);
+            name = n > 1 ? b : "?";
+            LARGE_INTEGER v;  // the user-mode driver's version, as Device Manager shows it
+            if (SUCCEEDED(a->CheckInterfaceSupport(__uuidof(IDXGIDevice), &v))) {
+                snprintf(b, sizeof b, ", driver %u.%u.%u.%u", (unsigned)(v.QuadPart >> 48), (unsigned)(v.QuadPart >> 32) & 0xffff,
+                         (unsigned)(v.QuadPart >> 16) & 0xffff, (unsigned)v.QuadPart & 0xffff);
+                name += b;
+            }
+        }
+        if (a) a->Release();
+        f->Release();
+    });
+    return name;
+#else
+    return "";
+#endif
+}
 const std::vector<std::string>& outputNames(const Session& s) { return s.outNames; }
 const std::vector<int64_t>& inputShape(const Session& s, size_t i) { return s.inShapes.at(i); }
 

@@ -12,6 +12,9 @@
 //           betterstems_warmup=1       0: no first run of the model at launch (Apple Silicon)
 //           betterstems_slow=0         Windows, Intel Macs: 1: HTDemucs also where it is slow (on the CPU, or on a
 //                                      GPU that needs over a second for a segment); 0: rekordbox's own engine separates there
+//           betterstems_safe=0         Windows: 1: the GPU without DirectML's graph fusion from the start, 2: in DirectML's
+//                                      safe mode (also without the GPU maker's own kernels). Both are tried by
+//                                      themselves, in this order, when the GPU gives unusable stems
 //           betterstems_live_rest=0    while a deck plays: a rest after each model segment, this many times the segment's
 //                                      own time (1 = the stems take twice as long and the GPU is free half the time)
 #include <string.h>
@@ -101,19 +104,14 @@ static std::string g_version;
 
 static bool segment(const float* l, const float* r, std::vector<float>& out, double* modelTime = nullptr);
 
-#if RBM_MAC_X86
+#if RBM_MAC_X86 || defined(_WIN32)
 using betterstems_backend::kSlowSegment;
 
-// An Intel Mac, as Windows (betterstems_ort.cpp, betterstems_backend.h): HTDemucs is kept only where it is fast. On
-// the GPU one segment of a test signal, twice when the first is slow (the first run also builds the GPU's pipeline:
-// it is the warm-up Apple Silicon runs too, and it is checked like every segment, below); over kSlowSegment
-// rekordbox's own engine separates. On the CPU (gpu=0 betterstems_slow=1) nothing runs at launch.
-static bool fastEnough() {
-    bool anyway = cfgInt("betterstems_slow", 0) != 0;
-    if (!cfgInt("gpu", 1)) return true;  // (betterstems_slow=1: the backend didn't load it otherwise)
-    std::vector<float> l(kL), r(kL), out;
+// A test signal for one segment: a kick at 120 BPM over a bass note and a little noise (-25 dB).
+static void testSignal(std::vector<float>& l, std::vector<float>& r) {
+    l.resize(kL), r.resize(kL);
     unsigned seed = 1;
-    for (int i = 0; i < kL; i++) {  // a kick at 120 BPM over a bass note and a little noise (-25 dB)
+    for (int i = 0; i < kL; i++) {
         double t = (double)i / 44100, beat = fmod(t, 0.5);
         seed = seed * 1664525u + 1013904223u;
         float noise = ((int)(seed >> 16) - 32768) / 32768.f;
@@ -121,6 +119,19 @@ static bool fastEnough() {
                           0.06 * sin(2 * M_PI * 41.2 * t) + 0.01 * noise);
         l[i] = v, r[i] = v * 0.9f;
     }
+}
+#endif
+
+#if RBM_MAC_X86
+// An Intel Mac, as Windows (betterstems_ort.cpp, betterstems_backend.h): HTDemucs is kept only where it is fast. On
+// the GPU one segment of the test signal, twice when the first is slow (the first run also builds the GPU's pipeline:
+// it is the warm-up Apple Silicon runs too, and it is checked like every segment, below); over kSlowSegment
+// rekordbox's own engine separates. On the CPU (gpu=0 betterstems_slow=1) nothing runs at launch.
+static bool fastEnough() {
+    bool anyway = cfgInt("betterstems_slow", 0) != 0;
+    if (!cfgInt("gpu", 1)) return true;  // (betterstems_slow=1: the backend didn't load it otherwise)
+    std::vector<float> l, r, out;
+    testSignal(l, r);
     double took = 0;
     for (int i = 0; i < 2 && (i == 0 || took > kSlowSegment); i++) {
         double t;
@@ -139,20 +150,35 @@ static bool fastEnough() {
 }
 #endif
 
+#ifdef _WIN32
+// Windows: the backend timed the model on silence; on a GPU one segment of the test signal tells, before any track,
+// whether its stems are usable (checked like every segment, below: unusable ones try the GPU's safer modes first).
+static bool usableHere() {
+    if (!betterstems_backend::onGpu()) return true;  // (the CPU computes right, and a segment there fills cores for seconds)
+    std::vector<float> l, r, out;
+    testSignal(l, r);
+    return segment(l.data(), r.data(), out);  // (segment said why not)
+}
+#endif
+
 static void loadModel() {
     int expect = 0;
     if (!g_state.compare_exchange_strong(expect, 1)) return;
     bool ok = betterstems_backend::load(&g_version);
 #if RBM_MAC_X86
     ok = ok && fastEnough();
+#elif defined(_WIN32)
+    ok = ok && usableHere();
 #endif
     g_state = ok ? 2 : -1;
 }
 
 #if RBM_MAC_X86 || defined(_WIN32)
-// Windows and Intel Macs: whichever GPU is there runs HTDemucs, and one (on Windows, cause unknown) gave noise
-// instead of stems. Each segment's stems are checked: finite, and no source, nor what the sources leave of the mix,
-// much louder than the mix (with a floor for quiet passages). Unusable stems switch HTDemucs off for the session.
+// Windows and Intel Macs: whichever GPU is there runs HTDemucs, and one (on Windows: DirectML, its driver, cause
+// unknown) gave noise instead of stems. Each segment's stems are checked: finite, and no source, nor what the sources
+// leave of the mix, much louder than the mix (with a floor for quiet passages). Unusable stems: the model again in a
+// safer mode where there is one (betterstems_backend::safer), else (or unusable there too) HTDemucs is off for the
+// session.
 const double kLouder = 2, kLeft = 0.5;  // a source's RMS, the sources' sum's error's: at most this times the mix's
 static bool usable(const float* l, const float* r, const std::vector<float>& out, std::string* why) {
     double mix = 0, loudest = 0, rest = 0;
@@ -218,38 +244,47 @@ static bool segment(const float* l, const float* r, std::vector<float>& out, dou
         static std::atomic<int> said{0};
         if (now() - t0 >= 0.3 && said++ < 5) logf("betterstems: waited %.1f s for an analysis' beat stage", now() - t0);
     }
-    std::vector<float> spec, wave;
-    {
-        std::lock_guard<std::mutex> lk(g_lock);
-        std::string err;
-        static int timed;  // the first few segments' model time, for the log (CPU vs GPU)
-        double t0 = now();
-        if (!betterstems_backend::predict(mix.data(), kL, mag.data(), kBins, kFrames, kSources, spec, wave, &err)) {
-            logf("betterstems: prediction failed: %s", err.c_str());
-            return false;
+    for (;;) {
+        std::vector<float> spec, wave;
+        int level;
+        {
+            std::lock_guard<std::mutex> lk(g_lock);
+            if (g_state != 2 && g_state != 1) return false;  // (another thread switched HTDemucs off meanwhile)
+            std::string err;
+            static int timed;  // the first few segments' model time, for the log (CPU vs GPU)
+            double t0 = now();
+            level = betterstems_backend::level();
+            if (!betterstems_backend::predict(mix.data(), kL, mag.data(), kBins, kFrames, kSources, spec, wave, &err)) {
+                logf("betterstems: prediction failed: %s", err.c_str());
+                return false;
+            }
+            if (modelTime) *modelTime = now() - t0;
+            if (timed < 3) logf("betterstems: segment %d took %.2f s in the model", ++timed, now() - t0);
         }
-        if (modelTime) *modelTime = now() - t0;
-        if (timed < 3) logf("betterstems: segment %d took %.2f s in the model", ++timed, now() - t0);
-    }
-    out.assign(wave.begin(), wave.end());  // the waveform branch, plus the spectrogram branch's inverse
-    for (int s = 0; s < kSources; s++)
-        for (int c = 0; c < 2; c++) {
-            const float* re = spec.data() + (size_t)(s * 4 + 2 * c) * kBins * kFrames;
-            inverse(re, re + (size_t)kBins * kFrames, out.data() + (size_t)(s * 2 + c) * kL);
-        }
+        out.assign(wave.begin(), wave.end());  // the waveform branch, plus the spectrogram branch's inverse
+        for (int s = 0; s < kSources; s++)
+            for (int c = 0; c < 2; c++) {
+                const float* re = spec.data() + (size_t)(s * 4 + 2 * c) * kBins * kFrames;
+                inverse(re, re + (size_t)kBins * kFrames, out.data() + (size_t)(s * 2 + c) * kL);
+            }
 #if RBM_MAC_X86 || defined(_WIN32)
-    if (std::string why; !usable(l, r, out, &why)) {
-        bool first = g_state.exchange(-1) != -1;
+        std::string why;
+        if (usable(l, r, out, &why)) return true;
         std::lock_guard<std::mutex> lk(g_lock);
-        if (first) {
-            logf("betterstems: HTDemucs gave unusable stems (%s): it is off until rekordbox restarts, rekordbox's own "
-                 "engine separates", why.c_str());
-            betterstems_backend::unload();
-        }
+        if (g_state != 2 && g_state != 1) return false;
+        // The model again a level safer where there is one (Windows, on the GPU: without DirectML's graph fusion,
+        // then DirectML's safe mode), and this segment again; unusable at the safest too: off.
+        logf("betterstems: HTDemucs gave unusable stems (%s)", why.c_str());
+        if (betterstems_backend::safer(level)) continue;
+        g_state = -1;
+        logf("betterstems: HTDemucs is off until rekordbox restarts, rekordbox's own engine separates");
+        betterstems_backend::unload();
         return false;
-    }
+#else
+        (void)level;
+        return true;
 #endif
-    return true;
+    }
 }
 
 static bool separate(const float* inL, const float* inR, int n, float* const out[8]) {
