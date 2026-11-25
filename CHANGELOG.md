@@ -3,6 +3,16 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
+## 0.6.1 (2026-11-25)
+
+- **No more crash at launch with Apple Music signed in** (macOS). With an Apple Music account signed in to
+  rekordbox, platendoos crashed about ten seconds after it opened, every time. Apple Music's tracks are
+  copy-protected, and the library rekordbox uses for that checks which app it runs in: it only works in rekordbox
+  exactly as AlphaTheta ships it, and in platendoos's patched copy that check crashed. platendoos now leaves that
+  library switched off, so rekordbox starts as usual. The protection itself is untouched, which means Apple
+  Music's tracks don't play in platendoos; they do in plain rekordbox, which stays installed next to it. Nothing
+  else changes. Thanks to the DJ who sent the crash report.
+
 ## 0.6.0 (2026-11-23)
 
 - **Auto cues: memory cues, and your own pad layout.** Many older CDJs show only hot cues A–C or A–D, and every

@@ -37,6 +37,14 @@ after two minutes it goes on without sound. Look for the prompt (it can be behin
 It's asked once after an install: to macOS a newly signed copy of rekordbox is a new app. If you clicked *Don't
 Allow*, allow it in *System Settings > Privacy & Security > Microphone*.
 
+### Apple Music tracks don't play (macOS)
+
+That's expected. Apple Music's tracks are copy-protected, and the library rekordbox uses for them only works in
+rekordbox exactly as AlphaTheta ships it. platendoos is a patched copy, so it leaves that library switched off
+(before 0.6.1 it crashed at launch when an Apple Music account was signed in). Use plain rekordbox for Apple Music:
+it stays installed next to platendoos and shares the same library. The log says so once:
+`widevine: not started ...`.
+
 ### A mod is off after a rekordbox update
 
 On macOS the mods find rekordbox's code by name. After an update, a mod whose code changed switches itself off, and the

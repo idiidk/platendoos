@@ -323,6 +323,9 @@ layers), and the mods' windows are HTML pages in `ui/` shown in the system's web
 - The Spotify features work with your own Spotify connection in rekordbox and never keep Spotify's audio on
   disk: what they need of a track (stems, a whole track for autocue or genres) is read from the stream into
   memory, as rekordbox itself plays it, and is gone when rekordbox quits.
+- Apple Music doesn't play in platendoos on macOS: its tracks are copy-protected, and the library rekordbox uses
+  for them only works in rekordbox as AlphaTheta ships it. platendoos leaves it switched off (it would crash the
+  patched copy at launch); use plain rekordbox for Apple Music.
 
 ## Licence
 

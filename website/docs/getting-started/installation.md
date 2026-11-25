@@ -79,7 +79,7 @@ The window checks everything before it changes anything.
 |---|---|
 | rekordbox | Found, with its path. Not found: install rekordbox 7 from rekordbox.com first, then press *Check again*. |
 | Build | Whether this is the build platendoos was tested with (7.2.19), one every mod was run on (7.2.20), or an untested one (a warning: the mods find rekordbox's code by name, and mods whose code changed switch themselves off). |
-| Hook sites (macOS) | How many of the calls the mods take over were found in this rekordbox, e.g. *147 of 147 found*. |
+| Hook sites (macOS) | How many of the calls the mods take over were found in this rekordbox, e.g. *145 of 145 found*. |
 | Table (Windows) | Whether the patcher has an address table for this build, or made one from its signatures (it then says how many parts it found). |
 | Mods | The patcher's own files: the mods' library, models and windows. Missing: download the patcher again (on Windows, unzip the whole folder). |
 | Disk space | Free space against what the install needs. |

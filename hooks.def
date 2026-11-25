@@ -338,6 +338,11 @@ HOOK_X86(ring_free1, "__ZN10RingBufferD1Ev", 0, 1, "stub:__ZdaPv", -2)
 HOOK_X86(pagebuf_new, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", 0, 1, "stub:_posix_memalign", -1)
 HOOK_X86(pagebuf_zero, "__ZN6rbxfrm10PageBufferINS_6Float4EiEC2Eii", 0, 1, "stub:___bzero", -1)
 HOOK_X86(pagebuf_free, "__ZN6rbxfrm10PageBufferINS_6Float4EiED2Ev", 0, 9, "stub:_free", -1)
+// widevine (core/widevine_mac.mm): CastlabsDecryptorDrmCdmRepository::InitializeCdm, the one place that starts the
+//   Castlabs Widevine library (Apple Music): -> bl PlatformDelegateImpl::writeKeyboxFile(keybox) and
+//   -> bl PlatformDelegateImpl::existsKeyboxFile() (false: InitializeCdm returns false before it calls the library)
+HOOK(widevine_keybox, "__ZN9streaming33CastlabsDecryptorDrmCdmRepository13InitializeCdmENSt3__110unique_ptrINS_17IKeyboxRepositoryENS1_14default_deleteIS3_EEEE", 0, 1, "__ZN9streaming33CastlabsDecryptorDrmCdmRepository20PlatformDelegateImpl15writeKeyboxFileENSt3__110unique_ptrINS_17IKeyboxRepositoryENS2_14default_deleteIS4_EEEE", -1)
+HOOK(widevine_exists, "__ZN9streaming33CastlabsDecryptorDrmCdmRepository13InitializeCdmENSt3__110unique_ptrINS_17IKeyboxRepositoryENS1_14default_deleteIS3_EEEE", 0, 1, "__ZN9streaming33CastlabsDecryptorDrmCdmRepository20PlatformDelegateImpl16existsKeyboxFileEv", -1)
 #ifdef RBM_HOOK_OR_UNUSED
 #undef HOOK_OR
 #undef RBM_HOOK_OR_UNUSED

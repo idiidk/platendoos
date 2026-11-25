@@ -11,7 +11,8 @@ background: the neural networks are loaded one after another (Beat This!, HTDemu
 together). rekordbox is usable straight away; a track loaded within those seconds waits for the model it needs.
 
 ::: tip Plain rekordbox is still there
-Open rekordbox the usual way whenever you want it without the mods. Don't run both at once.
+Open rekordbox the usual way whenever you want it without the mods. Don't run both at once. On macOS, use it for Apple
+Music too: its tracks don't play in platendoos ([why](/guides/troubleshooting#apple-music-tracks-don-t-play-macos)).
 :::
 
 ## The PLATENDOOS chip
