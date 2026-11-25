@@ -58,7 +58,14 @@ bool floats(MLMultiArray* a, size_t count, std::vector<float>& out) {
 }
 }  // namespace
 
-bool installed() { return [NSFileManager.defaultManager fileExistsAtPath:packagePath()]; }
+// Either place load() reads: the compiled model in the app (every install by the patcher or build.sh) or the package
+// in Application Support (a development setup). Only the package was looked for until 0.6.1, so an app the patcher
+// made said "no model" and left the stems to rekordbox's engine.
+bool installed() {
+    NSFileManager* fm = NSFileManager.defaultManager;
+    return [fm fileExistsAtPath:[NSString stringWithUTF8String:(plat::resourcesDir() + "/htdemucs.mlmodelc").c_str()]] ||
+           [fm fileExistsAtPath:packagePath()];
+}
 
 // The model compiled into the app (models/htdemucs.mlmodelc -> Contents/Resources/rbmods), so a copied app is
 // complete; else the package in Application Support, compiled once (to ~/Library/Caches/rekordbox-mods/htdemucs.mlmodelc).

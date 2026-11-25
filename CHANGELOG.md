@@ -3,6 +3,15 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
+## 0.6.2 (2026-11-25)
+
+- **HTDemucs stems on every Mac** (macOS). On Macs set up with the patcher, betterstems never ran: it looked for
+  its model only where a development setup keeps it, not inside the app where the patcher puts it, so the log said
+  "betterstems: no model" and rekordbox's own engine made the stems. It now finds the model in the app, so stems
+  come from HTDemucs as intended: cleaner, and separated on the GPU. A track gets its HTDemucs stems the next time
+  it is loaded on a deck; stems stored earlier by rekordbox's engine are kept apart and no longer used while
+  betterstems is on. Windows was not affected. Found in the same crash report as 0.6.1's fix.
+
 ## 0.6.1 (2026-11-25)
 
 - **No more crash at launch with Apple Music signed in** (macOS). With an Apple Music account signed in to
