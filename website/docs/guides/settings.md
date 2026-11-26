@@ -419,7 +419,7 @@ Keeps rekordbox's separated stems on disk, so a track you've had on a deck befor
 |---|---|---|
 | `stemcache` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 | `stemcache_dir` | *(empty)* | folder of the cached stems (empty: the default one) |
-| `stemcache_keep` | `all` | whose stems are stored in the stems folder: all (every track that is separated), chosen (only tracks separated from the stems window; a deck's other tracks are separated when they load and those stems are gone when rekordbox quits) or none |
+| `stemcache_keep` | `all` | which tracks' stems are saved to disk: all (every track that gets stems, on a deck or with Separate stems), chosen (only tracks separated with the stems window's Separate stems button; a track that is only loaded onto a deck gets stems that are thrown away when rekordbox quits) or none (nothing new is saved) |
 | `stemcache_log` | `0` | 1 logs every chunk and every stem control (for debugging) |
 | `stemcache_max_gb` | `10` | delete the least recently used chunks above this size (0 = no limit) |
 | `stemcache_memory_mb` | `384` | stems that aren't stored on disk (Spotify tracks', and what stemcache_keep leaves out) kept in memory for loading the track again in this session; the least recently used go first (0: none) |

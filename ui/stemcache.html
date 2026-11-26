@@ -16,7 +16,7 @@
   .waiting { color: var(--fg3); } .separating { color: var(--orange); } .done { color: var(--green); }
   .fromdisk { color: rgba(48,209,88,.45); } .separated { color: rgba(48,209,88,.7); } .unsupported { color: var(--fg2); }
   .needsfile { color: var(--yellow); } .gaveup { color: var(--red); }
-  #opts { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+  #opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
   #opts .sp { flex: 1; }
   #hint { color: var(--fg3); font-size: 11px; padding-top: 6px; min-height: 2.7em; }
   #foot { display: flex; align-items: center; gap: 8px; padding-top: 10px; }
@@ -33,8 +33,8 @@
     <thead><tr><th>#</th><th>Track</th><th>Artist</th><th>Status</th><th>Time</th></tr></thead>
     <tbody id="rows"></tbody></table></div>
   <div id="opts">
-    <span class="muted">Keep on disk</span>
-    <span class="seg" id="keep"><button data-v="all" title="Every track that is separated, on a deck or here, is stored in the stems folder">Every track</button><button data-v="chosen" title="Only tracks separated in this window are stored; a deck's other tracks are separated when they load and forgotten when rekordbox quits">Tracks separated here</button><button data-v="none" title="Nothing new is stored">None</button></span>
+    <span class="muted">Save stems to disk</span>
+    <span class="seg" id="keep"><button data-v="all" title="Every track that gets stems is saved: the ones you separate in this window and the ones you load onto a deck">Everything</button><button data-v="chosen" title="Only tracks you separate with the Separate stems button in this window are saved. A track you just load onto a deck gets stems that are thrown away when rekordbox quits">Only what I separate in this window</button><button data-v="none" title="Nothing new is saved; stems already on disk are still used">Nothing</button></span>
     <span class="sp"></span>
     <label class="check" id="ondemandBox" title="A deck's track is separated from the moment you mute a stem, turn a PART ISOLATOR knob or take the FX off a stem, starting where it plays. Stems that are stored already are there at once."><input type="checkbox" id="ondemand">Decks: separate only when a stem control is used</label>
   </div>

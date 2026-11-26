@@ -278,9 +278,10 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #stemcache=1
 #   folder of the cached stems (empty: the default one)
 #stemcache_dir=
-#   whose stems are stored in the stems folder: all (every track that is separated), chosen (only
-#   tracks separated from the stems window; a deck's other tracks are separated when they load and
-#   those stems are gone when rekordbox quits) or none
+#   which tracks' stems are saved to disk: all (every track that gets stems, on a deck or with
+#   Separate stems), chosen (only tracks separated with the stems window's Separate stems button;
+#   a track that is only loaded onto a deck gets stems that are thrown away when rekordbox quits)
+#   or none (nothing new is saved)
 #stemcache_keep=all
 #   1 logs every chunk and every stem control (for debugging)
 #stemcache_log=0
@@ -701,9 +702,10 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #stemcache=1
 #   folder of the cached stems (empty: the default one)
 #stemcache_dir=
-#   whose stems are stored in the stems folder: all (every track that is separated), chosen (only
-#   tracks separated from the stems window; a deck's other tracks are separated when they load and
-#   those stems are gone when rekordbox quits) or none
+#   which tracks' stems are saved to disk: all (every track that gets stems, on a deck or with
+#   Separate stems), chosen (only tracks separated with the stems window's Separate stems button;
+#   a track that is only loaded onto a deck gets stems that are thrown away when rekordbox quits)
+#   or none (nothing new is saved)
 #stemcache_keep=all
 #   1 logs every chunk and every stem control (for debugging)
 #stemcache_log=0

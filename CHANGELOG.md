@@ -3,6 +3,15 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
+## 0.7.1 (2026-11-26)
+
+- **Clearer stem saving choices** (**stemcache**). The stems window's *Keep on disk* is now *Save stems to disk*,
+  with the choices *Everything*, *Only what I separate in this window* and *Nothing* (were *Every track*, *Tracks
+  separated here* and *None*), and the line below them says in plain words what each one does: *Only what I
+  separate in this window* saves only the tracks you separate with the *Separate stems* button; a track you just
+  load onto a deck still gets stems, but they are thrown away when rekordbox quits. Nothing else changed: the
+  setting (`stemcache_keep`) keeps its values, so your choice stays.
+
 ## 0.7.0 (2026-11-26)
 
 - **A settings window** (**badge**). Clicking the PLATENDOOS chip now opens every mod's settings: the list of mods

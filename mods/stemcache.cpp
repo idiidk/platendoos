@@ -22,9 +22,10 @@
 //           stemcache_memory_mb=384   stems that aren't stored on disk (Spotify tracks', and what stemcache_keep
 //                                     leaves out) kept in memory for loading the track again in this session;
 //                                     the least recently used go first (0: none)
-//           stemcache_keep=all   whose stems are stored in the stems folder: all (every track that is separated),
-//                                chosen (only tracks separated from the stems window; a deck's other tracks are
-//                                separated when they load and those stems are gone when rekordbox quits) or none
+//           stemcache_keep=all   which tracks' stems are saved to disk: all (every track that gets stems, on a deck
+//                                or with Separate stems), chosen (only tracks separated with the stems window's
+//                                Separate stems button; a track that is only loaded onto a deck gets stems that
+//                                are thrown away when rekordbox quits) or none (nothing new is saved)
 //           stemcache_ondemand=0   1: a deck's track is separated only once a stem control is used on it
 //                                  (a stem muted, a PART ISOLATOR knob turned, the FX taken off a stem), from
 //                                  where it plays; stems that are stored already still come at once (on Windows

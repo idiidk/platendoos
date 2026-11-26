@@ -86,7 +86,7 @@ HTDemucs v4 ~9, RoFormer models ~10-12.
   ~1 s per 11.8 s chunk in rekordbox (0.5 s standalone). Checked against Spleeter's stems of the same chunks:
   correlation 0.7-0.97 per slot, so the slots line up. Still open: seams at chunk edges (each chunk gets only
   rekordbox's 93 ms of context); `AudioPartSeparator::getStreamAt` could give it more.
-- [x] Which stems are kept (`stemcache_keep`, *Keep on disk* in the stems window): `all` as before; `chosen` stores
+- [x] Which stems are kept (`stemcache_keep`, *Save stems to disk* in the stems window): `all` as before; `chosen` stores
   only the chunks of tracks the stems window's run separates (the run's current track, or one in `tracks.txt` from
   an earlier run); `none` nothing new. What isn't stored goes to the in-memory store Spotify tracks use
   (`stemcache_memory_mb`). Which track a chunk belongs to comes from the separation's uri (as for Spotify tracks).

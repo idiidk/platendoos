@@ -140,9 +140,10 @@ void sendState() {
     char cap[32];
     snprintf(cap, sizeof cap, "%g GB", rbm::cfgNum("stemcache_max_gb", 10));
     j += ",\"keep\":" + jsonStr(keep);
-    j += ",\"keepHint\":" + jsonStr(keep == "none" ? "Nothing new is stored. Stems are separated when a track loads onto a deck and are gone when rekordbox quits; a run here doesn't last either."
-                                   : keep == "chosen" ? std::string("Tracks separated in this window are stored (up to ") + cap + ", the least recently used go first). Any other track is separated when it loads onto a deck, and those stems are gone when rekordbox quits."
-                                   : std::string("Every track that is separated, on a deck or in this window, is stored (up to ") + cap + ", the least recently used go first).");
+    std::string limit = std::string(" Up to ") + cap + " is saved; past that, the stems used longest ago are deleted first.";
+    j += ",\"keepHint\":" + jsonStr(keep == "none" ? std::string("Nothing new is saved, also not with Separate stems. Stems already on disk are still used. Any other track is separated when it loads onto a deck, and its stems are thrown away when rekordbox quits.")
+                                   : keep == "chosen" ? "Only tracks you separate with the Separate stems button above are saved, ready at once next time. A track you just load onto a deck still gets stems, but they are thrown away when rekordbox quits." + limit
+                                   : "Every track that gets stems is saved, ready at once next time: tracks you separate with the Separate stems button above, and tracks you load onto a deck." + limit);
     j += std::string(",\"onDemandShown\":true,\"onDemand\":") + b(rbm::cfgInt("stemcache_ondemand", 0) != 0);
     j += ",\"tracks\":[";
     for (size_t i = 0; i < v.tracks.size(); i++) {
