@@ -21,6 +21,12 @@
 // the combined grid (Beat This!'s tempo, placed on the onsets) lies that far from rekordbox's beats over the whole
 // track, and the kick band's level rises most at the combined grid's beats and clearly more than at rekordbox's, the
 // combined grid is used: rekordbox's exact placement is no use when it is the placement of something else.
+// Both can follow something other than the kick: on Red Passion II - A (Robert Hood, 2026-11-26) a noisy percussion
+// layer sits on the beat and the kick comes 71 ms after it, steadily, so rekordbox and Beat This! agree on a grid
+// the kick never hits. Last of all, the kick alone is measured against the grid that came out (kickLine): when it
+// sits a fixed distance off it on most beats and clearly, the grid is moved onto the kicks (bettergrid_kick).
+// rekordbox's beats can also be spaced at another tempo than the one they are labelled with (rbDrift): then they
+// aren't taken as the same tempo, and the combined grid is used.
 // When rekordbox's and Beat This!'s bar starts differ, the music decides between them: the beat in the bar where the
 // track changes (a drop, a breakdown, a new bass line: barphase.h), else the beat where the kick comes in (see
 // barByMusic and kickStartBar).
@@ -60,6 +66,8 @@
 //           bettergrid_min_fit=0.6   Beat This!'s fit below which rekordbox's grid is kept
 //           bettergrid_halfbeat=1   rekordbox's beats half a beat off the beat: 1 moved when Beat This!'s beats and the kick band (its onsets, or its level clearly higher between) both say so, 2 when Beat This!'s beats alone say so, 0 never
 //           bettergrid_offbeat=1 rekordbox's beats a fixed 60 ms or more off the kicks (not half a beat): 1 the combined grid when Beat This! and the kick band both say so; 0 never
+//           bettergrid_kick=1    the kick sits a fixed 50 ms or more off the grid over the whole track, also off Beat This!'s
+//                                beats (a percussion layer on the beat, the kick after it): 1 the grid moved onto the kicks; 0 never
 //           bettergrid_bars=1    rekordbox's and Beat This!'s bar starts differ: the music's changes (barphase.h) pick one; 0 the kick-in rule alone
 //           bettergrid_genre=1   the track's genre (genres mod) picks the tempo's octave; 0 never
 //           bettergrid_warmup=1  0: no first run of the model at launch (Apple Silicon)
@@ -157,6 +165,16 @@ struct OffKick {
     double atRb = NAN, atNew = NAN; // how strongly the kick band's level rises at rekordbox's beats and at the combined grid's
     double kickAt = 0;              // where it rises most around the combined grid's beats, s
     bool audio = false;             // at them, and kOffKickRise times as strongly as at rekordbox's beats
+};
+
+// The grid a fixed distance off the kicks, Beat This! included (kickLine).
+struct KickLine {
+    bool seen = false;              // the kick sits off the grid, regularly and clearly, over the whole track
+    bool moved = false;             // and the grid was moved onto it
+    int mode = 1;                   // bettergrid_kick
+    double off = 0, slope = 0;      // the kick's line: offset from a beat at time t is off + slope * t, s
+    double atStart = 0, atEnd = 0;  // that offset at the first and the last beat, s
+    double share = 0, strength = 0; // the share of the beats with their kick on the line, and how clear those kicks are
 };
 
 // One analysis' grid being worked out next to rekordbox's beat job.
@@ -879,6 +897,120 @@ static OffKick offTheKick(const BeatArray& a, const Combined& c) {
     return k;
 }
 
+// Is the grid as a whole a fixed distance off the kicks, where Beat This! doesn't hear them either (see the top)?
+// The kick alone: for each beat of the grid, where the kick band's level (17 ms mean) rises most within
+// kKickWindow of a beat, a robust line through those offsets over the track (a shift and a tempo a hair different),
+// and how many beats have their rise within kKickNear of that line. The grid is moved onto the line when the kick is
+// that regular (kKickShare of the beats), clear (the rise kKickStrength times the window's median, on the beats on
+// the line), and the line lies kKickMin or more from the grid at both ends of the track, on the same side, and not
+// near half a beat (halfBeatOff's case). Measured on 103 tracks (2026-11-26): the kick's line lies within 25 ms of
+// the grid on every track with a clear kick; only Red Passion II - A (Robert Hood, 3EdePBazZYVabOGfKGma1D: a noisy
+// percussion layer on the beat, which rekordbox and Beat This! both follow, the kick 71 ms after it) passes.
+static const double kKickWindow = 0.45, kKickNear = 0.010, kKickShare = 0.65, kKickStrength = 5, kKickMin = 0.050, kKickMaxSlope = 0.0005;
+static KickLine kickLine(const BeatArray& a, const Combined& c) {
+    KickLine k;
+    int n = a.used;
+    if (!a.data || n < 64 || !c.level) return k;
+    const std::vector<float>& level = *c.level;
+    long size = (long)level.size();
+    double period = (beatTime(a.data, n - 1) - beatTime(a.data, 0)) / (n - 1);
+    long h = lround(period * 1000 * kKickWindow);
+    if (h < 100 || h > 500) return k;
+    std::vector<double> sum((size_t)size + 1, 0.0);
+    for (long j = 0; j < size; j++) sum[(size_t)j + 1] = sum[(size_t)j] + level[(size_t)j];
+    auto rise = [&](long ms) {  // the mean level over the 17 ms from ms on, minus that over the 17 ms up to ms
+        return (sum[(size_t)(ms + 17)] - sum[(size_t)ms] - sum[(size_t)(ms + 1)] + sum[(size_t)(ms - 16)]) / 17;
+    };
+    std::vector<double> ts, ds, strength, w((size_t)(2 * h + 1));
+    for (int j = 0; j < n; j++) {
+        double t = beatTime(a.data, j);
+        long ms = lround(t * 1000);
+        if (ms - h - 16 < 0 || ms + h + 17 >= size) continue;
+        long best = -h;
+        for (long o = -h; o <= h; o++) {
+            w[(size_t)(o + h)] = rise(ms + o);
+            if (w[(size_t)(o + h)] > w[(size_t)(best + h)]) best = o;
+        }
+        double peak = w[(size_t)(best + h)];
+        for (double& v : w) v = fabs(v);
+        std::nth_element(w.begin(), w.begin() + h, w.end());
+        ts.push_back(t), ds.push_back(best / 1000.0), strength.push_back(w[(size_t)h] > 0 ? peak / w[(size_t)h] : 0);
+    }
+    if (ts.size() < 64) return k;
+    std::vector<double> m = ds;
+    std::nth_element(m.begin(), m.begin() + m.size() / 2, m.end());
+    double off = m[m.size() / 2], slope = 0;
+    for (double tol : {0.030, 0.015, 0.008}) {  // robust line: keep offsets near it, least squares
+        double cnt = 0, mt = 0, md = 0;
+        for (size_t i = 0; i < ts.size(); i++)
+            if (fabs(ds[i] - (off + slope * ts[i])) < tol) cnt++, mt += ts[i], md += ds[i];
+        if (cnt < 16) break;
+        mt /= cnt, md /= cnt;
+        double sxx = 0, sxy = 0;
+        for (size_t i = 0; i < ts.size(); i++)
+            if (fabs(ds[i] - (off + slope * ts[i])) < tol) sxx += (ts[i] - mt) * (ts[i] - mt), sxy += (ts[i] - mt) * (ds[i] - md);
+        slope = sxx > 0 ? sxy / sxx : 0;
+        off = md - slope * mt;
+    }
+    std::vector<double> strong;
+    for (size_t i = 0; i < ts.size(); i++)
+        if (fabs(ds[i] - (off + slope * ts[i])) < kKickNear) strong.push_back(strength[i]);
+    k.share = (double)strong.size() / (double)ts.size();
+    if (!strong.empty()) {
+        std::nth_element(strong.begin(), strong.begin() + strong.size() / 2, strong.end());
+        k.strength = strong[strong.size() / 2];
+    }
+    k.off = off, k.slope = slope;
+    k.atStart = off + slope * ts.front(), k.atEnd = off + slope * ts.back();
+    auto clear = [&](double x) { return fabs(x) >= kKickMin && fabs(x) <= period / 2 - 0.060; };
+    k.seen = clear(k.atStart) && clear(k.atEnd) && (k.atStart < 0) == (k.atEnd < 0) && fabs(slope) <= kKickMaxSlope &&
+             k.share >= kKickShare && k.strength >= kKickStrength;
+    return k;
+}
+
+// The beats moved onto the kick's line: t + off + slope * t, with their tempo to match; beats that end up before the
+// start or after the end of the track are left out (rbBars, rekordbox's own bar numbers per beat, with them).
+static std::vector<char> movedOntoKicks(const char* d, int n, const KickLine& k, double end, std::vector<char>* rbBars) {
+    size_t size = beatSize();
+    std::vector<char> out, bars;
+    out.reserve((size_t)n * size);
+    for (int i = 0; i < n; i++) {
+        double t = beatTime(d, i), u = t + k.off + k.slope * t;
+        if (u < 0 || (end > 0 && u > end)) continue;
+        long at = (long)(out.size() / size);
+        out.insert(out.end(), d + (size_t)i * size, d + (size_t)(i + 1) * size);
+        uint32_t word = beatWord(d, i), tempo = (uint32_t)lround((word >> 16) / (1 + k.slope)) & 0xffff;
+        *(uint32_t*)(out.data() + (size_t)at * size) = tempo << 16 | (word & 0xffff);
+        setBeatTime(out.data(), at, u);
+        if (rbBars && (size_t)i < rbBars->size()) bars.push_back((*rbBars)[(size_t)i]);
+    }
+    if (rbBars && !rbBars->empty()) *rbBars = std::move(bars);
+    return out;
+}
+
+// rekordbox's beats spaced at another tempo than the one they're labelled with: on a few tracks its beat job labels
+// every beat with one tempo (135.88) while their times run at another (135.95: Red Passion II - A, 2026-11-26; 5 of
+// 2,246 saved grids drift 30 ms or more from their label over the track). The label is what bettergrid compares
+// with Beat This!'s tempo, so such a grid passed as the same tempo and was kept, 200 ms off the music by the end.
+// Returns how far rekordbox's beats drift from the combined grid's tempo over the track (s, last beat minus first),
+// when they drift kRbDrift or more both from that and from their own label; 0 otherwise (or with tempo changes).
+static const double kRbDrift = 0.040;
+static double rbDrift(const BeatArray& a, const Combined& c) {
+    int n = a.used;
+    if (!a.data || n < 64 || !(c.bpm > 0)) return 0;
+    uint32_t tempo = beatWord(a.data, 0) >> 16;
+    double mi = (n - 1) / 2.0, mt = 0, sxx = 0, sxy = 0;
+    for (int i = 0; i < n; i++) {
+        if (beatWord(a.data, i) >> 16 != tempo) return 0;
+        mt += beatTime(a.data, i);
+    }
+    mt /= n;
+    for (int i = 0; i < n; i++) sxx += (i - mi) * (i - mi), sxy += (i - mi) * (beatTime(a.data, i) - mt);
+    double spacing = sxy / sxx, label = tempo > 0 ? 6000.0 / tempo : 0;
+    double fromLabel = (spacing - label) * (n - 1), fromCombined = (spacing - 60 / c.bpm) * (n - 1);
+    return fabs(fromLabel) >= kRbDrift && fabs(fromCombined) >= kRbDrift ? fromCombined : 0;
+}
+
 // rekordbox's beats moved half a beat: each to the middle of its two neighbours (so its placement, and any tempo
 // change, stay as they are), with one more before the first and after the last where the track has room for them.
 // end: the track's length in s (0: unknown, no beat added after the last).
@@ -982,7 +1114,8 @@ static void setBtBpm(const std::string& uri, const char* text, std::vector<std::
 // grid kept for the genre. c: Beat This!'s grid at the genre's octave (the column and the CSV show that one; the log
 // line names the tempo it came from).
 static void logResult(const std::string& uri, const RbGrid& rb, const Combined& c, int how, double waited, const HalfBeat& hb, bool covered,
-                      bool startBeat, const GenreNote& gn, bool rbBars = false, const BarVote& vote = BarVote(), const OffKick& ok = OffKick()) {
+                      bool startBeat, const GenreNote& gn, bool rbBars = false, const BarVote& vote = BarVote(), const OffKick& ok = OffKick(),
+                      const KickLine& kl = KickLine(), double drift = 0) {
     double period = 60 / c.bt.bpm;
     auto phase = [](double x, double t0, double p) { double d = fmod(x - t0, p); if (d < 0) d += p; return d > p / 2 ? d - p : d; };
     double r = rb.bpm > 0 ? c.bt.bpm / rb.bpm : 0;
@@ -1038,6 +1171,18 @@ static void logResult(const std::string& uri, const RbGrid& rb, const Combined& 
         snprintf(b, sizeof b, "; rekordbox's beats %.0f ms %s the beat (%.0f%% of Beat This!'s beats on the combined grid; the kick sets in %+.0f ms from that grid, %.1fx as strongly as at rekordbox's beats): %s",
                  fabs(ok.offset) * 1000, ok.offset < 0 ? "after" : "before", 100 * ok.share, ok.kickAt * 1000, ok.atRb > 0 ? ok.atNew / ok.atRb : 0.0,
                  ok.moved ? "the combined grid is used" : !ok.mode ? "not changed (bettergrid_offbeat=0)" : "not changed (the kick doesn't settle it)");
+        half += b;
+    }
+    if (drift != 0) {
+        char b[200];
+        snprintf(b, sizeof b, "; rekordbox's beats are spaced at another tempo than their label, %+.0f ms from Beat This!'s by the end", drift * 1000);
+        half += b;
+    }
+    if (kl.seen) {
+        char b[300];
+        snprintf(b, sizeof b, "; the kick sets in %.0f ms %s the grid's beats (%+.0f at the start, %+.0f at the end; %.0f%% of the beats, %.1fx clear): %s",
+                 fabs(kl.off + kl.slope * c.duration / 2) * 1000, kl.atStart > 0 ? "after" : "before", kl.atStart * 1000, kl.atEnd * 1000,
+                 100 * kl.share, kl.strength, kl.moved ? "the grid was moved onto the kicks" : !kl.mode ? "not changed (bettergrid_kick=0)" : "not changed");
         half += b;
     }
     if (vote.asked) {
@@ -1148,10 +1293,14 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
     // The analysed audio stops at 20 minutes: a grid drawn from it would end there, so a longer track keeps
     // rekordbox's beats (its bars can still come from Beat This!).
     bool covered = !rb.data || rb.used < 1 || beatTime(rb.data, rb.used - 1) <= c.duration + 1;
+    double drift = sameTempo && covered && c.use ? rbDrift(rb, c) : 0;
+    if (cfgNum("bettergrid_debug", 0) > 0) logf("bettergrid: drift %.0f ms, onset fit %d (%d clear), combined %.3f BPM", drift * 1000, (int)c.onsetFit, c.clearBeats, c.bpm);
+    if (drift != 0) sameTempo = false;  // rekordbox's beats aren't at the tempo they say: the combined grid
     int how = 0;
     bool startBeat = false, rbBars = false;
     HalfBeat hb;
     OffKick ok;
+    KickLine kl;
     BarVote vote;
     auto draw = [&](const Combined& grid, int as) {
         BeatArray a{nullptr, 0, 0};
@@ -1203,6 +1352,40 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
             }
         } else if (covered) {
             draw(c, 1);
+            if (drift != 0 && how == 1 && cfgInt("bettergrid_bars", 1)) {
+                // rekordbox's tempo was right, only its beats' spacing wasn't: its bar start may still be the one
+                // to keep. The music's changes decide, as for rekordbox's own beats, on the combined beats.
+                long jr = -1;
+                for (int i = 0; i < std::min(rb.used, 8) && jr < 0; i++)
+                    if ((beatWord(rb.data, i) & 0xffff) == 1) jr = i;
+                long n = (long)(out.beats.size() / beatSize()), j0 = 0;
+                if (jr >= 0 && n > 0) {
+                    double at = beatTime(rb.data, jr);
+                    for (long i = 1; i < n; i++)
+                        if (fabs(beatTime(out.beats.data(), i) - at) < fabs(beatTime(out.beats.data(), j0) - at)) j0 = i;
+                    std::vector<char> alt = out.beats;
+                    for (long i = 0; i < n; i++) {
+                        uint32_t& w = *(uint32_t*)(alt.data() + (size_t)i * beatSize());
+                        w = (w & 0xffff0000u) | (uint32_t)(((i - j0) % 4 + 4) % 4 + 1);
+                    }
+                    vote = barByMusic(alt, c, c.btDownbeat, 60 / c.bt.bpm);
+                    if (vote.pick == 1) out.beats = std::move(alt), rbBars = true;
+                }
+            }
+        }
+    }
+    // Last, on whichever grid came out of the above: does the kick sit a fixed distance off it?
+    if (c.use && applying() && !keepRb && covered && rb.data && rb.used > 0) {
+        const char* d = out.beats.empty() ? rb.data : out.beats.data();
+        int n = out.beats.empty() ? rb.used : (int)(out.beats.size() / beatSize());
+        kl = kickLine(BeatArray{(char*)d, n, n}, c);
+        kl.mode = cfgInt("bettergrid_kick", 1);
+        if (cfgNum("bettergrid_debug", 0) > 0)
+            logf("bettergrid: kick line %+.1f..%+.1f ms (slope %.5f), %.0f%% of the beats on it, %.1fx clear: %s", kl.atStart * 1000, kl.atEnd * 1000,
+                 kl.slope, 100 * kl.share, kl.strength, kl.seen ? "off the grid" : "no");
+        if (kl.seen && kl.mode) {
+            std::vector<char> moved = movedOntoKicks(d, n, kl, c.duration, &out.rbBars);
+            if (moved.size() / beatSize() >= 16) out.beats = std::move(moved), kl.moved = true;
         }
     }
     if (cfgNum("bettergrid_debug", 0) > 0)
@@ -1212,7 +1395,7 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
             for (int k = 0; d && k < std::min(n, 4); k++)
                 logf("bettergrid: %s beat %d: %08x %.3f s", i ? "combined" : "rekordbox", k, beatWord(d, k), beatTime(d, k));
         }
-    logResult(uri, g, c, how, waited, hb, covered, startBeat && how != 4, gn, rbBars, vote, ok);
+    logResult(uri, g, c, how, waited, hb, covered, startBeat && how != 4, gn, rbBars, vote, ok, kl, drift);
     if (c.use && applying() && !keepRb && provided("quickdeck.earlyGrid")) {  // how far the grid quickdeck showed early is from the final one
         const char* d = out.beats.empty() ? rb.data : out.beats.data();
         int n = out.beats.empty() ? rb.used : (int)(out.beats.size() / beatSize());

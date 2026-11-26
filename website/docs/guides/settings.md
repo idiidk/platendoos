@@ -166,6 +166,7 @@ Better beat grids: combines the Beat This! beat tracker's tempo and bar starts w
 | `bettergrid_debug` | `0` | 1 logs the beats of both grids (for debugging) |
 | `bettergrid_genre` | `1` | the track's genre (genres mod) picks the tempo's octave; 0 never |
 | `bettergrid_halfbeat` | `1` | rekordbox's beats half a beat off the beat: 1 moved when Beat This!'s beats and the kick band (its onsets, or its level clearly higher between) both say so, 2 when Beat This!'s beats alone say so, 0 never |
+| `bettergrid_kick` | `1` | the kick sits a fixed 50 ms or more off the grid over the whole track, also off Beat This!'s beats (a percussion layer on the beat, the kick after it): 1 the grid moved onto the kicks; 0 never |
 | `bettergrid_offbeat` | `1` | rekordbox's beats a fixed 60 ms or more off the kicks: 1 the combined grid when Beat This! and the kick band both say so, 0 never |
 | `bettergrid_rb_first` | `1` | 0: while it waits, the deck doesn't show rekordbox's own grid meanwhile (quickdeck) |
 | `bettergrid_slow` | `0` | Windows, Intel Macs: 1: also wait for Beat This! for a track on a deck where it is slow (it runs on the CPU, or on a GPU that needs over a second for 30 s of audio) |

@@ -104,6 +104,10 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #   (its onsets, or its level clearly higher between) both say so, 2 when Beat This!'s beats alone
 #   say so, 0 never
 #bettergrid_halfbeat=1
+#   the kick sits a fixed 50 ms or more off the grid over the whole track, also off Beat This!'s
+#   beats (a percussion layer on the beat, the kick after it): 1 the grid moved onto the kicks; 0
+#   never
+#bettergrid_kick=1
 #   rekordbox's beats a fixed 60 ms or more off the kicks: 1 the combined grid when Beat This! and
 #   the kick band both say so, 0 never
 #bettergrid_offbeat=1
@@ -471,6 +475,10 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #   (its onsets, or its level clearly higher between) both say so, 2 when Beat This!'s beats alone
 #   say so, 0 never
 #bettergrid_halfbeat=1
+#   the kick sits a fixed 50 ms or more off the grid over the whole track, also off Beat This!'s
+#   beats (a percussion layer on the beat, the kick after it): 1 the grid moved onto the kicks; 0
+#   never
+#bettergrid_kick=1
 #   rekordbox's beats a fixed 60 ms or more off the kicks: 1 the combined grid when Beat This! and
 #   the kick band both say so, 0 never
 #bettergrid_offbeat=1
@@ -763,5 +771,5 @@ static const char kConfigTemplate[] = R"__(# platendoos options
 #xfadelock=1
 )__";
 #endif
-static const char kConfigSwitches[] = " analyze_direct analyze_fast analyze_import analyze_reopen analyze_window audiomem_code audiomem_decks audiomem_fx audiomem_lazy autocue_stems betterfx_echo betterfx_eq betterfx_filter betterfx_reverb betterfx_roll bettergrid_apply bettergrid_bars bettergrid_debug bettergrid_genre bettergrid_halfbeat bettergrid_offbeat bettergrid_rb_first bettergrid_slow bettergrid_warmup betterstems_grid_first betterstems_safe betterstems_slow betterstems_warmup flx4_keep_tempo flx4_log flx4_meterlog framerate_empty genres_on_analyse genres_warmup gpu idlewake_check idlewake_envelope idlewake_log idlewake_meters idlewake_midi outputsync_clocks outputsync_lineup quickdeck_gridonly quickdeck_log quickdeck_progressive quickdeck_stream quickframe_playing quickframe_stopped relayout_check relayout_hidden relayout_log spotifydl_debug stemcache_log stemcache_ondemand stemcache_spotify streamio_phrase tfpool_warmup tidymenu_group tidymenu_hide tidymenu_log ";
+static const char kConfigSwitches[] = " analyze_direct analyze_fast analyze_import analyze_reopen analyze_window audiomem_code audiomem_decks audiomem_fx audiomem_lazy autocue_stems betterfx_echo betterfx_eq betterfx_filter betterfx_reverb betterfx_roll bettergrid_apply bettergrid_bars bettergrid_debug bettergrid_genre bettergrid_halfbeat bettergrid_kick bettergrid_offbeat bettergrid_rb_first bettergrid_slow bettergrid_warmup betterstems_grid_first betterstems_safe betterstems_slow betterstems_warmup flx4_keep_tempo flx4_log flx4_meterlog framerate_empty genres_on_analyse genres_warmup gpu idlewake_check idlewake_envelope idlewake_log idlewake_meters idlewake_midi outputsync_clocks outputsync_lineup quickdeck_gridonly quickdeck_log quickdeck_progressive quickdeck_stream quickframe_playing quickframe_stopped relayout_check relayout_hidden relayout_log spotifydl_debug stemcache_log stemcache_ondemand stemcache_spotify streamio_phrase tfpool_warmup tidymenu_group tidymenu_hide tidymenu_log ";
 static const char kConfigChoices[] = "autocue_build_bars=0|4|8|16|32;autocue_intro=sound|drums|start;autocue_outro_bars=0|16|32|64;autocue_provider=openrouter|claude|none;betterkey_mode=compare|replace;flx4_mixer=|fixed;genres_detail=style|broad;quickframe_drawables=2|3;stemcache_keep=all|chosen|none;stemcache_quality=lossless|256|192|128;stemcache_staging=auto|1|0;";

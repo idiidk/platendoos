@@ -3,6 +3,19 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
+## 0.7.2 (2026-11-26)
+
+- **Grids on the kick when something else is on the beat** (**bettergrid**). Some tracks have a percussion layer
+  on the beat that both rekordbox and Beat This! follow, while the kick comes a little after it (Robert Hood's
+  *Red Passion II - A*: the kick 71 ms after every grid line). The kick is now measured against the finished grid
+  too: when it sits 50 ms or more off the grid over the whole track, on most beats and clearly, the grid is moved
+  onto the kicks (`bettergrid_kick=0` turns this off). Of 103 tracks checked, only that one changed.
+- **Grids that slide off the music** (**bettergrid**). On a few tracks rekordbox labels its beats with one tempo
+  but spaces them at another (135.88 against 135.95 on the same track), so the grid ends up 200 ms off the music
+  by the end. bettergrid compared only the label with Beat This!'s tempo and kept such a grid; now Beat This!'s grid
+  is used when rekordbox's beats drift 40 ms or more from both. Tracks analysed before keep their grid until you
+  analyse them again (right-click, *Re-analyze*).
+
 ## 0.7.1 (2026-11-26)
 
 - **Clearer stem saving choices** (**stemcache**). The stems window's *Keep on disk* is now *Save stems to disk*,

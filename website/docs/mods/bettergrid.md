@@ -36,11 +36,21 @@ the combination:
   one such distance from rekordbox's, and the kick itself sets in there and clearly not at rekordbox's beats, the
   combined grid is used. Of 15 tracks where the two analyses lay that far apart, this changed two and left the
   rest alone.
+- **Beats spaced at another tempo than their BPM.** On a few tracks rekordbox labels its beats with one tempo
+  (135.88) while it spaces them at another (135.95), so the grid slides off the music, 200 ms by the end of the
+  track. When its beats drift 40 ms or more both from their own BPM and from Beat This!'s grid, the combined grid
+  is used (5 of 2,246 saved grids looked like this).
 - A BPM a hair off a whole one is redrawn at the whole BPM when the hits fit as well; the beat at the very start of
   the track that rekordbox sometimes leaves out is added.
 
 **When rekordbox's tempo is wrong** (half, double, 3:2), the combined grid takes Beat This!'s tempo and bar start,
 and puts each beat on the hits in the audio.
+
+**When the kick isn't on either grid.** Some tracks have a percussion layer on the beat that rekordbox and Beat This!
+both follow, while the kick comes a little after it (Robert Hood's *Red Passion II - A*: a noisy hit on the beat,
+the kick 71 ms later, steadily). Last of all, the kick alone is measured against the grid that came out: when it
+sits 50 ms or more off the grid over the whole track, on most beats and clearly, the grid is moved onto the kicks
+(`bettergrid_kick=0` turns this off). Of 103 tracks checked, only that one had its grid moved.
 
 **When Beat This! is unsure** (its fit is under `bettergrid_min_fit`), rekordbox's own grid stays.
 
@@ -89,6 +99,7 @@ skips beat detection, so it keeps rekordbox's grid. Turn Cloud Analysis off for 
 | `bettergrid_apply` | `1` | `0`: compare only, log both grids and keep rekordbox's. |
 | `bettergrid_min_fit` | `0.6` | Beat This!'s fit below which rekordbox's grid is kept. |
 | `bettergrid_bars` | `1` | When the bar starts differ: the music's changes pick one; `0`: the kick-in rule alone. |
+| `bettergrid_kick` | `1` | The kick a fixed 50 ms or more off the grid over the whole track, also off Beat This!'s beats: `1` the grid is moved onto the kicks, `0` never. |
 | `bettergrid_halfbeat` | `1` | rekordbox's beats half a beat off: `1` moved when Beat This! and the kick band both say so, `2` when Beat This! alone says so, `0` never. |
 | `bettergrid_offbeat` | `1` | rekordbox's beats a fixed 60 ms or more off the kicks (not half a beat): `1` the combined grid when Beat This! and the kick both say so, `0` never. |
 | `bettergrid_genre` | `1` | The track's genre (genres mod) picks the tempo's octave; `0` never. |
