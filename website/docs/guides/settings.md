@@ -1,14 +1,16 @@
 # Settings and config.txt
 
-Every mod is on by default. Settings live in one plain text file:
+Every mod is on by default. The quickest way to change a setting is the [PLATENDOOS chip](/mods/badge)'s window:
+click the chip, pick a mod, and set its options there; each one says what it does, and a search box finds an option
+by name. Whatever you set there is saved in one plain text file, which you can also edit yourself:
 
 | Platform | File |
 |---|---|
 | macOS | `~/Library/Application Support/rekordbox-mods/config.txt` |
 | Windows | `%APPDATA%\rekordbox-mods\config.txt` |
 
-The [PLATENDOOS chip](/mods/badge)'s window opens it (**Open config**). The patcher writes your mod choices into it
-when you install.
+The chip's window opens it too (**Open config file**). The patcher writes your mod choices into it when you
+install.
 
 ## How the file works
 
@@ -107,10 +109,10 @@ Keeps the memory rekordbox's audio works with in RAM, so playback doesn't click 
 |---|---|---|
 | `audiomem` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 | `audiomem_ahead` | `20` | seconds of audio kept ready ahead of a playing deck |
-| `audiomem_code` | `1` | `0` switches one part off: keeping rekordbox's own code and data in memory (restart). |
-| `audiomem_decks` | `1` | `0` switches one part off: keeping the next seconds of every loaded deck ready (restart). |
-| `audiomem_fx` | `1` | `0` switches one part off: pinning the FX history buffers (restart). |
-| `audiomem_lazy` | `1` | `0` switches one part off: deck loads that don't clear the new buffers on the main thread (restart). |
+| `audiomem_code` | `1` | 0: rekordbox's own code and data aren't kept in memory (restart) |
+| `audiomem_decks` | `1` | 0: a playing deck's audio isn't kept ready ahead of the playhead (restart) |
+| `audiomem_fx` | `1` | 0: the FX history buffers aren't kept in memory (restart) |
+| `audiomem_lazy` | `1` | 0: a deck load zeroes its new buffers at once on the main thread, as rekordbox does (restart) |
 
 ### autocue
 
@@ -164,6 +166,7 @@ Better beat grids: combines the Beat This! beat tracker's tempo and bar starts w
 | `bettergrid_debug` | `0` | 1 logs the beats of both grids (for debugging) |
 | `bettergrid_genre` | `1` | the track's genre (genres mod) picks the tempo's octave; 0 never |
 | `bettergrid_halfbeat` | `1` | rekordbox's beats half a beat off the beat: 1 moved when Beat This!'s beats and the kick band (its onsets, or its level clearly higher between) both say so, 2 when Beat This!'s beats alone say so, 0 never |
+| `bettergrid_offbeat` | `1` | rekordbox's beats a fixed 60 ms or more off the kicks: 1 the combined grid when Beat This! and the kick band both say so, 0 never |
 | `bettergrid_rb_first` | `1` | 0: while it waits, the deck doesn't show rekordbox's own grid meanwhile (quickdeck) |
 | `bettergrid_slow` | `0` | Windows, Intel Macs: 1: also wait for Beat This! for a track on a deck where it is slow (it runs on the CPU, or on a GPU that needs over a second for 30 s of audio) |
 | `bettergrid_title` | `BT BPM` | header name of the column |
@@ -229,11 +232,12 @@ Makes drawing text, most of the work when the track list repaints, a lot cheaper
 
 ### framerate
 
-Only runs the screen at full frame rate while a deck plays or you're using the computer. [More →](/mods/framerate)
+Runs the screen at full frame rate while a deck plays or you're using the computer, and at 30 fps the rest of the time. [More →](/mods/framerate)
 
 | Option | Default | Meaning |
 |---|---|---|
 | `framerate` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
+| `framerate_empty` | `1` | 0 keeps rekordbox's 30 fps while the decks are empty, also while you use the mouse |
 | `framerate_idle_after` | `3` | seconds without input before the UI drops to 30 fps |
 
 ### genres
@@ -245,6 +249,19 @@ Fills the Genre field from what the music sounds like: a style model (Discogs-Ef
 | `genres` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 | `genres_detail` | `style` | style: the specific style ("Deep House"); broad: the broad genre ("House") |
 | `genres_warmup` | `1` | 0: the style model loads when it is first needed, not at launch |
+
+### idlewake <span class="pd-tag">mac</span>
+
+Less work while nothing plays. [More →](/mods/idlewake)
+
+| Option | Default | Meaning |
+|---|---|---|
+| `idlewake` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
+| `idlewake_check` | `0` | 1 runs the envelope followers anyway and logs whether their output changed (for testing) |
+| `idlewake_envelope` | `1` | 0: the envelope followers of silent channels run again (they feed the Color FX gate / comp) |
+| `idlewake_log` | `0` | 1 logs every 10 s what was left out (for debugging) |
+| `idlewake_meters` | `1` | 0: level meters restart their timer on every frame again |
+| `idlewake_midi` | `1` | 0: the MIDI output thread wakes every millisecond again |
 
 ### keepmaster
 
@@ -306,7 +323,33 @@ A Spotify track (or any track that isn't analysed yet) shows its waveforms and a
 | Option | Default | Meaning |
 |---|---|---|
 | `quickdeck` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
+| `quickdeck_gridonly` | `1` | 0: a new beat grid builds the deck's waveforms again, as rekordbox does |
+| `quickdeck_log` | `0` | 1 logs each partial overview (for debugging) |
 | `quickdeck_merge` | `0.25` | Windows: seconds the waveforms wait for rekordbox's own grid, so that one redraw of the deck shows both (0: no wait) |
+| `quickdeck_progressive` | `0` | an unfinished experiment (macOS): 1 lets a Spotify track's analysis start reading while the track downloads, so its overview waveform grows during the download; not proven safe (the one time it ran, Spotify signed rekordbox out for over an hour right after): leave it off |
+| `quickdeck_stream` | `1` | 0: the overview waveform appears when the whole track has been read, as in rekordbox |
+
+### quickframe <span class="pd-tag">mac</span>
+
+Clicks show sooner. [More →](/mods/quickframe)
+
+| Option | Default | Meaning |
+|---|---|---|
+| `quickframe` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
+| `quickframe_drawables` | `2` | frames queued for the display: 2, or rekordbox's own 3 |
+| `quickframe_playing` | `0` | 1 shows frames as they are made while a deck plays too (quicker clicks; a late frame then shows as a hitch in the waveform) |
+| `quickframe_stopped` | `1` | 0 keeps the display's rhythm while no deck plays too |
+
+### relayout <span class="pd-tag">mac</span>
+
+Menus, drop-downs, tooltips and Preferences open sooner, resizing the window is twice as smooth, and options that made the whole window refresh answer in 80 ms instead of 200. [More →](/mods/relayout)
+
+| Option | Default | Meaning |
+|---|---|---|
+| `relayout` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
+| `relayout_check` | `0` | 1 renders every button anyway and logs those whose images differ from the ones it would have kept (for testing) |
+| `relayout_hidden` | `1` | 0 lays out and restyles hidden panels every time, as rekordbox does |
+| `relayout_log` | `0` | 1 logs how many buttons kept their images in a layout pass (for debugging) |
 
 ### screeninfo <span class="pd-tag">mac</span>
 
@@ -376,9 +419,12 @@ Keeps rekordbox's separated stems on disk, so a track you've had on a deck befor
 |---|---|---|
 | `stemcache` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 | `stemcache_dir` | *(empty)* | folder of the cached stems (empty: the default one) |
+| `stemcache_keep` | `all` | whose stems are stored in the stems folder: all (every track that is separated), chosen (only tracks separated from the stems window; a deck's other tracks are separated when they load and those stems are gone when rekordbox quits) or none |
+| `stemcache_log` | `0` | 1 logs every chunk and every stem control (for debugging) |
 | `stemcache_max_gb` | `10` | delete the least recently used chunks above this size (0 = no limit) |
-| `stemcache_memory_mb` | `384` | Spotify tracks' stems kept in memory (never on disk) for loading them again in this session; the least recently used go first (0: none) |
+| `stemcache_memory_mb` | `384` | stems that aren't stored on disk (Spotify tracks', and what stemcache_keep leaves out) kept in memory for loading the track again in this session; the least recently used go first (0: none) |
 | `stemcache_min_free_gb` | `5` | store nothing new while the disk has less free space than this |
+| `stemcache_ondemand` | `0` | 1: a deck's track is separated only once a stem control is used on it (a stem muted, a PART ISOLATOR knob turned, the FX taken off a stem), from where it plays; stems that are stored already still come at once (on Windows new and not yet run on a Windows machine) |
 | `stemcache_quality` | `256` | how new chunks are stored: lossless \| 256 \| 192 \| 128 (AAC kbps per stem) |
 | `stemcache_spotify` | `1` | no stems for Spotify tracks (otherwise: on a deck at once, separated from the stream) |
 | `stemcache_staging` | `auto` | new chunks go to the internal disk first (&lt;the mods' cache folder>/stems-staging) and one background thread moves them to stemcache_dir, a piece at a time and never while a deck or an analysis reads from that drive. auto: only when stemcache_dir is on an external drive \| 1: always \| 0: never |
@@ -399,7 +445,7 @@ Keeps rekordbox's beat-detection neural network loaded between tracks instead of
 | Option | Default | Meaning |
 |---|---|---|
 | `tfpool` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
-| `tfpool_warmup` | `1` | `0` skips loading and running rekordbox's beat model once at launch (macOS) |
+| `tfpool_warmup` | `1` | 0 skips the warm-up of the beat models at launch |
 
 ### tidymenu
 

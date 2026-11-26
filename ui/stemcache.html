@@ -16,6 +16,9 @@
   .waiting { color: var(--fg3); } .separating { color: var(--orange); } .done { color: var(--green); }
   .fromdisk { color: rgba(48,209,88,.45); } .separated { color: rgba(48,209,88,.7); } .unsupported { color: var(--fg2); }
   .needsfile { color: var(--yellow); } .gaveup { color: var(--red); }
+  #opts { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+  #opts .sp { flex: 1; }
+  #hint { color: var(--fg3); font-size: 11px; padding-top: 6px; min-height: 2.7em; }
   #foot { display: flex; align-items: center; gap: 8px; padding-top: 10px; }
   #foot .sp { flex: 1; }
 </style></head>
@@ -29,6 +32,13 @@
     <colgroup><col style="width:44px"><col style="width:42%"><col><col style="width:150px"><col style="width:64px"></colgroup>
     <thead><tr><th>#</th><th>Track</th><th>Artist</th><th>Status</th><th>Time</th></tr></thead>
     <tbody id="rows"></tbody></table></div>
+  <div id="opts">
+    <span class="muted">Keep on disk</span>
+    <span class="seg" id="keep"><button data-v="all" title="Every track that is separated, on a deck or here, is stored in the stems folder">Every track</button><button data-v="chosen" title="Only tracks separated in this window are stored; a deck's other tracks are separated when they load and forgotten when rekordbox quits">Tracks separated here</button><button data-v="none" title="Nothing new is stored">None</button></span>
+    <span class="sp"></span>
+    <label class="check" id="ondemandBox" title="A deck's track is separated from the moment you mute a stem, turn a PART ISOLATOR knob or take the FX off a stem, starting where it plays. Stems that are stored already are there at once."><input type="checkbox" id="ondemand">Decks: separate only when a stem control is used</label>
+  </div>
+  <div id="hint"></div>
   <div id="foot"><button id="stop">Stop</button><span class="sp"></span><button id="close">Close</button></div>
 </div>
 <script src="common.js"></script>
@@ -45,6 +55,10 @@
     $('separate').disabled = !s.separateEnabled;
     $('fetch').style.display = s.fetchShown ? '' : 'none';
     $('fetch').textContent = s.fetchLabel;
+    [].forEach.call($('keep').children, function (b) { b.classList.toggle('on', b.dataset.v === s.keep); });
+    $('ondemandBox').style.display = s.onDemandShown ? '' : 'none';
+    $('ondemand').checked = !!s.onDemand;
+    $('hint').textContent = s.keepHint || '';
     var active = -1;
     s.tracks.forEach(function (t, i) { if (active < 0 && t.cls === 'separating') active = i; });
     rbm.syncRows($('rows'), s.tracks, function (t) {  // rows are reused: only the cells that changed are touched
@@ -58,6 +72,8 @@
       if (row) row.scrollIntoView({ block: 'nearest' });
     }
   };
+  [].forEach.call($('keep').children, function (b) { b.onclick = function () { rbm.send({ cmd: 'keep', value: b.dataset.v }); }; });
+  $('ondemand').onchange = function () { rbm.send({ cmd: 'ondemand', value: this.checked }); };
   ['stop', 'separate', 'fetch', 'close'].forEach(function (id) {
     $(id).onclick = function () { rbm.send({ cmd: id }); };
   });

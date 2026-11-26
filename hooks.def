@@ -343,6 +343,22 @@ HOOK_X86(pagebuf_free, "__ZN6rbxfrm10PageBufferINS_6Float4EiED2Ev", 0, 9, "stub:
 //   -> bl PlatformDelegateImpl::existsKeyboxFile() (false: InitializeCdm returns false before it calls the library)
 HOOK(widevine_keybox, "__ZN9streaming33CastlabsDecryptorDrmCdmRepository13InitializeCdmENSt3__110unique_ptrINS_17IKeyboxRepositoryENS1_14default_deleteIS3_EEEE", 0, 1, "__ZN9streaming33CastlabsDecryptorDrmCdmRepository20PlatformDelegateImpl15writeKeyboxFileENSt3__110unique_ptrINS_17IKeyboxRepositoryENS2_14default_deleteIS4_EEEE", -1)
 HOOK(widevine_exists, "__ZN9streaming33CastlabsDecryptorDrmCdmRepository13InitializeCdmENSt3__110unique_ptrINS_17IKeyboxRepositoryENS1_14default_deleteIS3_EEEE", 0, 1, "__ZN9streaming33CastlabsDecryptorDrmCdmRepository20PlatformDelegateImpl16existsKeyboxFileEv", -1)
+// relayout: CustomTextButton::setDrawablePosition -> bl CustomTextButton::setDrawable (left out when the button's
+//   images are the ones made from the same drawables at the same place) and setDrawable -> bl createImage (what the
+//   images were made from is noted after it)
+HOOK(ctb_position, "__ZN16CustomTextButton19setDrawablePositionERKN4juce9RectangleIfEE", 0, 1, "__ZN16CustomTextButton11setDrawableEPKN4juce8DrawableES3_", -1)
+HOOK(ctb_images, "__ZN16CustomTextButton11setDrawableEPKN4juce8DrawableES3_", 0, 1, "__ZN16CustomTextButton11createImageEPKN4juce8DrawableES3_", -1)
+// idlewake: MidiOutputHelper::run -> bl juce::WaitableEvent::wait(ms) (1 ms, a thousand times a second: longer when
+//   no priority message is queued), LevelMeter::drawMetalTextures -> bl juce::MultiTimer::startTimer(1, ms), the
+//   second of its two (every frame: left out while the meter shows 0)
+HOOK(midiout_wait, "__ZN6djplay16MidiOutputHelper3runEv", 0, 1, "__ZNK4juce13WaitableEvent4waitEd", -1)
+HOOK(meter_timer, "__ZN6djplay10LevelMeter17drawMetalTexturesEP12MetalContextRKN4juce9RectangleIfEE", 1, 2, "__ZN4juce10MultiTimer10startTimerEii", -1)
+// quickdeck: a reload that only brings a new beat grid redraws the grid instead of building the waveforms again:
+//   UiPlayer::handleDBMSG_subRoutine1 -> bl handleDBMSG_subRoutine1_2 (the deck takes over the new beats and song), and
+//   the WidgetWaveView::initializeWave call of each of the two deck widgets (WidgetPlayerDJ, WidgetPlayer)
+HOOK(qd_apply, "__ZN6djplay8UiPlayer23handleDBMSG_subRoutine1Ef", 0, 1, "__ZN6djplay8UiPlayer25handleDBMSG_subRoutine1_2EPNS_8BeatInfoEPNS_8SongInfoENS_17WaveNormalizeCoefE", -1)
+HOOK(qd_initWaveDJ, "__ZN6djplay14WidgetPlayerDJ25operateWaveViewInitializeEiiPNS_8SongInfoEPNS_8WaveDataEPNS_8BeatInfoEbNS_17WaveNormalizeCoefE", 0, 1, "__ZN6djplay14WidgetWaveView14initializeWaveEllPNS_8SongInfoEPNS_8WaveDataENS_8WaveTypeENS_9ColorTypeENS_8PartFlagEPNS_8BeatInfoEbN8djengine15EnPlayerChannelENS_17WaveNormalizeCoefE", -1)
+HOOK(qd_initWave, "__ZN6djplay12WidgetPlayer25operateWaveViewInitializeEiiPNS_8SongInfoEPNS_8WaveDataEPNS_8BeatInfoEbNS_17WaveNormalizeCoefE", 0, 1, "__ZN6djplay14WidgetWaveView14initializeWaveEllPNS_8SongInfoEPNS_8WaveDataENS_8WaveTypeENS_9ColorTypeENS_8PartFlagEPNS_8BeatInfoEbN8djengine15EnPlayerChannelENS_17WaveNormalizeCoefE", -1)
 #ifdef RBM_HOOK_OR_UNUSED
 #undef HOOK_OR
 #undef RBM_HOOK_OR_UNUSED

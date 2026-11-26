@@ -40,6 +40,45 @@ the playlist's tracks are separated.
 <!--@/public-->
 - A track that's on a deck counts once the deck has separated it.
 
+## Which stems are kept
+
+**Keep on disk** at the bottom of the stems window (the option `stemcache_keep`) says whose stems are stored:
+
+| | |
+|---|---|
+| **Every track** (`all`, the default) | Everything that is separated, on a deck or in the stems window, is stored. |
+| **Tracks separated here** (`chosen`) | Only the playlists and selections you separate in the stems window are stored. Any other track is separated when it loads onto a deck; its stems stay in memory for loading it again in the same session (`stemcache_memory_mb`) and are gone when rekordbox quits. |
+| **None** (`none`) | Nothing new is stored. |
+
+Stems that are on disk already are used whatever this says, and the size limit (`stemcache_max_gb`) still applies:
+when the stored stems grow past it, the ones used longest ago go first. For a few hundred tracks you want to keep,
+raise it: a 5-minute track takes about 35 MB.
+
+## Stems on demand
+
+rekordbox separates every track the moment it loads onto a deck, whether you use its stems or not. With **Decks:
+separate only when a stem control is used** in the stems window (`stemcache_ondemand=1`) it waits:
+
+- Stems that are stored (or still in memory) are there at once, as always.
+- Any other track plays unseparated. The moment you **mute a stem**, turn a **PART ISOLATOR** knob away from its
+  centre, or take the **FX off a stem**, on screen or on a controller, the separation starts, beginning with the
+  part of the track that is playing. With [betterstems](./betterstems) on an M2 Pro the muted stem drops out about
+  a second after the press, anywhere in the track; the rest of the track follows in the background.
+- A control that is already on when a track loads (a mute you left on) asks for the new track's stems right away.
+
+Until the stems are there the deck plays the whole track, as rekordbox does during any separation. To be ready
+that fast, the first piece of a track (about 12 seconds of it, half a second of work) is still separated when it
+loads.
+
+With rekordbox's *STEMS Analysis Process* set to its quality engine, rekordbox itself separates strictly in order
+from the start of the track, so a press late in a track takes longer there; with the default engine it starts at
+the playhead.
+
+::: warning Windows
+On Windows this is new: the same code as on macOS, checked against rekordbox 7.2.19 and 7.2.20 in an emulator, but
+not yet run on a Windows machine. It is off unless you switch it on.
+:::
+
 ## Quality and size
 
 Stems are stored as AAC:
@@ -73,12 +112,15 @@ and the stems window's run waits. See [Caches and external drives](/guides/cache
 | `stemcache_spotify` | `1` | `0`: no stems for Spotify tracks (otherwise: on a deck, in memory). |
 | `stemcache_memory_mb` | `384` | Memory kept for Spotify tracks' stems, compressed, so a track loaded again this session has them at once (`0` = none). |
 <!--@/public-->
+| `stemcache_keep` | `all` | Whose stems are stored: `all`, `chosen` (only tracks separated in the stems window) or `none`. See [Which stems are kept](#which-stems-are-kept). |
+| `stemcache_ondemand` | `0` | `1`: a deck's track is separated only once a stem control is used on it. See [Stems on demand](#stems-on-demand). |
 | `stemcache_quality` | `256` | How new chunks are stored: `lossless`, `256`, `192` or `128` (AAC kbps per stem). |
 | `stemcache_max_gb` | `10` | Delete the least recently used chunks above this size (`0` = no limit). |
 | `stemcache_min_free_gb` | `5` | Store nothing new while the disk has less free space than this. |
 | `stemcache_dir` | *(empty: the default folder)* | Folder of the cached stems. Default: `~/Library/Caches/rekordbox-mods/stems` (macOS), `%LOCALAPPDATA%\rekordbox-mods\cache\stems` (Windows). |
 | `stemcache_staging` | `auto` | Stage new chunks on the internal disk first. `auto`: only when `stemcache_dir` is on an external drive; `1`: always; `0`: never. |
 | `stemcache_staging_gb` | `4` | How much may wait on the internal disk; past it a deck's chunks are left out and the stems window's run waits. |
+| `stemcache_log` | `0` | `1` logs every chunk and every stem control (for debugging). |
 
 ## Needs rekordbox's STEMS
 

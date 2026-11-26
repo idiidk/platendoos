@@ -730,7 +730,15 @@ extern "C" void* rbm_an_begin(void* holder, const char* thread) {
     if (force) logf("analyze: re-detecting the key of track %u%s", id, t_forceKey ? "" : " (not possible)");
     // A track this mod queued without a deck has no deck downloading it: don't wait for one. (Same
     // object in both places, but guard against two.)
-    if (isDirectId(id)) {
+    // The same for a track on a deck that quickdeck lets the analysis read while it downloads ("quickdeck.readsEarly").
+    bool direct = isDirectId(id);
+    if (!direct) {
+        void* source = *(void* const*)(thread + O_threadSource);
+        const JStr* path = source ? (*reinterpret_cast<const JStr* (***)(void*)>(source))[V_sourcePath / 8](source) : nullptr;
+        if (path && path->text && !strncmp(path->text, "spotify:", 8))
+            if (auto early = service<bool (*)(const char*)>("quickdeck.readsEarly")) direct = early(path->text);
+    }
+    if (direct) {
         void* source = *(void* const*)(thread + O_threadSource);
         skipDownloadWait(source);
 #ifndef _WIN32  // (Windows: no second source pointer verified)

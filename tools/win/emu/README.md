@@ -25,6 +25,7 @@ A run takes a few seconds per build.
 | `rbmods.py` | rekordbox.exe + rbmods.dll, initialised; reads the mods' `Addr` / `Offset` statics |
 | `run.py` | The runner: `test_<name>.py` per mod, each run against each rekordbox build |
 | `test_xfadelock.py` | xfadelock (the first test: see its docstring for what runs for real and what stands in) |
+| `test_stemcache.py` | stemcache's stems on demand: the slot swap on the decks' objects, the three replacements, the wait |
 
 ## Writing a test
 

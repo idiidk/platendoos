@@ -52,7 +52,7 @@ are until the new version is known to work.
 
        python3 patch_binary.py <rekordbox.app>/Contents/MacOS/rekordbox /tmp/rekordbox.patched
 
-   It prints `patched 149 of 149 hooks` and a `left out:` line for each hook it couldn't place. 7.2.20: 128 of 135
+   It prints `patched 156 of 156 hooks` and a `left out:` line for each hook it couldn't place. 7.2.20: 128 of 135
    at first, the other 7 in three functions rekordbox had rewritten.
 4. The patcher app does the same check with its own (C++) patcher:
 
@@ -96,7 +96,7 @@ Checked and run on 2026-11-19, next to an installed 7.2.19.
 - macOS: every address and field resolved. Seven hooks had lost their site: `Service::getPlaylistTracks` and
   `getLookupTracks` were rewritten (spotifyapi's six hooks), and `AudioPartSeparator::start` was split, with
   the call stemcache takes over now in `checkAndPrepare`. With `HOOK_OR` lines for those, 7.2.19 and 7.2.20
-  both patch every hook (135 that day, 149 now). All 33 mods load; a re-analysis gives the same result as on 7.2.19; a deck load is
+  both patch every hook (135 that day, 156 now). All 33 mods load; a re-analysis gives the same result as on 7.2.19; a deck load is
   playable in 0.1 s; Spotify tracks get stems; the patcher app's check and install pass. Not timed: that
   several Spotify lists really load at once.
 - Windows: see *Status (rekordbox 7.2.20)* in [Windows internals](./windows). All 27 mods load with the table made

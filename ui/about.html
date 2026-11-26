@@ -2,61 +2,193 @@
 <html><head><meta charset="utf-8"><title>platendoos</title>
 <link rel="stylesheet" href="common.css">
 <style>
-  #app { display: flex; flex-direction: column; height: 100%; padding: 20px 20px 12px; }
-  #chip { display: flex; justify-content: center; margin-top: 8px; }
-  .chip { display: inline-flex; align-items: center; height: 56px; width: 315px; background: #303030; border-radius: 10px; overflow: hidden; }
-  .chip .icon { width: 56px; height: 56px; background: #2978eb; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-  .chip .name { flex: 1; text-align: center; font-weight: 700; font-size: 31px; letter-spacing: 2px; color: #e0e0e0; }
-  #versions { text-align: center; font-weight: 500; margin-top: 16px; user-select: text; -webkit-user-select: text; }
-  #summary { text-align: center; color: var(--fg2); font-size: 11px; margin-top: 3px; }
-  #wrap { flex: 1; min-height: 0; overflow: auto; margin-top: 14px; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 0 6px; height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  tr:nth-child(even) td { background: rgba(255,255,255,.035); }
-  .on { color: var(--green); } .pending { color: var(--orange); } .config { color: var(--fg2); } .unavailable { color: var(--orange); }
-  #restart { margin-top: 12px; padding: 7px 10px; border: 1px solid rgba(255,159,10,.45); border-radius: 6px;
-    background: rgba(255,159,10,.10); color: var(--orange); text-align: center; }
+  #app { display: flex; flex-direction: column; height: 100%; }
+  #head { display: flex; align-items: center; gap: 14px; padding: 14px 18px 12px; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-flex; align-items: center; height: 30px; width: 168px; background: #303030; border-radius: 6px; overflow: hidden; flex: none; }
+  .chip .icon { width: 30px; height: 30px; background: #2978eb; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .chip .name { flex: 1; text-align: center; font-weight: 700; font-size: 16px; letter-spacing: 1.2px; color: #e0e0e0; }
+  #headText { flex: 1; min-width: 0; }
+  #versions { font-weight: 500; user-select: text; -webkit-user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #summary { color: var(--fg2); font-size: 11px; margin-top: 1px; }
+  #search { width: 190px; flex: none; }
+  input[type=text], input[type=search], select { font: inherit; color: var(--fg); background: #2a2a2c; border: 1px solid #4a4a4d; border-radius: 6px; padding: 4px 8px; outline: none; }
+  input[type=text]:focus, input[type=search]:focus, select:focus { border-color: var(--accent); }
+  #restart { margin: 10px 18px 0; padding: 7px 10px; border: 1px solid rgba(255,159,10,.45); border-radius: 6px;
+    background: rgba(255,159,10,.10); color: var(--orange); }
   #restart.hidden { display: none; }
-  #hint { color: var(--fg3); font-size: 11px; padding-top: 10px; text-align: center; }
-  #foot { display: flex; gap: 8px; padding-top: 12px; }
-  #foot .sp { flex: 1; }
+  #body { flex: 1; min-height: 0; display: flex; }
+  #list { width: 232px; flex: none; overflow: auto; padding: 8px 0; border-right: 1px solid var(--line); }
+  .mod { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 12px 0 16px; }
+  .mod.sel { background: rgba(10,132,255,.22); }
+  .mod:hover:not(.sel) { background: rgba(255,255,255,.05); }
+  .mod .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mod .c { color: var(--fg3); font-size: 11px; }
+  .mod.off .n { color: var(--fg2); }
+  .lamp { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--fg3); }
+  .lamp.on { background: var(--green); } .lamp.pending, .lamp.unavailable { background: var(--orange); }
+  #pane { flex: 1; min-width: 0; overflow: auto; padding: 16px 22px 18px; }
+  #title { display: flex; align-items: center; gap: 12px; }
+  #title h1 { flex: 1; margin: 0; font-size: 18px; font-weight: 600; }
+  #state { font-size: 11px; }
+  .on { color: var(--green); } .pending { color: var(--orange); } .config { color: var(--fg2); } .unavailable { color: var(--orange); }
+  #about { color: var(--fg2); margin: 6px 0 4px; max-width: 620px; user-select: text; -webkit-user-select: text; }
+  h2 { font-size: 11px; font-weight: 600; color: var(--fg3); text-transform: uppercase; letter-spacing: .6px; margin: 18px 0 2px; }
+  h2.fold { cursor: default; } h2.fold::before { content: '\25B8  '; } h2.fold.open::before { content: '\25BE  '; }
+  .opt { display: flex; align-items: flex-start; gap: 16px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .opt .what { flex: 1; min-width: 0; }
+  .opt .key { font: 11.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--fg); user-select: text; -webkit-user-select: text; }
+  .opt .key .chg { color: var(--accent); margin-left: 6px; font-family: inherit; }
+  .opt .text { color: var(--fg2); margin-top: 2px; max-width: 520px; }
+  .opt .ctl { flex: none; display: flex; align-items: center; gap: 8px; min-height: 22px; }
+  .opt .ctl input[type=text] { width: 170px; }
+  .opt .reset { color: var(--fg3); font-size: 11px; text-decoration: underline; visibility: hidden; }
+  .opt.set .reset { visibility: visible; } .opt .reset:hover { color: var(--fg); }
+  .sw { position: relative; width: 34px; height: 20px; border-radius: 10px; background: #48484b; flex: none; transition: background .12s; }
+  .sw::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #e6e6e6; transition: left .12s; }
+  .sw.on { background: var(--accent); } .sw.on::after { left: 16px; }
+  .sw.dis { opacity: .35; }
+  #none { color: var(--fg3); padding: 14px 0; }
+  #foot { display: flex; gap: 8px; align-items: center; padding: 10px 18px 12px; border-top: 1px solid var(--line); }
+  #foot .sp { flex: 1; color: var(--fg3); font-size: 11px; padding: 0 6px; }
 </style></head>
 <body>
 <div id="app">
-  <div id="chip"><div class="chip">
-    <div class="icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#fff">
-      <circle cx="20" cy="20" r="12.4" stroke-width="3"/><circle cx="20" cy="20" r="6.8" stroke-width="1.5"/>
-      <circle cx="20" cy="20" r="2.5" fill="#fff" stroke="none"/></svg></div>
-    <div class="name">PLATENDOOS</div>
-  </div></div>
-  <div id="versions"></div>
-  <div id="summary"></div>
+  <div id="head">
+    <div class="chip">
+      <div class="icon"><svg width="22" height="22" viewBox="0 0 40 40" fill="none" stroke="#fff">
+        <circle cx="20" cy="20" r="12.4" stroke-width="3"/><circle cx="20" cy="20" r="6.8" stroke-width="1.5"/>
+        <circle cx="20" cy="20" r="2.5" fill="#fff" stroke="none"/></svg></div>
+      <div class="name">PLATENDOOS</div>
+    </div>
+    <div id="headText"><div id="versions"></div><div id="summary"></div></div>
+    <input id="search" type="search" placeholder="Search mods and options">
+  </div>
   <div id="restart" class="hidden"></div>
-  <div id="wrap"><table><tbody id="mods"></tbody></table></div>
-  <div id="hint">Switching a mod on or off (<span class="muted">name=0</span> / <span class="muted">name=1</span> in the config) applies after a restart of rekordbox; other options apply as soon as the file is saved.</div>
+  <div id="body">
+    <div id="list"></div>
+    <div id="pane">
+      <div id="title"><h1 id="name"></h1><span id="state"></span><div id="modsw" class="sw" title="Switch this mod on or off (applies after a restart of rekordbox)"></div></div>
+      <div id="about"></div>
+      <div id="opts"></div>
+    </div>
+  </div>
   <div id="foot">
     <button id="log">Open log</button>
-    <button id="config">Open config</button>
-    <span class="sp"></span>
+    <button id="config">Open config file</button>
+    <span class="sp">Options apply within a few seconds; a mod's own switch after a restart of rekordbox. Everything here is saved in the config file.</span>
     <button id="close">Close</button>
   </div>
 </div>
 <script src="common.js"></script>
 <script>
+  var $ = function (id) { return document.getElementById(id); };
+  var state = null, selected = null, shownFor = null, debugOpen = false, filter = '';
+  // An option meant for finding faults rather than for use: listed under its own, folded heading.
+  function isDebug(o) { return /\((for debugging|for testing)\)|\bexperiment\b|_log$|_debug$|_check$/.test(o.text + ' ' + o.key); }
+  function matches(m) {
+    if (!filter) return true;
+    if (m.name.toLowerCase().indexOf(filter) >= 0 || (m.summary || '').toLowerCase().indexOf(filter) >= 0) return true;
+    return m.options.some(function (o) { return optMatches(o); });
+  }
+  function optMatches(o) { return !filter || o.key.toLowerCase().indexOf(filter) >= 0 || o.text.toLowerCase().indexOf(filter) >= 0; }
+  function current() {
+    if (!state) return null;
+    var shown = state.mods.filter(matches), m = null;
+    shown.forEach(function (x) { if (x.name === selected) m = x; });
+    return m || shown[0] || null;
+  }
+  function renderList() {
+    var shown = state.mods.filter(matches), cur = current();
+    rbm.syncRows($('list'), shown, function (m) {
+      var changed = m.options.filter(function (o) { return o.set; }).length;
+      return '<div class="mod' + (cur && m.name === cur.name ? ' sel' : '') + (m.state === 'on' ? '' : ' off') + '" data-n="' + rbm.esc(m.name) + '">' +
+        '<span class="lamp ' + rbm.esc(m.state) + '"></span><span class="n">' + rbm.esc(m.name) + '</span>' +
+        '<span class="c">' + (changed ? changed + ' set' : '') + '</span></div>';
+    }, function (m) { return m.name; });
+  }
+  function control(o) {
+    if (o.kind === 'switch') return '<div class="sw' + (o.value !== '0' && o.value !== '' ? ' on' : '') + '" data-k="' + rbm.esc(o.key) + '"></div>';
+    if (o.kind === 'choice') {
+      var list = o.choices.slice();
+      if (list.indexOf(o.value) < 0) list.push(o.value);  // (a value typed into the file that isn't one of them)
+      return '<select data-k="' + rbm.esc(o.key) + '">' + list.map(function (c) {
+        return '<option value="' + rbm.esc(c) + '"' + (c === o.value ? ' selected' : '') + '>' + rbm.esc(c === '' ? '(none)' : c) + '</option>';
+      }).join('') + '</select>';
+    }
+    return '<input type="text" spellcheck="false" data-k="' + rbm.esc(o.key) + '" value="' + rbm.esc(o.value) + '" placeholder="' + rbm.esc(o.def) + '">';
+  }
+  function optionRow(o) {
+    return '<div class="opt' + (o.set ? ' set' : '') + '" data-k="' + rbm.esc(o.key) + '"><div class="what"><div class="key">' + rbm.esc(o.key) +
+      (o.set ? '<span class="chg">= ' + rbm.esc(o.value) + '</span>' : '') + '</div><div class="text">' + rbm.esc(o.text || '') + '</div></div>' +
+      '<div class="ctl"><span class="reset" data-k="' + rbm.esc(o.key) + '" title="Back to the default (' + rbm.esc(o.def === '' ? 'empty' : o.def) + ')">reset</span>' + control(o) + '</div></div>';
+  }
+  function renderPane() {
+    var m = current();
+    $('pane').style.visibility = m ? '' : 'hidden';
+    if (!m) return;
+    $('name').textContent = m.name;
+    $('state').textContent = m.text;
+    $('state').className = m.state;
+    $('modsw').className = 'sw' + (m.on ? ' on' : '') + (m.available ? '' : ' dis');
+    $('about').textContent = m.summary || '';
+    var opts = m.options.filter(optMatches), main = opts.filter(function (o) { return !isDebug(o); }), dbg = opts.filter(isDebug);
+    var open = debugOpen || !!filter || dbg.some(function (o) { return o.set; });
+    var html = main.length ? '<h2>Options</h2>' + main.map(optionRow).join('') : '';
+    if (dbg.length) html += '<h2 class="fold' + (open ? ' open' : '') + '" id="dbg">For testing and fault-finding (' + dbg.length + ')</h2>' + (open ? dbg.map(optionRow).join('') : '');
+    if (!opts.length) html = '<div id="none">' + (m.options.length ? 'No option of this mod matches the search.' : 'This mod has no options beyond its switch.') + '</div>';
+    // While a field of this mod has the focus, the pane is only rebuilt when the mod shown changes: a refresh
+    // every second must not take the text being typed.
+    var f = document.activeElement, typing = f && f.dataset && f.dataset.k && $('opts').contains(f) && f.tagName !== 'DIV';
+    var key = m.name + '|' + filter + '|' + open;
+    if (typing && shownFor === key) {
+      [].forEach.call($('opts').querySelectorAll('.opt'), function (row) {
+        var o = null; m.options.forEach(function (x) { if (x.key === row.dataset.k) o = x; });
+        if (o) row.classList.toggle('set', o.set);
+      });
+      return;
+    }
+    shownFor = key;
+    if ($('opts').__h !== html) { $('opts').innerHTML = html; $('opts').__h = html; }
+  }
+  function render() { if (!state) return; renderList(); renderPane(); }
   rbm.onState = function (s) {
-    document.getElementById('versions').textContent = s.versions;
-    document.getElementById('summary').textContent = s.summary;
-    var r = document.getElementById('restart');
-    r.textContent = s.restart || '';
-    r.classList.toggle('hidden', !s.restart);
-    document.getElementById('mods').innerHTML = s.mods.map(function (m) {
-      return '<tr><td>' + rbm.esc(m.name) + '</td><td class="' + rbm.esc(m.state) + '">' + rbm.esc(m.text) + '</td></tr>';
-    }).join('');
+    state = s;
+    $('versions').textContent = s.versions;
+    $('summary').textContent = s.summary;
+    $('restart').textContent = s.restart || '';
+    $('restart').classList.toggle('hidden', !s.restart);
+    render();
   };
-  ['log', 'config', 'close'].forEach(function (id) {
-    document.getElementById(id).onclick = function () { rbm.send({ cmd: id }); };
+  $('list').onclick = function (e) {
+    var row = e.target.closest('.mod');
+    if (row) { selected = row.dataset.n; render(); $('pane').scrollTop = 0; }
+  };
+  $('modsw').onclick = function () {
+    var m = current();
+    if (m && m.available) rbm.send({ cmd: 'mod', key: m.name, value: !m.on });
+  };
+  $('opts').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.id === 'dbg') { debugOpen = !t.classList.contains('open'); render(); return; }
+    if (t.classList.contains('reset')) { if (document.activeElement) document.activeElement.blur(); rbm.send({ cmd: 'unset', key: t.dataset.k }); return; }
+    if (t.classList.contains('sw')) rbm.send({ cmd: 'set', key: t.dataset.k, value: t.classList.contains('on') ? '0' : '1' });
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') rbm.send({ cmd: 'close' }); });
+  $('opts').addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.dataset && t.dataset.k && (t.tagName === 'SELECT' || t.tagName === 'INPUT')) rbm.send({ cmd: 'set', key: t.dataset.k, value: t.value.trim() });
+  });
+  $('opts').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur();
+    if (e.key === 'Escape') e.stopPropagation();
+  });
+  $('search').addEventListener('input', function () { filter = this.value.trim().toLowerCase(); render(); });
+  ['log', 'config', 'close'].forEach(function (id) {
+    $(id).onclick = function () { rbm.send({ cmd: id }); };
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if ($('search').value) { $('search').value = ''; filter = ''; render(); } else rbm.send({ cmd: 'close' });
+  });
   rbm.ready();
 </script>
 </body></html>

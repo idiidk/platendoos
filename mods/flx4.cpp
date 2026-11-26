@@ -516,12 +516,10 @@ static void* child(void* c, int i) { return at<void* (*)(void*, int)>(A_child)(c
 static bool showing(void* c) { return at<bool (*)(void*)>(A_isShowing)(c); }
 static bool isSlider(void* c) { return isA(c, "12CustomSlider") || isA(c, "N4juce6SliderE") || isA(c, "14CenterThruKnob"); }
 
-static void* findComponent(void* c, const char* mangled, int depth = 0) {
-    if (isA(c, mangled)) return c;
-    if (depth > 24) return nullptr;
-    for (int i = 0, n = numChildren(c); i < n; i++)
-        if (void* r = findComponent(child(c, i), mangled, depth + 1)) return r;
-    return nullptr;
+// (looked up several times every tick: core keeps the way to each, a whole-tree walk took 0.4 ms apiece)
+static void* findComponent(void* main, const char* mangled) {
+    static std::map<std::string, ComponentPath> paths;
+    return rbm::findComponent(main, paths[mangled], [mangled](void* c) { return isA(c, mangled); });
 }
 static void showingSliders(void* c, std::vector<void*>& out, int depth = 0) {
     if (!showing(c)) return;
@@ -801,7 +799,8 @@ static void updateMixer() {
         void* main = at<void* (*)()>(A_mainComponent)();
         MixerView decks;
         if (!g_dev && main && !g_numberStyled.empty()) readDecks(main, decks);
-        styleDeckNumbers(g_dev ? v : decks, main ? findComponent(main, "N6djplay15PlayerComponent12PlayerPanelLE") : nullptr);
+        if (g_dev || !g_numberStyled.empty())  // (nothing to style or to put back otherwise)
+            styleDeckNumbers(g_dev ? v : decks, main ? findComponent(main, "N6djplay15PlayerComponent12PlayerPanelLE") : nullptr);
     }
     for (int d = 0; d < 4; d++)
         for (int c = 0; c < C_COUNT; c++) g_onScreen[d][c] = v.value[d][c];

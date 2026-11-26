@@ -192,7 +192,22 @@ void reloadConfig(bool force = false);  // cheap; re-reads the file at most ever
 std::string cfgStr(const char* key, const char* def = "");
 double cfgNum(const char* key, double def);
 inline int cfgInt(const char* key, int def) { return (int)cfgNum(key, def); }
-void setCfg(const char* key, const std::string& value);  // rewrites that line of the config file
+void setCfg(const char* key, const std::string& value);  // rewrites that line of the config file (a new one: under its "#key=" line)
+void unsetCfg(const char* key);         // back to the default: its line becomes the "#key=default" of the list again
+bool cfgHas(const char* key);           // the config file sets it
+// Every mod's options as the config file lists them (core/config_template.h, made by tools/build/config_gen.py from
+// the sources): for the settings window.
+struct ConfigOption {
+    enum Kind { Text, Switch, Choice };
+    std::string key, def, text;  // text: what the list says about it
+    Kind kind = Text;
+    std::vector<std::string> choices;
+};
+struct ConfigSection {
+    std::string mod, summary;
+    std::vector<ConfigOption> options;
+};
+const std::vector<ConfigSection>& configSections();
 bool modEnabled(const char* mod);       // "<mod>=0" in the config disables a mod (default on), as does a build
                                         // in which its addresses aren't all found. Decided once at startup (the config as
                                         // it was then) and kept for the session: a changed switch applies after a restart.
@@ -363,6 +378,15 @@ std::string treeItemName(void* treeItem);  // its name as shown in the tree
 std::string selectedPlaylist();
 int openPlaylist(const std::string& where);
 void forEachListViewer(const std::function<void(void* comp, void* listViewer)>& fn);
+// The first juce::Component under root (depth first, root included) that match accepts. `at` remembers where it was:
+// keep one per thing looked for (a static), and a lookup every tick costs a few steps instead of a walk of the whole
+// tree. Main thread. A component that isn't there is looked for again at most twice a second.
+struct ComponentPath {
+    std::vector<int> path;
+    bool found = false;
+    double searchedAt = -1e9;
+};
+void* findComponent(void* root, ComponentPath& at, const std::function<bool(void*)>& match);
 void* mainListViewer();                 // showing browse::ListViewer with the most rows
 int listRows(void* lv);
 const char* listRow(void* lv, int row);  // db::RowDataTrack* (nullptr if not paged in)

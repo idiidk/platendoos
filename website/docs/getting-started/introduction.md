@@ -22,7 +22,7 @@ both: platendoos is rekordbox, with the mods loaded.
 ## What it does
 
 <!--@public intro-count-->
-There are 34 mods, in five groups. Every one is on by default and can be switched off on its own.
+There are 37 mods, in five groups. Every one is on by default and can be switched off on its own.
 <!--@/public-->
 
 | Group | In short | Mods |
@@ -33,7 +33,7 @@ There are 34 mods, in five groups. Every one is on by default and can be switche
 | [Analysis](/mods/#analysis) | Analyse whole playlists, better beat grids and keys, waveforms on the deck sooner, faster analysis | analyzer, bettergrid, betterkey, quickdeck, parallel, tfpool, streamio, timing |
 | [Browsing and playing](/mods/#browsing-and-playing) | Stems kept on disk and separated with HTDemucs, sync that doesn't jump, a calmer track menu, multi-column sorting, better FX, no clicks when memory is short | stemcache, betterstems, fastwave, audiomem, betterfx, keepmaster, tidymenu, multisort, keycolumn, xfadelock, outputsync, fontcache |
 | [Controllers](/mods/#controllers) | A DDJ-FLX4 as a four-deck controller with stems | flx4 |
-| [Quieter in the background](/mods/#quieter-in-the-background) | Less work while you do nothing | framerate, badge, screeninfo, midipoll |
+| [Quieter in the background](/mods/#quieter-in-the-background) | Less work while you do nothing | framerate, badge, screeninfo, midipoll, idlewake |
 
 The [mods overview](/mods/) has a line on each.
 
@@ -41,8 +41,8 @@ The [mods overview](/mods/) has a line on each.
 
 The mods are the same source on both platforms. A few only exist on one:
 
-- **macOS only (6):** outputsync, betterfx, audiomem, and fontcache, screeninfo and midipoll (the last three fix
-  slow macOS calls that Windows doesn't have).
+- **macOS only (9):** outputsync, betterfx, audiomem, quickframe, idlewake, and fontcache, screeninfo, midipoll and
+  relayout (the last four fix slow macOS calls that Windows doesn't have).
 - **Windows only (1):** spotifystart, a fix for rekordbox 7.2.19 for Windows that does nothing on any other build.
 
 <!--@public intro-platform-count-->

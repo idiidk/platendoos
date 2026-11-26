@@ -188,11 +188,108 @@ void setCfg(const char* key, const std::string& value) {
         }
         fclose(f);
     }
-    if (!found) lines.push_back(std::string(key) + "=" + value);
+    if (!found) {
+        // A new line goes under the list's own "#key=default" line, where its description is; else at the end.
+        std::string listed = std::string("#") + key + "=";
+        auto at = std::find_if(lines.begin(), lines.end(), [&](const std::string& l) { return l.compare(0, listed.size(), listed) == 0; });
+        lines.insert(at == lines.end() ? at : at + 1, std::string(key) + "=" + value);
+    }
     // Written beside it and renamed over it: a full disk (or a crash) must not leave the config cut short or empty.
     std::string text;
     for (auto& l : lines) text += l + "\n";
     if (!plat::writeFileAtomic(path, text.data(), text.size())) logf("config: %s could not be written, %s not saved", path.c_str(), key);
+    reloadConfig(true);
+}
+
+bool cfgHas(const char* key) {
+    std::lock_guard<std::mutex> l(g_cfgLock);
+    return g_cfg.count(key) > 0;
+}
+
+const std::vector<ConfigSection>& configSections() {
+    static std::vector<ConfigSection> sections;
+    static std::once_flag once;
+    std::call_once(once, [] {
+        std::map<std::string, std::vector<std::string>> choices;
+        for (const char* p = kConfigChoices; *p;) {  // "key=a|b|c;"
+            const char* eq = strchr(p, '='), *end = strchr(p, ';');
+            if (!eq || !end || eq > end) break;
+            std::vector<std::string>& v = choices[std::string(p, eq)];
+            for (const char* q = eq + 1;;) {
+                const char* bar = (const char*)memchr(q, '|', end - q);
+                v.emplace_back(q, bar ? bar : end);
+                if (!bar) break;
+                q = bar + 1;
+            }
+            p = end + 1;
+        }
+        std::vector<std::string> said;  // the "#   ..." lines above an option
+        bool inSummary = false;
+        for (const char* p = kConfigTemplate; *p;) {
+            const char* nl = strchr(p, '\n');
+            std::string line(p, nl ? nl : p + strlen(p));
+            p = nl ? nl + 1 : p + line.size();
+            size_t eq = line.find('=');
+            if (line.compare(0, 7, "# ---- ") == 0 && line.size() > 12) {
+                sections.push_back({line.substr(7, line.size() - 12), "", {}});
+                inSummary = true, said.clear();
+            } else if (sections.empty()) {
+            } else if (line.compare(0, 4, "#   ") == 0) {
+                said.push_back(line.substr(4)), inSummary = false;
+            } else if (inSummary && line.compare(0, 2, "# ") == 0) {
+                sections.back().summary += (sections.back().summary.empty() ? "" : " ") + line.substr(2);
+            } else if (line.size() > 1 && line[0] == '#' && eq != std::string::npos && line.find(' ') > eq) {
+                std::string key = line.substr(1, eq - 1);
+                inSummary = false;
+                if (key != sections.back().mod) {
+                    ConfigOption o;
+                    o.key = key, o.def = line.substr(eq + 1);
+                    for (auto& t : said) o.text += (o.text.empty() ? "" : " ") + t;
+                    auto c = choices.find(key);
+                    if (c != choices.end()) o.kind = ConfigOption::Choice, o.choices = c->second;
+                    else if (strstr(kConfigSwitches, (" " + key + " ").c_str())) o.kind = ConfigOption::Switch;
+                    sections.back().options.push_back(o);
+                }
+                said.clear();
+            } else said.clear(), inSummary = false;
+        }
+    });
+    return sections;
+}
+
+void unsetCfg(const char* key) {
+    std::string path = configFile(), def;
+    for (const ConfigSection& s : configSections())
+        for (const ConfigOption& o : s.options)
+            if (o.key == key) def = o.def;
+    FILE* f = plat::openFile(path, "r");
+    if (!f) return;
+    std::vector<std::string> lines;
+    std::string listed = std::string("#") + key + "=";
+    bool isListed = false, changed = false;
+    char line[512];
+    while (fgets(line, sizeof line, f)) {
+        std::string s(line);
+        s.erase(s.find_last_not_of("\r\n") + 1);
+        if (s.compare(0, listed.size(), listed) == 0) isListed = true;
+        lines.push_back(s);
+    }
+    fclose(f);
+    for (auto it = lines.begin(); it != lines.end();) {
+        size_t eq = it->find('=');
+        std::string k = eq == std::string::npos || (*it)[0] == '#' ? "" : it->substr(0, eq);
+        k.erase(0, k.find_first_not_of(" \t"));
+        if (!k.empty()) k.erase(k.find_last_not_of(" \t") + 1);
+        if (k != key) { ++it; continue; }
+        changed = true;
+        // (a config whose list has no line for it gets one in its place: the option stays findable in the file)
+        if (isListed) it = lines.erase(it);
+        else *it = listed + def, isListed = true, ++it;
+    }
+    if (!changed) return;
+    std::string text;
+    for (auto& l : lines) text += l + "\n";
+    if (!plat::writeFileAtomic(path, text.data(), text.size())) logf("config: %s could not be written, %s not reset", path.c_str(), key);
     reloadConfig(true);
 }
 
@@ -337,6 +434,42 @@ static void walk(void* comp, const std::function<void(void*, void*)>& fn) {
         void* child = at<void* (*)(void*, int)>(A_child)(comp, i);
         if (child && at<bool (*)(void*)>(A_isShowing)(child)) walk(child, fn);
     }
+}
+
+// A search of the whole tree (5000 components in rekordbox's main window: about a millisecond) done once: the path of
+// child indexes to the match is kept and walked the next time, a few steps. The whole search runs again when the path
+// no longer ends at a match (another layout), and at most twice a second while there is none.
+static bool searchComponent(void* c, const std::function<bool(void*)>& match, std::vector<int>& path, int depth) {
+    if (match(c)) return true;
+    if (depth > 24) return false;
+    for (int i = 0, n = at<int (*)(void*)>(A_numChildren)(c); i < n; i++) {
+        void* ch = at<void* (*)(void*, int)>(A_child)(c, i);
+        if (!ch) continue;
+        path.push_back(i);
+        if (searchComponent(ch, match, path, depth + 1)) return true;
+        path.pop_back();
+    }
+    return false;
+}
+static void* componentAt(void* c, const std::vector<int>& path) {
+    for (int i : path) {
+        if (i >= at<int (*)(void*)>(A_numChildren)(c)) return nullptr;
+        c = at<void* (*)(void*, int)>(A_child)(c, i);
+        if (!c) return nullptr;
+    }
+    return c;
+}
+void* findComponent(void* root, ComponentPath& where, const std::function<bool(void*)>& match) {
+    if (!root) return nullptr;
+    if (where.found) {
+        void* c = componentAt(root, where.path);
+        if (c && match(c)) return c;
+        where.found = false;
+    } else if (plat::monotonic() - where.searchedAt < 0.5) return nullptr;
+    where.path.clear();
+    where.searchedAt = plat::monotonic();
+    where.found = searchComponent(root, match, where.path, 0);
+    return where.found ? componentAt(root, where.path) : nullptr;
 }
 
 // Walks the live JUCE component tree, so only existing components are touched.

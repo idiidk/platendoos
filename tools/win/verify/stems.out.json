@@ -1,0 +1,45 @@
+[
+ {
+  "item": "__ZNK8DjSystem16getPlayerControlEi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142d76680",
+  "confidence": "high",
+  "why": "stemcache, stems on demand (7.2.19, 2026-11-26; disassembly only, not run on Windows). One of DjSystem's getters with rbxfrm::DjUnitAudioGraph's inlined (the mac ones tail-call it), a leaf like the verified DjSystem::getMixerState 0x142d765c0 two functions before it: graph = [this+0x58] (mac +0x50), the same 0x5e715e28 check, then index edx against the count [graph+0x43c] and the element of the array [graph+0x430], returned as it is. The graph's three arrays follow each other as on mac (players +0x458, mixers +0x468, recording +0x478): here +0x430 (this one, no adjustment, as mac's getPlayerControl), +0x440 (getMixerState 0x142d765c0 adds 0x160, getMixerControl 0x142d76620 adds 0x158: mac +0x188 / +0x180) and +0x450 (0x142d76560, getRecordingControl). Their __FUNCTION__ strings stand in the same order (getMixerState, getMixerControl, getPlayerControl) but are no longer referenced. Callers include effectGui::PartFxPanel::PartFxPanel (0x1416f42a0), as on mac"
+ },
+ {
+  "item": "__ZN6rbxfrm28DjPlayerStreamingEventSender16setPartMuteStateENS_9audiopart4PARTEb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142e124e0",
+  "confidence": "high",
+  "why": "stemcache, stems on demand (7.2.19, 2026-11-26; disassembly only). Slot 82 (0x290) of DjPlayerStreamingEventSender's vtable (rva 57e6f08): mov rcx,[rcx+0x50]; mov rax,[rcx]; jmp [rax+0x290], as mac's ldr x0,[x0,#0x40]; ldr x8,[x0]; ldr x3,[x8,#0x298]; br x3 (one destructor slot less on Windows). Every slot of that vtable passes on to the slot of its own number, and in DjPlayerUnit's vtable for the same interface (rva 57e92d8, COL offset 344) slots 82, 83, 84 are the three small functions mov rcx,[rcx+0x100]; test rcx,rcx; jne <StretchablePlayerCore::reqSetPart...>; ret (mac: ldr x0,[x0,#0xf0]; cbz; b reqSetPartMuteState / IsoValue / FxState at 0x298, 0x2a0, 0x2a8), after setNumStems in slot 81 (cmp edx,[rcx+0xec], as mac's)"
+ },
+ {
+  "item": "__ZN6rbxfrm28DjPlayerStreamingEventSender15setPartIsoValueENS_9audiopart4PARTEd",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142e124c0",
+  "confidence": "high",
+  "why": "stemcache, stems on demand (7.2.19, 2026-11-26; disassembly only). Slot 83 (0x298) of DjPlayerStreamingEventSender's vtable: mov rcx,[rcx+0x50]; mov rax,[rcx]; jmp [rax+0x298], the slot after setPartMuteState as on mac. The player's function in that slot (DjPlayerUnit, 0x142e2c240) jumps to 0x14301b860, which takes its third argument as a double (vmulsd xmm0,xmm2,...): reqSetPartIsoValue; the neighbours' (0x14301ba00, 0x14301b6d0) take a bool (movzx r14d,r8b)"
+ },
+ {
+  "item": "__ZN6rbxfrm28DjPlayerStreamingEventSender14setPartFxStateENS_9audiopart4PARTEb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142e124a0",
+  "confidence": "high",
+  "why": "stemcache, stems on demand (7.2.19, 2026-11-26; disassembly only). Slot 84 (0x2a0) of DjPlayerStreamingEventSender's vtable: mov rcx,[rcx+0x50]; mov rax,[rcx]; jmp [rax+0x2a0], after setPartMuteState (82) and setPartIsoValue (83) as on mac. The player's function in that slot (0x142e2c220) jumps to 0x14301b6d0, bool third argument: reqSetPartFxState"
+ },
+ {
+  "item": "O_senderControl",
+  "kind": "offset",
+  "fn": "__ZN6rbxfrm28DjPlayerStreamingEventSender16setPartMuteStateENS_9audiopart4PARTEb",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "value": "0x50",
+  "verdict": "ok",
+  "confidence": "high",
+  "why": "DjPlayerStreamingEventSender: the IDjPlayerControl it passes every call on to (mac +0x40). 0x142e124e0: mov rcx,[rcx+0x50]; mov rax,[rcx]; jmp [rax+0x290]; every forwarding slot of the vtable reads the same field"
+ }
+]

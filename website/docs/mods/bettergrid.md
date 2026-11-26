@@ -30,6 +30,12 @@ the combination:
 - **Grids on the off-beats.** About 3 % of tracks get rekordbox's beats half a beat away, on the off-beats. When Beat
   This! hears the beats there over the whole track and the kick drum says so too (its hits, or its level clearly
   higher between rekordbox's beats), the beats are moved half a beat.
+- **Grids on a hi-hat or a clap.** rekordbox sometimes puts its beats a fixed distance from the kicks that is
+  neither nothing nor half a beat: 60 to 170 ms early or late over the whole track, on a hat or a clap (Robert
+  Hood's *Snakes and Politics*: on the hats, 96 ms after every kick). When nearly all of Beat This!'s beats lie at
+  one such distance from rekordbox's, and the kick itself sets in there and clearly not at rekordbox's beats, the
+  combined grid is used. Of 15 tracks where the two analyses lay that far apart, this changed two and left the
+  rest alone.
 - A BPM a hair off a whole one is redrawn at the whole BPM when the hits fit as well; the beat at the very start of
   the track that rekordbox sometimes leaves out is added.
 
@@ -84,6 +90,7 @@ skips beat detection, so it keeps rekordbox's grid. Turn Cloud Analysis off for 
 | `bettergrid_min_fit` | `0.6` | Beat This!'s fit below which rekordbox's grid is kept. |
 | `bettergrid_bars` | `1` | When the bar starts differ: the music's changes pick one; `0`: the kick-in rule alone. |
 | `bettergrid_halfbeat` | `1` | rekordbox's beats half a beat off: `1` moved when Beat This! and the kick band both say so, `2` when Beat This! alone says so, `0` never. |
+| `bettergrid_offbeat` | `1` | rekordbox's beats a fixed 60 ms or more off the kicks (not half a beat): `1` the combined grid when Beat This! and the kick both say so, `0` never. |
 | `bettergrid_genre` | `1` | The track's genre (genres mod) picks the tempo's octave; `0` never. |
 | `bettergrid_rb_first` | `1` | `0`: while it waits, the deck doesn't show rekordbox's own grid meanwhile. |
 | `bettergrid_wait` | `20` (macOS), `60` (Windows) | Seconds the analysis waits for the combined grid at most. |

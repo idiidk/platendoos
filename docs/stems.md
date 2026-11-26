@@ -86,6 +86,46 @@ HTDemucs v4 ~9, RoFormer models ~10-12.
   ~1 s per 11.8 s chunk in rekordbox (0.5 s standalone). Checked against Spleeter's stems of the same chunks:
   correlation 0.7-0.97 per slot, so the slots line up. Still open: seams at chunk edges (each chunk gets only
   rekordbox's 93 ms of context); `AudioPartSeparator::getStreamAt` could give it more.
+- [x] Which stems are kept (`stemcache_keep`, *Keep on disk* in the stems window): `all` as before; `chosen` stores
+  only the chunks of tracks the stems window's run separates (the run's current track, or one in `tracks.txt` from
+  an earlier run); `none` nothing new. What isn't stored goes to the in-memory store Spotify tracks use
+  (`stemcache_memory_mb`). Which track a chunk belongs to comes from the separation's uri (as for Spotify tracks).
+  Checked live with `stemcache_log=1`: a deck's track "0 stored", the run's track 11 chunks stored, both served
+  from the right place on the next load.
+- [x] Stems on demand (`stemcache_ondemand=1`). What rekordbox does, found on 7.2.19 (macOS):
+  - A deck plays the unseparated track while its stems aren't there, whatever the stem buttons say (all four muted
+    on screen: the channel's level unchanged). The buttons are accepted meanwhile (`PartMuteSoloComp::setPartActive`
+    only refuses a mute when the stem's source isn't loaded).
+  - `AudioPartSeparator::run` takes chunks from two lists: one with priority (+0x240) and the rest in order (+0x250).
+    `AudioPartData::isReadyPosition`, which the deck's stem reader asks about the playhead, moves the chunk it
+    needs to the priority list (`requestSeparateAt(pos, n, true)`), but only where
+    `AudioPart::isRandomAccessible(MODEL)` says so: the Spleeter models (0, 2), not Demucs3 (1, 3).
+  - `AudioPartSeparator::cancel()` / `stop()` wait for the separator's thread without a time limit
+    (`stopThread(-1)`), so anything that keeps that thread must watch `threadShouldExit`.
+  - Every stem control ends in `IDjPlayerControl::setPartMuteState / setPartIsoValue / setPartFxState` on the
+    deck's `DjPlayerUnit` (reached through a `DjPlayerStreamingEventSender` wrapper, the player at +0x40); a load
+    resets the four mutes (four calls with false). The isolator's centre is 0.5.
+
+  So the engine wrapper separates the first chunk a track needs and then keeps the separator's thread inside that
+  call until the track is asked for: one of the three setters taking a stem away on a deck holding the track, or
+  such a control being on already. The setters' slots are swapped in the vtable the player behind a deck's wrapper
+  points at (found on the running objects; the slot numbers are the ones the wrapper's own three functions pass
+  their calls on through). Released after a chunk, the
+  separator's next pick is the playhead's chunk: a mute at 1:40 into an unseparated track was silent 0.9-1.0 s
+  after the press (HTDemucs, M2 Pro; the playhead's chunk took 0.57 s). Holding before the first chunk instead
+  cost one stale chunk first (2 s). Unloading the deck or quitting while it waits ends the wait (checked).
+  With Demucs3 selected rekordbox separates in order from the start, so a late press waits for everything before
+  it.
+  Windows: the same code. `DjSystem::getPlayerControl`, the wrapper's three functions and its player field (+0x50;
+  slots 0x290 / 0x298 / 0x2a0, one destructor slot less than mac) are in `tools/win/verify/stems.out.json` for
+  7.2.19; the scanner finds them all in 7.2.20 (checked by disassembly). There the slots are only swapped once
+  the option is switched on. `tools/win/emu/test_stemcache.py` runs the DLL against both builds: the swap, the
+  three replacements through rekordbox's own forwarders and originals, which deck a control belongs to, and the
+  wait with rekordbox's `threadShouldExit` (59 checks). Not run on a Windows machine: threads, the engine wrapper
+  around the wait, and what the separator does when it ends.
+  `tools/dev/stemtest.mm` (hot-loaded) drives all of this without a mouse: load, play, seek, the on-screen stem
+  buttons, the isolator and FX setters, and `rec`, which taps each mixer channel's audio in the process
+  (`EnvelopeGeneratorArray::processBlock`) and logs its level per half second.
 - Other mods use the cache through two services: `stemcache.cached` (a chunk's stems from disk, if there; only
   looks) and `stemcache.store` (stores a chunk separated elsewhere, with betterstems' model and layout). autocue
   separates tracks itself with betterstems and stores the chunks, so a deck gets them from disk.

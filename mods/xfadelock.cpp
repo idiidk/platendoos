@@ -162,16 +162,9 @@ static bool isCrossFader(void* c) { return *(char**)c == at<char*>(A_compVt) + 0
 static const char* className(void* c) { return *(const char**)((char*)(*(void***)c)[-1] + 8); }  // RTTI, mangled
 static bool isCrossFader(void* c) { return !strcmp(className(c), "14CrossFaderComp"); }
 #endif
-static void* findCrossFader(void* c, int depth = 0) {
-    if (isCrossFader(c)) return c;
-    if (depth > 24) return nullptr;
-    for (int i = 0, n = at<int (*)(void*)>(A_numChildren)(c); i < n; i++)
-        if (void* r = findCrossFader(at<void* (*)(void*, int)>(A_child)(c, i), depth + 1)) return r;
-    return nullptr;
-}
-static void* crossFader() {
-    void* main = at<void* (*)()>(A_mainComponent)();
-    return main ? findCrossFader(main) : nullptr;
+static void* crossFader() {  // (every tick: core keeps the way to it instead of walking the whole window)
+    static ComponentPath where;
+    return findComponent(at<void* (*)()>(A_mainComponent)(), where, [](void* c) { return isCrossFader(c); });
 }
 static JRect screenBounds(void* c) {
 #ifdef _WIN32

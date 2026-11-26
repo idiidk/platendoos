@@ -59,6 +59,12 @@ std::string duration(double s) {
 
 std::string plural(int n, const char* what) { return std::to_string(n) + " " + what; }
 
+// stemcache_keep, as the mod reads it: all | chosen | none.
+std::string keepMode() {
+    std::string k = rbm::cfgStr("stemcache_keep", "all");
+    return k == "chosen" || k == "none" ? k : "all";
+}
+
 void sendState() {
     if (!g_win || !web::visible(g_win)) return;
     using web::jsonStr;
@@ -130,6 +136,14 @@ void sendState() {
     j += std::string(",\"separateEnabled\":") + b(needs.stemsOn && !needs.folderNoAnswer && !v.running && !otherRun && !v.playlistId.empty() && (v.rows > 0 || !v.known));
     j += std::string(",\"fetchShown\":") + b(v.needsFile && rbm::canFetchTrackFiles()) + ",\"fetchLabel\":" + jsonStr(rbm::trackFilesText("button"));
     j += std::string(",\"running\":") + b(v.running);
+    std::string keep = keepMode();
+    char cap[32];
+    snprintf(cap, sizeof cap, "%g GB", rbm::cfgNum("stemcache_max_gb", 10));
+    j += ",\"keep\":" + jsonStr(keep);
+    j += ",\"keepHint\":" + jsonStr(keep == "none" ? "Nothing new is stored. Stems are separated when a track loads onto a deck and are gone when rekordbox quits; a run here doesn't last either."
+                                   : keep == "chosen" ? std::string("Tracks separated in this window are stored (up to ") + cap + ", the least recently used go first). Any other track is separated when it loads onto a deck, and those stems are gone when rekordbox quits."
+                                   : std::string("Every track that is separated, on a deck or in this window, is stored (up to ") + cap + ", the least recently used go first).");
+    j += std::string(",\"onDemandShown\":true,\"onDemand\":") + b(rbm::cfgInt("stemcache_ondemand", 0) != 0);
     j += ",\"tracks\":[";
     for (size_t i = 0; i < v.tracks.size(); i++) {
         const stemcache::TrackView& t = v.tracks[i];
@@ -152,6 +166,10 @@ void onMessage(const std::string& m) {
         g_playlistId = stemcache::playlistView(g_playlistId).playlistId;
         stemcache::separatePlaylist(g_playlistId);
     } else if (cmd == "fetch") stemcache::fetchFiles(stemcache::playlistView(g_playlistId).playlistId);
+    else if (cmd == "keep") {
+        std::string v = web::jsonGet(m, "value");
+        if (v == "all" || v == "chosen" || v == "none") rbm::setCfg("stemcache_keep", v);
+    } else if (cmd == "ondemand") rbm::setCfg("stemcache_ondemand", web::jsonGet(m, "value") == "true" ? "1" : "0");
     else if (cmd == "close") { web::close(g_win); return; }
     sendState();
 }

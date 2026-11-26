@@ -14,11 +14,22 @@
 //
 // "Separate stems" in the stems window (a playlist's menu: Open stems window) fills the cache ahead of time: each
 // track goes through rekordbox's own separation (AudioPart::load on a deck number no deck uses, then AudioPart::unload), one at a time,
-// so its chunks are decoded exactly as on a deck and hash the same.
+// so its chunks are decoded exactly as on a deck and hash the same. With stemcache_keep=chosen those are the only
+// tracks whose stems are stored; with stemcache_ondemand a deck's track isn't separated until its stems are used
+// (both further down: "which stems are kept on disk, and stems on demand").
 //   config: stemcache=0 to disable
 //           stemcache_spotify=0   no stems for Spotify tracks (otherwise: on a deck at once, separated from the stream)
-//           stemcache_memory_mb=384   Spotify tracks' stems kept in memory (never on disk) for loading
-//                                     them again in this session; the least recently used go first (0: none)
+//           stemcache_memory_mb=384   stems that aren't stored on disk (Spotify tracks', and what stemcache_keep
+//                                     leaves out) kept in memory for loading the track again in this session;
+//                                     the least recently used go first (0: none)
+//           stemcache_keep=all   whose stems are stored in the stems folder: all (every track that is separated),
+//                                chosen (only tracks separated from the stems window; a deck's other tracks are
+//                                separated when they load and those stems are gone when rekordbox quits) or none
+//           stemcache_ondemand=0   1: a deck's track is separated only once a stem control is used on it
+//                                  (a stem muted, a PART ISOLATOR knob turned, the FX taken off a stem), from
+//                                  where it plays; stems that are stored already still come at once (on Windows
+//                                  new and not yet run on a Windows machine)
+//           stemcache_log=0   1 logs every chunk and every stem control (for debugging)
 //           stemcache_dir=<cache folder>/stems (mac ~/Library/Caches/rekordbox-mods/stems)
 //           stemcache_quality=256   how new chunks are stored: lossless | 256 | 192 | 128 (AAC kbps per stem)
 //           stemcache_max_gb=10   delete the least recently used chunks above this size (0 = no limit)
@@ -56,6 +67,8 @@
 
 using namespace rbm;
 
+#define RBM_NOINLINE __attribute__((noinline))
+
 static volatile bool g_on = true;
 
 namespace {
@@ -90,18 +103,30 @@ static std::atomic<double> g_lastOpAt;
 // One separation (an engine handle, from its PreOperation on): how many chunks it has and how many were asked for, so
 // the stems window's run follows its own track and not the chunks of a deck that loads meanwhile.
 namespace {
-struct Separation { int serial = 0, want = 0, started = 0, hits = 0; double lastOpAt = 0; int spotify = -1; };  // spotify: 1 a Spotify track's, 0 not, -1 not known
+struct Separation {
+    int serial = 0, want = 0, started = 0, hits = 0;
+    double lastOpAt = 0;
+    int spotify = -1;  // 1 a Spotify track's, 0 not, -1 not known
+    std::string uri;   // its track ("" not known)
+};
 }  // namespace
 static std::mutex g_sepLock;
 static std::map<void*, Separation> g_seps;  // by handle
 static int g_sepSerial;                     // of the last one made (g_sepLock)
 static std::atomic<bool> g_sepSeen;         // an engine call came with a handle PreOperation made: they can be told apart
 
-static void noteSeparation(void* handle, int chunks, int spotify) {
+static void noteSeparation(void* handle, int chunks, const std::string& uri) {
+    int spotify = uri.empty() ? -1 : !strncmp(uri.c_str(), "spotify:", 8) ? 1 : 0;
     std::lock_guard<std::mutex> l(g_sepLock);
     if (g_seps.size() > 64)  // (handles of tracks long gone)
         for (auto it = g_seps.begin(); it != g_seps.end();) it = it->second.serial + 32 < g_sepSerial ? g_seps.erase(it) : std::next(it);
-    g_seps[handle] = Separation{++g_sepSerial, chunks, 0, 0, now(), spotify};
+    g_seps[handle] = Separation{++g_sepSerial, chunks, 0, 0, now(), spotify, uri};
+}
+// A separation's track, by its engine handle ("" not known).
+static std::string separationUri(void* handle) {
+    std::lock_guard<std::mutex> l(g_sepLock);
+    auto it = g_seps.find(handle);
+    return it == g_seps.end() ? "" : it->second.uri;
 }
 // Whether a separation (by its engine handle) is of a Spotify track: 1 yes, 0 no, -1 not known.
 static int separationSpotify(void* handle) {
@@ -124,13 +149,13 @@ static void noteSeparatorUri(const JStr& uri) {
     if (g_sepUris.size() > 64)
         for (auto it = g_sepUris.begin(); it != g_sepUris.end();) it = it->second.second + 32 < g_sepUriSerial ? g_sepUris.erase(it) : std::next(it);
 }
-static int handleSpotify(const void* handlePtr) {
+static std::string handleUri(const void* handlePtr) {
     std::lock_guard<std::mutex> l(g_uriLock);
     auto it = g_sepUris.lower_bound(handlePtr);  // the first at or above it
-    if (it == g_sepUris.begin()) return -1;
+    if (it == g_sepUris.begin()) return "";
     --it;
-    if ((const char*)handlePtr - (const char*)it->first > 4096) return -1;
-    return !strncmp(it->second.first.c_str(), "spotify:", 8) ? 1 : 0;
+    if ((const char*)handlePtr - (const char*)it->first > 4096) return "";
+    return it->second.first;
 }
 static void noteChunk(void* handle, bool hit, bool started) {
     std::lock_guard<std::mutex> l(g_sepLock);
@@ -581,6 +606,169 @@ static bool separateBetter(const Engine& e, const float* inL, const float* inR, 
     return true;
 }
 
+// ---- which stems are kept on disk, and stems on demand ----------------------------------------
+
+// stemcache_keep: whose stems are written to the cache folder. all: every track that is separated; chosen: only the
+// tracks separated from the stems window (tracks.txt: now or before); none: nothing new. What isn't kept on disk is
+// kept in memory like a Spotify track's (stemcache_memory_mb), for loading the track again in this session. Stems
+// that are on disk already are read whatever this says.
+enum { kKeepAll, kKeepChosen, kKeepNone };
+static std::atomic<int> g_keep{kKeepAll};
+static bool wasSeparated(const std::string& uri);
+
+// stemcache_ondemand=1: a track on a deck isn't separated when it loads. Its stems that are in the cache (or in
+// memory) still come at once. The first chunk that has to be separated is separated, and then the separator's thread
+// is kept inside that engine call until a stem control is used on a deck holding the track (wantStems, or a control
+// that is on already: g_stemState). Kept after the chunk rather than before it, because rekordbox's separator takes
+// the chunks the deck is waiting for first (Spleeter models: AudioPartData::isReadyPosition asks for the playhead's
+// chunk with priority), but only when it picks its next chunk: released after the chunk, the next one it separates
+// is the playhead's (stems about 1.3 s after the control was used, measured with HTDemucs on an M2 Pro; released
+// before it, the chunk it had been given at load came first: 2 s). Meanwhile the deck plays the unseparated track,
+// whatever its stem buttons say, as it does during any separation.
+// The wait ends when rekordbox tells the thread to stop (the track left the decks: AudioPartSeparator::cancel waits
+// for the thread without a time limit), so only on a juce thread; a separation whose track isn't known never waits.
+// Windows: the same code, checked against rekordbox.exe in the emulator (tools/win/emu/test_stemcache.py), not yet
+// run on a Windows machine.
+static std::atomic<int> g_onDemand{0};
+static std::atomic<bool> g_logChunks{false};  // stemcache_log
+static std::mutex g_wantLock;            // g_wanted, g_runUri
+static std::set<std::string> g_wanted;   // tracks whose stems were asked for, while they are on a deck
+static std::string g_runUri;             // the track the stems window's run is separating
+static std::atomic<int> g_held;          // separations waiting to be asked for
+// Per deck, the stem controls that are on (from the calls that set them): bits 0-3 a muted stem, 4-7 a PART ISOLATOR
+// knob off its centre, 8-11 a stem the FX don't apply to. A deck with any of them needs its track's stems.
+static std::atomic<unsigned> g_stemState[4];
+static const Addr A_currentThread{"__ZN4juce6Thread16getCurrentThreadEv"};
+static const Addr A_threadShouldExit{"__ZNK4juce6Thread16threadShouldExitEv"};
+
+RBM_NOINLINE static bool isWanted(const std::string& uri) {
+    std::lock_guard<std::mutex> l(g_wantLock);
+    return uri == g_runUri || g_wanted.count(uri) > 0;
+}
+static bool isRunTrack(const std::string& uri) {
+    std::lock_guard<std::mutex> l(g_wantLock);
+    return !uri.empty() && uri == g_runUri;
+}
+// A stem control was used on a deck holding this track (any thread).
+static void wantStems(const std::string& uri, const char* why) {
+    if (uri.empty()) return;
+    {
+        std::lock_guard<std::mutex> l(g_wantLock);
+        if (!g_wanted.insert(uri).second) return;
+    }
+    if (g_onDemand) logf("stemcache: stems of %s asked for (%s)%s", uri.c_str(), why, g_held > 0 ? ": separating" : "");
+}
+// Waits while nobody has asked for the track's stems (separator thread). (Functions of their own, not inlined: the
+// Windows emulator test calls them, tools/win/emu/test_stemcache.py.)
+RBM_NOINLINE static void waitForStems(const std::string& uri) {
+    if (uri.empty() || isWanted(uri)) return;
+    void* thread = at<void* (*)()>(A_currentThread)();
+    if (!thread) return;  // (not a thread rekordbox can tell to stop: no waiting on it)
+    g_held++;
+    logf("stemcache: the rest of %s is separated when a stem control is used (stemcache_ondemand)", uri.c_str());
+    while (!at<bool (*)(void*)>(A_threadShouldExit)(thread) && g_onDemand && g_on && !isWanted(uri))
+        std::this_thread::sleep_for(std::chrono::milliseconds(15));
+    g_held--;
+}
+// After a chunk was separated.
+static void waitUntilWanted(void* handle) {
+    if (g_onDemand) waitForStems(separationUri(handle));
+}
+
+// A deck's stem controls, whoever moves them (the buttons on screen, pads, a controller, the keyboard), end in three
+// calls on the deck's player through its control interface (rbxfrm::IDjPlayerControl): setPartMuteState,
+// setPartIsoValue (the PART ISOLATOR knobs) and setPartFxState (which stems the FX apply to). What a deck hands out
+// as its control (DjSystem::getPlayerControl) is a wrapper, rbxfrm::DjPlayerStreamingEventSender, that passes every
+// call on to the player behind it, through the same slot of the same interface. The vtable to change is the one the
+// player behind a deck's wrapper points at: found on the running objects, which also holds where a compiler puts that interface's vtable
+// elsewhere in the class (MSVC: one vtable per base; clang: a part of the class's one).
+// In those three slots a call that takes a stem away or changes it asks for the deck's stems.
+static const Addr A_senderVt{"__ZTVN6rbxfrm28DjPlayerStreamingEventSenderE"};
+#ifdef _WIN32
+// The wrapper's own slots (MSVC lays its vtable out as the interface's; the table has them from the vtable).
+static const Offset V_setPartMute{0x2a0, "__ZTVN6rbxfrm28DjPlayerStreamingEventSenderE", "vt:__ZN6rbxfrm28DjPlayerStreamingEventSender16setPartMuteStateENS_9audiopart4PARTEb", 0};
+static const Offset V_setPartIso{0x2a8, "__ZTVN6rbxfrm28DjPlayerStreamingEventSenderE", "vt:__ZN6rbxfrm28DjPlayerStreamingEventSender15setPartIsoValueENS_9audiopart4PARTEd", 0};
+static const Offset V_setPartFx{0x2b0, "__ZTVN6rbxfrm28DjPlayerStreamingEventSenderE", "vt:__ZN6rbxfrm28DjPlayerStreamingEventSender14setPartFxStateENS_9audiopart4PARTEb", 0};
+static const size_t kSenderVptr = 0x10;
+#else
+// The slot each of the wrapper's three functions passes its call on to.
+static const Offset V_setPartMute{0x298, "__ZN6rbxfrm28DjPlayerStreamingEventSender16setPartMuteStateENS_9audiopart4PARTEb", "ldr x8", 0};
+static const Offset V_setPartIso{0x2a0, "__ZN6rbxfrm28DjPlayerStreamingEventSender15setPartIsoValueENS_9audiopart4PARTEd", "ldr x8", 0};
+static const Offset V_setPartFx{0x2a8, "__ZN6rbxfrm28DjPlayerStreamingEventSender14setPartFxStateENS_9audiopart4PARTEb", "ldr x8", 0};
+static const size_t kSenderVptr = 0x18;  // (the wrapper has a virtual base: one offset word more before its vtable's slots)
+#endif
+static const Addr A_djSystem{"__ZNK8djengine10DjEngineIF11getDjSystemEv"};
+static const Addr A_playerControl{"__ZNK8DjSystem16getPlayerControlEi"};
+static const Offset O_senderControl{0x40, "__ZN6rbxfrm28DjPlayerStreamingEventSender16setPartMuteStateENS_9audiopart4PARTEb", "ldr x0", 0};  // DjPlayerStreamingEventSender: the IDjPlayerControl it passes on to
+static void (*o_setPartMute)(void*, int, bool);
+static void (*o_setPartIso)(void*, int, double);
+static void (*o_setPartFx)(void*, int, bool);
+
+// Which deck (0-3) a player control is, -1 if none.
+static int deckOfControl(void* control) {
+    void* e = engine();
+    void* sys = e ? at<void* (*)(void*)>(A_djSystem)(e) : nullptr;
+    for (int d = 0; sys && d < deckCount() && d < 4; d++) {
+        // (what the deck hands out is a wrapper that reports to the streaming services, the player behind it)
+        char* c = at<char* (*)(void*, int)>(A_playerControl)(sys, d);
+        if (c && (c == control || *(void**)(c + O_senderControl) == control)) return d;
+    }
+    return -1;
+}
+// kind 0 mute, 1 isolator, 2 FX; on: the control now needs the stems.
+static void stemControlUsed(void* control, int kind, int part, double value, bool on) {
+    static const char* const kWhat[] = {"a stem was muted", "a PART ISOLATOR knob was turned", "the FX were taken off a stem"};
+    int d = deckOfControl(control);
+    if (d < 0 || d >= 4 || part < 0 || part >= 4) return;
+    unsigned bit = 1u << (kind * 4 + part);
+    if (on) g_stemState[d].fetch_or(bit); else g_stemState[d].fetch_and(~bit);
+    if (g_logChunks) logf("stemcache: deck %d: %s, stem %d = %g%s", d + 1, kind == 0 ? "mute" : kind == 1 ? "isolator" : "FX", part, value, on ? " (needs the stems)" : "");
+    if (on && g_onDemand) wantStems(deckPath(d), kWhat[kind]);
+}
+static void setPartMute(void* control, int part, bool muted) {
+    stemControlUsed(control, 0, part, muted, muted);
+    o_setPartMute(control, part, muted);
+}
+static void setPartIso(void* control, int part, double value) {  // 0..1, centre 0.5 (what PartIsoControlComp::resetPartIsoValue sends)
+    stemControlUsed(control, 1, part, value, fabs(value - 0.5) > 0.02);
+    o_setPartIso(control, part, value);
+}
+static void setPartFx(void* control, int part, bool on) {
+    stemControlUsed(control, 2, part, on, !on);
+    o_setPartFx(control, part, on);
+}
+// Swaps the three slots, once a deck's player is there to find the vtable on (main thread, from the tick).
+// macOS: from the start, so that a control left on is known. Windows, where this hasn't run on a real machine yet:
+// only once stemcache_ondemand is switched on.
+static bool g_followed;  // the slots were looked for
+RBM_NOINLINE static void followStemControls() {
+    bool& done = g_followed;
+#ifdef _WIN32
+    if (!g_onDemand) return;
+#endif
+    if (done) return;
+    void* e = engine();
+    void* sys = e ? at<void* (*)(void*)>(A_djSystem)(e) : nullptr;
+    char* wrapper = sys && deckCount() > 0 ? at<char* (*)(void*, int)>(A_playerControl)(sys, 0) : nullptr;
+    if (!wrapper) return;  // (no decks yet: the next tick)
+    done = true;
+    void*** player = *(void**)wrapper == at<char*>(A_senderVt) + kSenderVptr ? *(void****)(wrapper + O_senderControl) : nullptr;
+    void** vt = player ? *player : nullptr;
+    void* was[3] = {vt ? vt[V_setPartMute / 8] : nullptr, vt ? vt[V_setPartIso / 8] : nullptr, vt ? vt[V_setPartFx / 8] : nullptr};
+    // Not what was expected (a deck's control that isn't the wrapper, a player without a vtable, slots that aren't
+    // three different functions): nothing is changed.
+    if (!vt || vt == *(void***)wrapper || !was[0] || !was[1] || !was[2] || was[0] == was[1] || was[1] == was[2] || was[0] == was[2]) {
+        logf("stemcache: the decks' stem controls can't be followed here: stemcache_ondemand has no way to start a separation");
+        return;
+    }
+    o_setPartMute = (void (*)(void*, int, bool))was[0];
+    o_setPartIso = (void (*)(void*, int, double))was[1];
+    o_setPartFx = (void (*)(void*, int, bool))was[2];
+    if (!patchSlot(&vt[V_setPartMute / 8], (void*)&setPartMute) || !patchSlot(&vt[V_setPartIso / 8], (void*)&setPartIso) || !patchSlot(&vt[V_setPartFx / 8], (void*)&setPartFx))
+        logf("stemcache: the decks' stem controls can't be followed (their vtable can't be changed): stemcache_ondemand has no way to start a separation");
+    else if (g_logChunks) logf("stemcache: following the decks' stem controls");
+}
+
 template <int E, int K>
 static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0L, float* o0R, float* o1L, float* o1R,
                       float* o2L, float* o2R, float* o3L, float* o3R) {
@@ -598,21 +786,30 @@ static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0
     std::string model = better ? betterVersion() : e.version;
     // A Spotify track's chunks (or a separation's whose track isn't known) are kept in memory, never on disk.
     bool inMemory = g_on && separationSpotify(handle) != 0;
+    // And those of a track whose stems aren't kept (stemcache_keep).
+    if (g_on && !inMemory && g_keep != kKeepAll) {
+        std::string uri = separationUri(handle);
+        inMemory = g_keep == kKeepNone || !(isRunTrack(uri) || wasSeparated(uri));
+    }
     bool cached = g_on && dirReady();  // (a folder that isn't there or doesn't answer: separated as without the cache)
     std::string path = cached || inMemory ? chunkPath16(e, model, stems, inL, inR) : "";
     if ((inMemory && memLoad(relOf(path), e.outSamples, out, n)) ||
         (cached && (load(path, e.outSamples, out, n) || load(chunkPath(e, model, stems, inL, inR), e.outSamples, out, n)))) {
         g_hits++;
         noteChunk(handle, true, false);
+        if (g_logChunks) logf("stemcache: chunk %d from the cache", chunk);
         return true;
     }
+    double began = now();
     bool viaBetter = better && separateBetter(e, inL, inR, out, n);
     if (!viaBetter && !orig(handle, chunk, inL, inR, o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R)) return false;
+    if (g_logChunks) logf("stemcache: chunk %d separated in %.2f s (%s)", chunk, now() - began, viaBetter ? "HTDemucs" : e.prefix);
     g_misses++;
     if (viaBetter || !better) {  // (not rekordbox's stems under betterstems' key)
         if (inMemory) memStore(relOf(path), e.outSamples, out, n);
         else if (cached) store(path, e.outSamples, out, n);
     }
+    waitUntilWanted(handle);
     return true;
 }
 
@@ -630,7 +827,7 @@ static bool preWrapper(void** handle, unsigned samples, bool parallel) {
     const Engine& e = g_engines[E];
     g_trackChunks = (int)((samples + e.outSamples - 1) / e.outSamples);
     bool ok = e.pre(handle, samples, parallel);
-    if (ok && handle && *handle) noteSeparation(*handle, g_trackChunks, handleSpotify(handle));
+    if (ok && handle && *handle) noteSeparation(*handle, g_trackChunks, handleUri(handle));
     return ok;
 }
 
@@ -1077,6 +1274,10 @@ static void stepPrep() {
             g_prep.skipped++;
             continue;
         }
+        {
+            std::lock_guard<std::mutex> l(g_wantLock);
+            g_runUri = it.uri;  // (before its separation starts: its chunks are the run's from the first one)
+        }
         if (onADeck(it.uri)) {
             it.state = stemcache::State::Separating;
             g_prep.cur = i;
@@ -1317,11 +1518,30 @@ static int g_loggedHits, g_loggedMisses;
 static void tick() {
     double t = now();
     g_spotify = cfgInt("stemcache_spotify", 1) != 0;
+    g_onDemand = cfgInt("stemcache_ondemand", 0);
+    followStemControls();
+    g_logChunks = cfgInt("stemcache_log", 0) != 0;
+    {
+        std::string keep = cfgStr("stemcache_keep", "all");
+        g_keep = keep == "chosen" ? kKeepChosen : keep == "none" ? kKeepNone : kKeepAll;
+    }
+    {
+        // A track that left the decks has to be asked for again the next time; the run's track is always separated.
+        std::string decks[4];
+        for (int d = 0; d < 4; d++) decks[d] = deckPath(d);
+        for (int d = 0; d < 4; d++)  // a control that is on already (left on across a load)
+            if (g_onDemand && g_stemState[d] && !decks[d].empty()) wantStems(decks[d], "a stem control is on");
+        std::lock_guard<std::mutex> l(g_wantLock);
+        g_runUri = g_prep.running && g_prep.cur >= 0 && g_prep.cur < (int)g_prep.items.size() ? g_prep.items[g_prep.cur].uri : "";
+        for (auto it = g_wanted.begin(); it != g_wanted.end();)
+            it = std::find(decks, decks + 4, *it) == decks + 4 ? g_wanted.erase(it) : std::next(it);
+    }
     // "open [playlist id]" (the window, on that playlist or selection), "separate <playlist id>" (as its Separate stems button), "stop"
     std::string cmd = devCommand("stemcache");
     if (cmd.rfind("open", 0) == 0) stemcache::showWindowFor(cmd.size() > 5 ? cmd.substr(5) : "");
     else if (cmd.rfind("separate ", 0) == 0) stemcache::separatePlaylist(cmd.substr(9));
     else if (cmd == "stop") stemcache::stop();
+    else if (cmd.rfind("want ", 0) == 0) wantStems(deckPath(atoi(cmd.c_str() + 5) - 1), "command");  // "want <deck 1-4>"
     if (g_prep.running) stepPrep();
     static double uiAt;
     // Twice a second during a run; otherwise every few seconds (a playlist's view looks up every track).
@@ -1335,7 +1555,7 @@ static void tick() {
             if (g_stagedFiles > 0) waits = "; " + std::to_string(g_stagedFiles.load()) + " chunks, " + std::to_string((int)(g_stagedBytes / 1000000)) + " MB wait for the cache folder";
             if (g_memStored || g_memHits) {
                 std::lock_guard<std::mutex> l(g_memLock);
-                waits += "; in memory: " + std::to_string(g_mem.size()) + " chunks of Spotify tracks, " + std::to_string(g_memBytes / 1000000) +
+                waits += "; in memory: " + std::to_string(g_mem.size()) + " chunks, " + std::to_string(g_memBytes / 1000000) +
                          " MB, " + std::to_string(g_memHits.load()) + " served";
             }
             logf("stemcache: %d chunks from disk or memory, %d separated (%d stored, %.1f GB%s)", h, m, (int)g_stored, g_bytes / 1e9, waits.c_str());

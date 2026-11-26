@@ -5,6 +5,71 @@ What changed per release, for people using platendoos. Downloads are on the
 installed platendoos in place (see [Installation](./installation#after-a-rekordbox-update)).
 
 
+## 0.7.0 (2026-11-26)
+
+- **A settings window** (**badge**). Clicking the PLATENDOOS chip now opens every mod's settings: the list of mods
+  with their switches on the left, the selected mod's options on the right, each with what it does and a switch, a
+  list or a field to set it. A search box finds a mod or an option by name or description, *reset* puts an option
+  back to its default, and options meant for fault-finding sit under their own folded heading. Everything is
+  written to `config.txt` as you change it, so the file and the window always say the same; options apply within a
+  few seconds, a mod's own switch after a restart of rekordbox (the window says which mods are waiting for one).
+  See [the settings window](/mods/badge#the-settings-window).
+- **Choose which stems are kept** (**stemcache**). *Keep on disk* in the stems window (or `stemcache_keep`):
+  *Every track* stores the stems of everything that is separated, as before; *Tracks separated here* stores only
+  the playlists and selections you separate in the stems window, while any other track is separated when it
+  loads onto a deck and its stems are forgotten when rekordbox quits (they stay in memory for loading it again in
+  the same session); *None* stores nothing new. So you can separate your favourite playlists once, keep those, and
+  let everything else come and go. See [which stems are kept](/mods/stemcache#which-stems-are-kept).
+- **Stems on demand** (**stemcache**). With *Decks: separate only when a stem control is used* (or
+  `stemcache_ondemand=1`) a track that loads onto a deck is no longer separated right away. Stems that are stored
+  already still come at once. For any other track the separation starts the moment you mute a stem, turn a PART
+  ISOLATOR knob or take the FX off a stem, and it starts where the track is playing: with HTDemucs on an M2 Pro
+  the muted stem drops out about a second after the press, anywhere in the track, and the rest of the track
+  follows in the background. Until then the deck plays the whole track. Off by default. With rekordbox's STEMS
+  analysis set to its quality engine rekordbox separates in order from the start of the track, so a press late in
+  a track takes longer there. On Windows this is the same code, checked against rekordbox 7.2.19 and 7.2.20 in
+  an emulator but not yet run on a Windows machine, so reports are welcome. See
+  [stems on demand](/mods/stemcache#stems-on-demand).
+- **Clicks show sooner** (macOS, new mod **quickframe**). rekordbox queued every frame three deep on its way to the
+  screen, so a button you pressed lit up 42 to 47 ms later (measured on a 120 Hz MacBook Pro). The queue is now two
+  frames (32 ms, exactly as smooth), and while no deck is playing each frame is shown as soon as it is drawn (about
+  10 ms). While a deck plays the screen's own rhythm is kept, so the waveforms scroll as before.
+- **Menus and Preferences open sooner, resizing is twice as smooth** (macOS, new mod **relayout**). Every time any
+  window opened (a menu, a drop-down, a tooltip, Preferences) rekordbox first laid out its whole main window again,
+  and on every layout pass it rendered the images of some 300 buttons again, also the ones that hadn't changed.
+  Preferences now opens in about 60 ms instead of 100, a drop-down in 15 to 30 instead of 60, and dragging the
+  window to another size takes half the work.
+- **Panels you can't see wait until you open them** (macOS, **relayout**). rekordbox's window is made of 16,700
+  parts and shows about 400; it laid out and restyled all of them every time. Some options (auto gain, needle lock,
+  the beat count mode, the mixer mode) made the whole window refresh, which froze rekordbox for about 200 ms, half
+  of it spent on the 64 hidden sampler slots. That is now about 80 ms.
+- **Full frame rate with empty decks** (**framerate**). With nothing loaded rekordbox runs at 30 fps, also while you
+  click around, which adds up to 33 ms to everything. The window now runs at the full rate whenever you use the
+  mouse or keyboard, loaded or not, and still drops to 30 fps when nothing happens. `framerate_empty=0` gives
+  rekordbox's own behaviour back.
+- **Beat grids on a hi-hat** (**bettergrid**). rekordbox sometimes puts its beat lines a fixed distance from the
+  kicks, on a hat or a clap: about 100 ms late over the whole track on Robert Hood's *Snakes and Politics* and
+  *Side Effect*. bettergrid only corrected lines that were exactly half a beat off. It now also catches these,
+  when Beat This! and the kick drum itself both say where the beat is, and uses the combined grid for them. A
+  track gets the corrected grid when it is analysed again.
+- **The overview waveform streams in** (macOS, **quickdeck**). After loading a track that isn't analysed yet, the
+  overview under the title used to stay empty until rekordbox had read the whole track: two to five seconds. It
+  now grows from the left while the track is being read, a few times a second.
+- **The waveform stays put when the grid comes in** (macOS, **quickdeck**). Loading a new track showed the waveform,
+  then a first grid, then the final one, and with each grid the whole waveform went blank and was drawn again.
+  That is how rekordbox handles any new grid. Now only the grid lines are redrawn.
+- **Less work in the background** (macOS, new mod **idlewake**). With nothing playing, rekordbox's MIDI output
+  thread woke up a thousand times a second, every level meter restarted a timer on each frame, and every mixer
+  channel kept measuring the loudness of pure silence for the gate effect. All three now rest until there is
+  something to do: about a tenth less processor use while idle. The sound is the same (the measurement is only
+  skipped on exact silence, and a test switch showed its result never changed there). The FLX4 and crossfader-lock
+  mods also looked through every part of rekordbox's window ten times a second; they now remember where what they
+  need is.
+- **Windows.** New there in this release and built from the same code, but not yet run on a Windows machine: the
+  settings window, the choice of which stems are kept, stems on demand (off until you switch it on) and the full
+  frame rate with empty decks. The other changes to the window, the overview that streams in, the grid-only
+  redraw and the lighter background work are macOS only for now.
+
 ## 0.6.2 (2026-11-25)
 
 - **HTDemucs stems on every Mac** (macOS). On Macs set up with the patcher, betterstems never ran: it looked for

@@ -105,7 +105,7 @@ class Rbmods:
     def offset(self, name, module):
         """(value, ok) of an rbm::Offset static."""
         a = self.sym(name, module)
-        return self.emu.r64(a + 40), bool(self.emu.r8(a + 48))
+        return self.emu.r64(a + 48), bool(self.emu.r8(a + 56))  # (after expected, fn, kind, nth, x86Delta, file)
 
     def table_value(self, kind, key):
         """A line's value straight from the table file (for checks independent of the DLL's parser)."""

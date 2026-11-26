@@ -23,7 +23,8 @@ new = os.path.join(trailer, 'clips', '2026-11-19')
 #        width to scale to, blur boxes in source pixels)
 SHOTS = {
     'chip':          (os.path.join(trailer, 'shots', 'main_chip.png'), None, (0, 1708, 700, 1750), 700, []),
-    'about':         (os.path.join(new, 'badge.png'), None, None, 520, []),
+    # (about.webp, the chip's settings window, isn't from the footage: ui/about.html rendered in headless Chrome at
+    # 900x612, 2x, with a public edition's state from the badge mod's "state" test command; cwebp -q 88)
     'patcher-ready': (os.path.join(trailer, 'shots', 'p3_ready.png'), None, None, 800, []),
     'patcher-done':  (os.path.join(trailer, 'shots', 'p3_done.png'), None, None, 800, []),
     'patcher-win':   (os.path.join(trailer, 'shots', 'p3_win.png'), None, None, 800, []),

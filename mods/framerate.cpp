@@ -1,9 +1,13 @@
 // framerate: rekordbox's UI runs at the display's full refresh rate (setting RenderDelay, 120) as soon as any deck
-// holds a track, even a paused one, and redraws every frame whether anything changed or not. This keeps it at the
-// 30 fps rekordbox itself uses with empty decks unless a deck is playing or the mouse or keyboard was used in the
-// last few seconds.
+// holds a track, even a paused one, and at 30 fps while the decks are empty, and presents a frame every tick whether
+// anything changed or not. The rate is not only the waveforms': every button, list and hover in the main window is
+// painted into one image and shown at the next frame, so at 30 fps each click shows up to 33 ms late (measured:
+// repaint to frame 25 ms in the middle, 3.5 ms at the full rate). This runs the full rate while something is
+// happening, a deck playing or the mouse or keyboard used in the last few seconds, with or without a track on a
+// deck, and 30 fps the rest of the time.
 // (A controller's jog wheel on a paused deck isn't input the Mac sees: set framerate=0 when scratching that way.)
-//   config: framerate=0 to disable; framerate_idle_after=<seconds> (default 3)
+//   config: framerate=0 to disable; framerate_idle_after=<seconds> (default 3); framerate_empty=0: 30 fps while the
+//   decks are empty, also while you use the mouse (rekordbox's own rule there)
 #include "../core/rbmod.h"
 
 using namespace rbm;
@@ -33,8 +37,8 @@ static void tick() {
     double idleAfter = cfgNum("framerate_idle_after", 3);
     double input = plat::idleSeconds();
     if (playing || input < idleAfter) activeAt = now();
-    // rekordbox's own rule (full rate while a deck is loaded), only while something is happening.
-    bool full = loaded && now() - activeAt < idleAfter;
+    // Full rate only while something is happening; with empty decks too (rekordbox itself: 30 fps there, always).
+    bool full = (loaded || cfgInt("framerate_empty", 1)) && now() - activeAt < idleAfter;
     if (full != g_applied || g_rekordboxSet) setFull(full);
 }
 

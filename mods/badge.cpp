@@ -1,6 +1,8 @@
 // badge: a "PLATENDOOS" chip, styled like rekordbox's own buttons, in rekordbox's bottom bar, next to its logo, so a
 // modded rekordbox is easy to tell apart from the plain one. Hover for the versions; click for a window with every
-// mod, whether it's on, and the log and config (ui/about.html).
+// mod, whether it's on, and the log and config (ui/about.html). The window is also where the mods are set: every
+// mod's switch and its options, as the config file lists them (core's configSections), each written to that file
+// as it is changed.
 // The chip is a native view over the main window (badge_view.h; no hooks for it). While rekordbox shows a message
 // in that bar (they start right of the logo too), the chip steps aside.
 // A mod's on/off switch in the config is read once at startup (modEnabled); when the file now says something else,
@@ -63,7 +65,22 @@ void refreshAbout() {
                            : offUnlessAsked(m.name) && cfgStr(m.name).empty()
                                ? std::string("off: not yet tested on Windows (") + m.name + "=1 to try)"
                                : std::string("off in config (") + m.name + "=0)";
-        j += std::string(first ? "" : ",") + "{\"name\":" + jsonStr(m.name) + ",\"state\":\"" + state + "\",\"text\":" + jsonStr(text) + "}";
+        j += std::string(first ? "" : ",") + "{\"name\":" + jsonStr(m.name) + ",\"state\":\"" + state + "\",\"text\":" + jsonStr(text);
+        j += std::string(",\"on\":") + (modSwitchNow(m.name) ? "true" : "false") + ",\"available\":" + (versionOff(m.name) ? "false" : "true");
+        // Its options, as the config file lists them, with what the file says now.
+        const ConfigSection* sec = nullptr;
+        for (const ConfigSection& c : configSections())
+            if (c.mod == m.name) sec = &c;
+        j += ",\"summary\":" + jsonStr(sec ? sec->summary : "") + ",\"options\":[";
+        for (size_t i = 0; sec && i < sec->options.size(); i++) {
+            const ConfigOption& o = sec->options[i];
+            j += std::string(i ? "," : "") + "{\"key\":" + jsonStr(o.key) + ",\"def\":" + jsonStr(o.def) + ",\"text\":" + jsonStr(o.text);
+            j += ",\"value\":" + jsonStr(cfgStr(o.key.c_str(), o.def.c_str())) + ",\"set\":" + (cfgHas(o.key.c_str()) ? "true" : "false");
+            j += std::string(",\"kind\":\"") + (o.kind == ConfigOption::Switch ? "switch" : o.kind == ConfigOption::Choice ? "choice" : "text") + "\",\"choices\":[";
+            for (size_t c = 0; c < o.choices.size(); c++) j += (c ? "," : "") + jsonStr(o.choices[c]);
+            j += "]}";
+        }
+        j += "]}";
         first = false;
     }
     j += "]";
@@ -81,11 +98,27 @@ void onAboutMessage(const std::string& m) {
     else if (cmd == "log") plat::openPath(plat::logFile());
     else if (cmd == "config") plat::openTextFile(plat::configDir() + "/config.txt");
     else if (cmd == "close") { web::close(g_about); return; }
+    else if (cmd == "set" || cmd == "unset" || cmd == "mod") {
+        // Only what the config's own list has: a mod's switch, or one of its options.
+        std::string key = web::jsonGet(m, "key"), value = web::jsonGet(m, "value");
+        bool known = false;
+        for (Mod& mod : mods()) known |= cmd == "mod" && key == mod.name && !versionOff(mod.name);
+        for (const ConfigSection& sec : configSections())
+            for (const ConfigOption& o : sec.options) known |= cmd != "mod" && key == o.key;
+        if (!known || value.size() > 400 || value.find_first_of("\r\n") != std::string::npos) return;
+        if (cmd == "unset") unsetCfg(key.c_str());
+        else if (cmd == "mod") {  // (back to what it is without a line: the line goes)
+            bool on = value == "true";
+            if (on == !offUnlessAsked(key.c_str())) unsetCfg(key.c_str());
+            else setCfg(key.c_str(), on ? "1" : "0");
+        }
+        else setCfg(key.c_str(), value);
+    }
     refreshAbout();
 }
 
 void showAbout() {
-    g_about = web::open("about", "about", "platendoos", 420, 560, onAboutMessage);
+    g_about = web::open("mods", "about", "platendoos", 900, 640, onAboutMessage);  // ("mods": not the size remembered for the small window it was)
     g_last.clear();
     refreshAbout();
 }
@@ -144,7 +177,13 @@ static void* statusBar(bool* message) {
 }
 
 static void update() {
-    if (devCommand("badge") == "about") showAbout();
+    // Test commands (command-badge in the config folder): "about" opens the window; "state" also writes what the
+    // window is sent to badge-state.json there (to look at the page outside rekordbox); "msg <json>" is handled as a
+    // message from the page.
+    std::string cmd = devCommand("badge");
+    if (cmd == "about" || cmd == "state") showAbout();
+    if (cmd == "state") plat::writeFileAtomic(plat::configDir() + "/badge-state.json", g_last.data(), g_last.size());
+    if (cmd.rfind("msg ", 0) == 0) onAboutMessage(cmd.substr(4));  // "msg <json>": as if the page had sent it
     if (!modEnabled("badge")) return badgeview::update(false, false, nullptr, "", false);
     bool message = false;
     void* comp = statusBar(&message);

@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <condition_variable>
+#include <string>
 #include <vector>
 
 using namespace rbm;
@@ -86,17 +87,35 @@ extern "C" bool rbm_hook_an_setSample(void* wrapper, float* l, float* r, int n) 
     return true;  // (unused by the caller)
 }
 
+// quickdeck shows the overview waveform while the track is still being read: every so often (it says when) it gets
+// the waveform builder between two blocks, on the queue that feeds it, so that it sees every block before and none
+// half done.
+static void partialOverview(void* creator, bool queued) {
+    auto due = service<bool (*)(const char**, const void**)>("quickdeck.waveDue");
+    const char* uri = nullptr;
+    const void* thread = nullptr;
+    if (!due || !due(&uri, &thread)) return;
+    auto show = service<void (*)(const void*, const char*, const void*)>("quickdeck.partialWave");
+    if (!show) return;
+    if (!queued) return show(creator, uri, thread);
+    std::string u = uri;
+    submit(pipe().wave, [=] { show(creator, u.c_str(), thread); });
+}
+
 extern "C" void rbm_hook_an_readWave(void* creator, float* l, float* r, unsigned long n) {
     auto orig = RBM_ORIG(an_readWave, void (*)(void*, float*, float*, unsigned long));
     if (!g_on || n == 0 || !l) {
         if (t_pipe && t_pipe->busy) t_pipe->wave.sync([] {});
-        return orig(creator, l, r, n);
+        orig(creator, l, r, n);
+        partialOverview(creator, false);
+        return;
     }
     auto b = copy(l, r, n);
     submit(pipe().wave, [=] {
         float* bl = b->l.data();
         orig(creator, bl, b->r.empty() ? (r ? bl : nullptr) : b->r.data(), n);
     });
+    partialOverview(creator, true);
 }
 
 extern "C" void rbm_hook_an_loopEnd(void* scratch) {

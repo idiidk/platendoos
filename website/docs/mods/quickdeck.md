@@ -29,12 +29,33 @@ Measured on an M2 Pro with rekordbox 7.2.20 and a 3.5-minute Spotify track: wave
 analysis starts, the first Beat This! grid at about 4.7 s, the final grid at 6.3 s, the analysis finished at 7.7 s.
 Without quickdeck the deck shows nothing until that last moment. See [Loading a track](/guides/loading-a-track).
 
+## The overview streams in (macOS)
+
+rekordbox draws the overview waveform (the whole track, under the title) only when it has read the entire track:
+two to five seconds in which the deck shows nothing. But it builds that waveform piece by piece while it reads. So
+four times a second quickdeck takes what there is, has rekordbox's own code turn it into an overview, and hands it
+to the deck directly: the overview grows from the left while the track is still coming in. Each update takes about
+3 ms on a background thread and no reload of the deck. When the whole track has been read, the final overview
+replaces it as before (it differs by a brightness step or two at most: the levels are scaled to the loudest part,
+which isn't known until the end). `quickdeck_stream=0` switches it off.
+
+## Only the grid is redrawn (macOS)
+
+rekordbox itself builds a deck's waveforms again whenever the deck is handed a different beat grid: the waveform
+goes blank and comes back. With a first grid and then the final one, that happened twice per load, on top of the
+waveforms appearing. Now a new grid (a track's very first one too) only redraws the grid lines, the way rekordbox's own grid editor does it, and
+the waveform stays on screen. (The blue waveform styles still get their waveform built once more with the final
+grid: their zoomed waveform is written together with it.) `quickdeck_gridonly=0` gives rekordbox's behaviour back.
+
 ## Options
 
 | Option | Default | What it does |
 |---|---|---|
 | `quickdeck` | `1` | `0` switches the mod off (restart). |
 | `quickdeck_merge` | `0.25` | Windows: seconds the waveforms wait for rekordbox's own grid, so that one redraw of the deck shows both (`0`: no wait). |
+| `quickdeck_gridonly` | `1` | macOS: `0`: a new beat grid builds the deck's waveforms again, as rekordbox does. |
+| `quickdeck_stream` | `1` | macOS: `0`: the overview waveform appears when the whole track has been read, as in rekordbox. |
+| `quickdeck_log` | `0` | `1` logs each partial overview and how the last one compares with the final one; `2` also checks the waveform style that isn't shown. |
 
 ## Windows
 

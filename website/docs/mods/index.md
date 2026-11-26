@@ -53,6 +53,8 @@ patcher); a restart of rekordbox applies that. Mods marked <span class="pd-tag">
 | [xfadelock](./xfadelock) | A lock button that holds the crossfader exactly in the middle. |
 | [outputsync](./outputsync) <span class="pd-tag">mac</span> | Lines up speakers and headphones when rekordbox plays to two devices, e.g. Bluetooth speakers and a controller. |
 | [fontcache](./fontcache) <span class="pd-tag">mac</span> | Makes drawing text a lot cheaper, so scrolling feels lighter. |
+| [quickframe](./quickframe) <span class="pd-tag">mac</span> | Clicks show on screen sooner: a shorter queue of frames, and none while no deck plays. |
+| [relayout](./relayout) <span class="pd-tag">mac</span> | Menus and Preferences open sooner, resizing is smoother, options answer faster: rekordbox no longer lays out and renders what didn't change or what you can't see. |
 
 ## Controllers
 
@@ -67,10 +69,11 @@ on your battery.
 
 | Mod | What it does |
 |---|---|
-| [framerate](./framerate) | Only runs the screen at full frame rate while a deck plays or you're using the computer. |
+| [framerate](./framerate) | Full frame rate while a deck plays or you're using the computer, 30 fps the rest of the time. |
 | [badge](./badge) | The PLATENDOOS chip and its window. |
 | [screeninfo](./screeninfo) <span class="pd-tag">mac</span> | Stops rekordbox from asking macOS about your screen on every single redraw. |
 | [midipoll](./midipoll) <span class="pd-tag">mac</span> | Checks for newly plugged-in MIDI controllers every 2 seconds instead of every 0.3 seconds. |
+| [idlewake](./idlewake) <span class="pd-tag">mac</span> | The MIDI thread, the level meters and the loudness measurement of silent channels rest while nothing plays. |
 
 ## Mods that work together
 

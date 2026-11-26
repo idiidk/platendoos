@@ -32,22 +32,21 @@ rekordbox from the plain one.
 
 ### The chip's window
 
-<figure class="shot narrow"><img src="/img/about.webp" alt="The chip's window: rekordbox and platendoos versions, 34 of 34 mods on, and the list of mods"><figcaption>The chip's window: versions, how many mods are on, and each mod's state.</figcaption></figure>
+<figure class="shot"><img src="/img/about.webp" alt="The settings window: the list of mods on the left, the stemcache mod's options on the right, each with a description and a switch, list or field"><figcaption>The chip's window: every mod with its switch, and the selected mod's options.</figcaption></figure>
 
-The window shows:
+Clicking the chip opens the settings window:
 
-- rekordbox's and platendoos's versions;
-- how many mods are on, and every mod with its state:
+- rekordbox's and platendoos's versions, and how many mods are on;
+- on the left every mod, with a lamp for its state: green when it runs, grey when it is off, orange when its
+  switch changed and it waits for a restart, or when this rekordbox version lacks something it needs;
+- on the right the selected mod: what it does, its **switch**, and its **options**, each with a description and a
+  switch, a list or a field. An option you changed shows its value in blue, with *reset* to put it back;
+- a **search box** that finds mods and options by name or description;
+- *Restart rekordbox to apply: …* when a mod's switch changed (options apply within a few seconds, without one);
+- **Open log** and **Open config file**.
 
-  | State | Meaning |
-  |---|---|
-  | on | Running. |
-  | off in config (`name=0`) | You switched it off. |
-  | on → off after restart, off → on after restart | The config changed its switch; restart rekordbox to apply. |
-  | off: not available in this build | Something it needs wasn't found in this rekordbox version, so it switched itself off. |
-
-- *Restart rekordbox to apply: …* when the config changed a mod's switch;
-- **Open log** and **Open config**.
+What you set here is written to the config file as you change it, so the window and the file always agree. See
+[badge](/mods/badge#the-settings-window).
 
 ## Where things are
 
@@ -57,7 +56,7 @@ The window shows:
 | Log | `~/Library/Logs/rekordbox-mods.log` | `%LOCALAPPDATA%\rekordbox-mods\rekordbox-mods.log` |
 | Caches | `~/Library/Caches/rekordbox-mods/` | `%LOCALAPPDATA%\rekordbox-mods\cache\` |
 
-The chip's window opens the log and the config for you.
+The chip's window opens the log and the config file for you, and sets every option without opening the file.
 
 ### The config
 

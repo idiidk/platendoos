@@ -18,7 +18,7 @@ The mods' windows need **WebView2**, which Windows 11 has built in.
 <!--@public windows-mods-->
 | On Windows (28) | analyzer, artcache, autocue, badge, bettergrid, betterkey, betterstems, fastwave, flx4, framerate, genres, keepmaster, keycolumn, multisort, parallel, quickdeck, spotifyapi, spotifyaudio, spotifydl, spotifyfix, spotifylog, spotifystart, stemcache, streamio, tfpool, tidymenu, timing, xfadelock |
 <!--@/public-->
-| macOS only (6) | audiomem, betterfx, outputsync (not ported yet); fontcache, screeninfo, midipoll (fix macOS calls Windows doesn't have) |
+| macOS only (9) | audiomem, betterfx, outputsync (not ported yet); quickframe (rekordbox's Metal window; Windows draws through OpenGL); idlewake and most of relayout (rekordbox's own code, the same on Windows: not ported yet); fontcache, screeninfo, midipoll (fix macOS calls Windows doesn't have) |
 | Windows only | spotifystart (rekordbox 7.2.19 for Windows) |
 
 Smaller differences: the collection BPM following bettergrid's grid is macOS only; tfpool's warm-up is macOS only;
