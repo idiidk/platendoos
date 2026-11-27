@@ -68,6 +68,12 @@ of it is inside, the grid goes to that tempo. A genre never brings in a tempo ne
 rekordbox kept its own BPM number next to the grid, so a track listed as 140 could have a grid at 70 (and play at
 70). On macOS, the track's BPM in the collection (the BPM column, the deck's title) follows the saved grid.
 
+### Grids never run backwards
+
+Now and then rekordbox's own analysis saves two grids one after the other: the whole track, then the track again
+from the start at another tempo. On the deck the tempo then keeps changing. bettergrid never saves a grid whose beats
+go back in time: only its longest stretch of beats in order is kept, and the track's BPM follows it.
+
 ### Locked grids, long tracks
 
 Locked grids aren't touched. A track whose beat job doesn't run (a key-only analysis) is left alone. If anything

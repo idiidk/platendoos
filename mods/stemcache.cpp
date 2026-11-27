@@ -635,8 +635,8 @@ typedef bool (*SeparatableFn)(const JStr& uri, int model);
 
 // betterstems: a chunk's stems from HTDemucs, in rekordbox's slots: 0 inst ("other"), 1 vocals, 2 drums, 3 bass
 // (3 stems: inst = other + bass). HTDemucs gets the whole input, context included, and the chunk is its middle.
-static bool separateBetter(const Engine& e, const float* inL, const float* inR, float* const* out, int n) {
-    int len = e.inSamples, ctx = (e.inSamples - e.outSamples) / 2;
+// in: len samples, the chunk starting ctx samples in (rekordbox's own input, or a wider one: wideInput below).
+static bool separateBetter(const Engine& e, const float* inL, const float* inR, int len, int ctx, float* const* out, int n) {
     std::vector<float> buf((size_t)8 * len);
     float* src[8];  // drums, bass, other, vocals (L, R each)
     for (int i = 0; i < 8; i++) src[i] = buf.data() + (size_t)i * len;
@@ -652,6 +652,21 @@ static bool separateBetter(const Engine& e, const float* inL, const float* inR, 
     }
     return true;
 }
+
+// Wider context for HTDemucs (macOS). rekordbox hands its engine a chunk with very little audio around it: 93 ms each
+// side for Spleeter, 23 ms for Demucs3 ("Prioritize sound quality"). The model is least sure at the ends of what it
+// is given, so each chunk's first and last samples were separated almost blind, every 11-12 s: measured against the
+// same music separated in one piece (6 tracks), the error at the chunk edges was twice that elsewhere with Demucs3's
+// chunks (vocals, other and bass alike). The chunk takes two runs of the model anyway (a 7.8 s segment, overlapping
+// by a quarter), and two runs reach 1.75 segments: so the chunk is given that much, the rest read around it with
+// the separator's own reader (getStreamAt), 1.35 s each side for Demucs3, 0.94 s for Spleeter, for no more model
+// time. Those stems are kept under their own key (kWideTag: "<engine>-htdemucs-<size>-wide-<3|4>"), so stems made
+// with rekordbox's context are separated again instead of being read. Where the reader's audio doesn't match the
+// chunk's own input where they overlap (a stream not read that far, say), the chunk is separated as before and
+// stored under the old key. Windows: not yet (getStreamAt isn't in its tables); its key stays as it was.
+const char* const kWideTag = "-wide";
+static bool wideInput(void* handle, const Engine& e, int chunk, const float* inL, const float* inR, std::vector<float>& L, std::vector<float>& R, int* ctxOut);
+static bool wideReady(void* handle);  // the separation's reader is known (the chunk can be widened, if its audio is there)
 
 // ---- which stems are kept on disk, and stems on demand ----------------------------------------
 
@@ -1425,8 +1440,71 @@ RBM_NOINLINE static void quickAtPlayhead() {
                  forReader ? ": its stem readers waited there" : "");
     }
 }
+
+// (wider context: see kWideTag above)
+static bool wideReady(void* handle) {
+    std::lock_guard<std::mutex> l(g_sepLock);
+    auto it = g_seps.find(handle);
+    return it != g_seps.end() && it->second.separator && it->second.total > 0 && A_getStreamAt;
+}
+static bool wideInput(void* handle, const Engine& e, int chunk, const float* inL, const float* inR, std::vector<float>& L, std::vector<float>& R, int* ctxOut) {
+    auto segment = service<int (*)()>("betterstems.segment");
+    const long long kL = segment ? segment() : 0, out = e.outSamples, ctx = (e.inSamples - e.outSamples) / 2;
+    const long long extra = (kL + kL * 3 / 4 - out) / 2;  // (two runs of the model: see separate in betterstems.cpp)
+    const long long K = 2048;                             // compared with rekordbox's input at each end
+    if (kL <= 0 || extra <= ctx + K) return false;
+    char* sep;
+    long long total;
+    {
+        std::lock_guard<std::mutex> l(g_sepLock);
+        auto it = g_seps.find(handle);
+        if (it == g_seps.end() || !it->second.separator || it->second.total <= 0) return false;
+        sep = it->second.separator, total = it->second.total;
+    }
+    if (*(void**)sep != at<void*>(A_separatorVt)) return false;
+    const long long start = (long long)chunk * out, from = start - extra, n = out + 2 * extra;
+    if (start >= total) return false;
+    L.assign(n, 0.f), R.assign(n, 0.f);
+    // [a, b) of the track into L/R at its place (zeros outside the track, as rekordbox's own input has)
+    auto read = [&](long long a, long long b) {
+        a = std::max(a, 0LL), b = std::min(b, total);
+        return b <= a || at<bool (*)(void*, int, float*, float*, int)>(A_getStreamAt)(sep, (int)a, L.data() + (a - from), R.data() + (a - from), (int)(b - a));
+    };
+    const long long inAt = extra - ctx;  // where rekordbox's input lies in it
+    static std::atomic<int> said{0};
+    if (!read(from, start - ctx + K) || !read(start + out + ctx - K, from + n)) {
+        if (said++ < 5) logf("stemcache: chunk %d: the audio around it couldn't be read: rekordbox's context only", chunk);
+        return false;
+    }
+    // The reader's audio where it overlaps the chunk's own input: the same, or it isn't the audio the chunk has.
+    double worst = 0;
+    for (long long i = 0; i < K; i++)
+        for (long long j : {i, e.inSamples - K + i})
+            worst = std::max({worst, (double)fabsf(L[inAt + j] - inL[j]), (double)fabsf(R[inAt + j] - inR[j])});
+    if (worst > 1e-3) {
+        if (said++ < 5) logf("stemcache: chunk %d: the audio read around it differs from its own by %.4f: rekordbox's context only", chunk, worst);
+        return false;
+    }
+    // Nothing but zeros where the track goes on, next to audio that isn't silent: not read that far yet (a stream).
+    auto silent = [&](long long a, long long b) {  // [a, b) of L/R, inside the track
+        a = std::max(a, -from), b = std::min(b, total - from);
+        for (long long i = a; i < b; i++)
+            if (L[i] != 0 || R[i] != 0) return false;
+        return a < b;
+    };
+    if ((silent(0, inAt) && !silent(inAt, inAt + K)) || (silent(inAt + e.inSamples, n) && !silent(inAt + e.inSamples - K, inAt + e.inSamples))) {
+        if (said++ < 5) logf("stemcache: chunk %d: only silence read around it: rekordbox's context only", chunk);
+        return false;
+    }
+    memcpy(L.data() + inAt, inL, e.inSamples * sizeof(float));
+    memcpy(R.data() + inAt, inR, e.inSamples * sizeof(float));
+    *ctxOut = (int)extra;
+    return true;
+}
 #else
 static char* separatorOf(void**) { return nullptr; }
+static bool wideReady(void*) { return false; }
+static bool wideInput(void*, const Engine&, int, const float*, const float*, std::vector<float>&, std::vector<float>&, int*) { return false; }
 static void quickAtPlayhead() {}
 static void buffersAtPlayhead() {}
 static void followStemReads() {}
@@ -1508,7 +1586,9 @@ static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0
         InCall(void* handle, int engine, int chunk, int stems, const float* l, const float* r) { t_op = OpContext{handle, engine, chunk, stems, l, r, false}; }
         ~InCall() { t_op = OpContext{}; }
     } inCall(handle, E, chunk, stems, inL, inR);
-    std::string model = better ? betterVersion() : e.version;
+    // (HTDemucs with more context than rekordbox gives, where the track can be read around the chunk: kWideTag)
+    bool wide = better && !g_ownEngine && wideReady(handle);
+    std::string model = better ? betterVersion() + (wide ? kWideTag : "") : e.version;
     // A Spotify track's chunks (or a separation's whose track isn't known) are kept in memory, never on disk.
     bool inMemory = g_on && separationSpotify(handle) != 0;
     // And those of a track whose stems aren't kept (stemcache_keep).
@@ -1527,9 +1607,20 @@ static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0
         return true;
     }
     double began = now();
-    bool viaBetter = better && !g_ownEngine && separateBetter(e, inL, inR, out, n);
+    bool viaBetter = false, widened = false;
+    if (better && !g_ownEngine) {
+        std::vector<float> wideL, wideR;
+        int ctx = 0;
+        widened = wide && wideInput(handle, e, chunk, inL, inR, wideL, wideR, &ctx);
+        viaBetter = widened ? separateBetter(e, wideL.data(), wideR.data(), (int)wideL.size(), ctx, out, n)
+                            : separateBetter(e, inL, inR, e.inSamples, (e.inSamples - e.outSamples) / 2, out, n);
+    }
+    // (separated with rekordbox's context after all: under the key of such stems)
+    if (viaBetter && wide && !widened && (cached || inMemory)) path = chunkPath16(e, betterVersion(), stems, inL, inR);
     if (!viaBetter && !engineOp(E, K, handle, chunk, inL, inR, o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R)) return false;
-    if (g_logChunks) logf("stemcache: [%.3f] chunk %d separated in %.2f s (%s)", wallClock(), chunk, now() - began, viaBetter ? "HTDemucs" : e.prefix);
+    if (g_logChunks)
+        logf("stemcache: [%.3f] chunk %d separated in %.2f s (%s)", wallClock(), chunk, now() - began,
+             viaBetter ? (widened ? "HTDemucs, wide context" : "HTDemucs") : e.prefix);
     g_misses++;
     chunkDone(handle, e, chunk, out, n);
     if (viaBetter || !better) {  // (not rekordbox's stems under betterstems' key)
@@ -2403,7 +2494,8 @@ static void tick() {
 static bool provideCached(const float* inL, const float* inR, int inSamples, float* const out[8]) {
     const Engine& e = g_engines[0];
     if (!g_on || !inL || !inR || inSamples != e.inSamples || !betterActive()) return false;
-    std::string model = betterVersion(), path = chunkPath16(e, model, 4, inL, inR);
+    std::string model = betterVersion(), path = chunkPath16(e, model, 4, inL, inR), wide = chunkPath16(e, model + kWideTag, 4, inL, inR);
+    if (memLoad(relOf(wide), e.outSamples, out, 8) || (dirReady() && load(wide, e.outSamples, out, 8))) return true;  // (a deck's, kWideTag)
     return memLoad(relOf(path), e.outSamples, out, 8) ||
            (dirReady() && (load(path, e.outSamples, out, 8) || load(chunkPath(e, model, 4, inL, inR), e.outSamples, out, 8)));
 }

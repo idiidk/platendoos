@@ -117,6 +117,8 @@ void refreshAbout() {
         if (m.rekordboxPage) p.add("rb", m.rekordboxPage);
         p.add("state", state).add("text", text).add("on", modSwitchNow(m.name)).add("available", !versionOff(m.name));
         p.add("settings", settingsOf(m.name)).raw("actions", settings::actionsJson(m.name)).raw("live", settings::livesJson(m.name));
+        std::string status = settings::statusOf(m.name);  // (settings::status: what runs now, in the mod's words)
+        if (!status.empty()) p.add("status", status);
         pages.item(p);
     }
     o.add("pages", pages);

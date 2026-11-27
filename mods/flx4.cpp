@@ -410,6 +410,8 @@ static bool route(uint8_t& st, uint8_t& n) {
 // Repaints the controller's LEDs for a side from what rekordbox last sent (after the side switched deck or pad mode):
 // each LED the side's new deck has an output for gets it, the rest of that side's go dark.
 static void repaint(int side) {
+    // the pads go to the deck's pad mode button (sent below), so the STEMS pads are sent as that mode's notes
+    if (int m = padModeOf(g_padModeButton[g_side[side].deck]); m >= 0) g_side[side].padMode = m;
     std::map<uint16_t, uint8_t> leds;
     {
         std::lock_guard<std::mutex> l(g_ledLock);
@@ -441,7 +443,18 @@ static void repaint(int side) {
             uint16_t key = (0x90 | d) << 8 | (pad < 4 ? N_STEM + pad : N_FX_PART + pad - 4);
             shown[(0x97 + 2 * side) << 8 | (mode << 4 | pad)] = ledValue(key, pad < 4 ? 0x7F : 0);
         }
+    } else {  // the pads of the controller's pad mode: dark where rekordbox never said otherwise (else a STEMS pad's
+              // light stayed on after leaving STEMS: g_led only has what rekordbox ever sent)
+        int mode = g_side[side].padMode;
+        for (int pad = 0; pad < 8; pad++) shown.emplace((0x97 + 2 * side) << 8 | (mode << 4 | pad), 0);
     }
+    // A pad mode button's note at 7F switches the controller's pads to that mode, so of the pad mode buttons only the
+    // deck's own is sent (lit): replaying every button rekordbox ever lit left the controller in the last one sent (a
+    // STEMS side went to PAD FX, its pads dark). rekordbox lights them for decks 1/2 only (MidiMapDDJFLX4), so for
+    // decks 3/4 this is also what keeps the button lit at all.
+    for (auto it = shown.begin(); it != shown.end();)
+        it = (it->first >> 8) == (0x90 | side) && isPadModeButton(it->first & 0xFF) ? shown.erase(it) : std::next(it);
+    shown[(0x90 | side) << 8 | g_padModeButton[g_side[side].deck]] = 0x7F;  // (before the pads: the map sends in order)
     if (g_log) {  // what rekordbox last sent for the side's two decks, and what the controller gets
         std::string known, sent;
         char one[16];
@@ -1040,6 +1053,14 @@ static bool pickup(Side& s, int deck, int control, uint16_t key, uint8_t physCC,
 // The controller's MIDI thread.
 extern "C" bool rbm_hook_midi_in(void* dev, MidiMessage& m) {
     using Orig = MidiInFn;
+    if (g_on && dev != g_dev && m.size == 3) {
+        // The controller sends its lever's position when rekordbox opens it, often before tick has found the device
+        // (g_dev): rekordbox handles that itself, but the mod must know it too, or the first side switch put the beat
+        // FX on no channel at all until the lever moved (seen in the log: "DDJ-FLX4 95 11 7F" before "connected").
+        const uint8_t* b = m.bytes();
+        if ((b[0] == 0x94 || b[0] == 0x95) && (b[1] == N_FX_CHANNEL || b[1] == N_FX_CHANNEL + 1) && opt::device.text() == deviceName(dev))
+            g_fxLever[b[0] - 0x94][b[1] - N_FX_CHANNEL] = b[2] > 0;
+    }
     if (!g_on || dev != g_dev || m.size != 3) {
         if (g_on && g_log) logMessage(deviceName(dev), m.bytes(), m.size);
         return RBM_ORIG(midi_in, Orig)(dev, m);
@@ -1154,6 +1175,8 @@ static void sendRouted(SendFn orig, void* out, const MidiMessage& m) {
         g_led[b[0] << 8 | b[1]] = b[2];
     }
     if ((b[0] & 0xF0) == 0x90 && (b[0] & 0x0F) <= 3 && b[1] == N_ISOLATOR) g_isolator[b[0] & 0x0F] = b[2] != 0;
+    // a deck 1/2 pad mode rekordbox switched to (its answer to the button, or a mode picked on screen)
+    if ((b[0] == 0x90 || b[0] == 0x91) && isPadModeButton(b[1]) && b[2]) g_padModeButton[b[0] & 1] = b[1];
     uint8_t st = b[0], n = b[1];
     if (!route(st, n)) {
         if (!meter) logMessage("out", b, 3, " (hidden)");

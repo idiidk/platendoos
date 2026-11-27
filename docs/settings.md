@@ -58,7 +58,8 @@ A button on a mod's page: `settings::action(mod, id, label, help, run)` (outputs
 A switch whose state lives in the mod, not in the config file, for something that runs while it is on:
 `settings::liveSwitch({.mod, .id, .label, .help, .on, .set, .why, .whileOpen})` (outputsync's metronome). `why()`
 says why it can't be used now (the window greys it out with that line); `whileOpen` switches it off when the
-Preferences window closes.
+Preferences window closes. A line worded at run time from what runs now, under a mod's settings:
+`settings::status(mod, text)` (outputsync: which devices it lines up and the delay it worked out).
 
 Keep a declaration a plain initializer with literals only: `tools/build/settings_parse.py` reads the declarations
 from the sources (per platform and edition, following `#ifdef _WIN32` branches) for the website's option tables

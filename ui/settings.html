@@ -75,6 +75,7 @@
   .acts { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid #333336; }
   .acts button { white-space: nowrap; flex: none; }
   .acts .help { color: var(--fg2); font-size: 11px; flex: 1; }
+  .status { padding: 8px 14px; border-top: 1px solid #333336; color: var(--fg2); font-size: 11px; line-height: 1.4; white-space: pre-line; }  /* settings::status: what runs now */
   h2 { font-size: 11px; font-weight: 600; color: var(--fg3); text-transform: uppercase; letter-spacing: .6px; margin: 20px 0 8px; }
   .slim .row { min-height: 44px; }
   .slim .label { font-weight: 600; }
@@ -977,7 +978,8 @@
     }).join('');
     return '<div class="card' + (p.on ? '' : ' off') + '"><div class="chead"><div class="txt"><div class="title">' + esc(p.title) +
       stateNote(p) + '<span class="tag">' + esc(p.mod) + '</span></div><div class="blurb">' + esc(p.about) + '</div></div>' + modSwitch(p) + '</div>' +
-      (grid.length || main.length || lives ? '<div class="rows">' + (grid.length ? table(grid) : '') + main.map(row).join('') + lives + '</div>' : '') + acts +
+      (grid.length || main.length || lives ? '<div class="rows">' + (grid.length ? table(grid) : '') + main.map(row).join('') + lives + '</div>' : '') +
+      (p.status && !only ? '<div class="status">' + esc(p.status) + '</div>' : '') + acts +
       fold(':adv', 'More options', adv) + fold(':dbg', 'Fault-finding', dbg) + '</div>';
   }
   function slim(p) {
@@ -1098,12 +1100,17 @@
     // A rekordbox page that comes into view: the native side reads its values afresh.
     if (area === 'rb' && !filter) { var f = rbFind(rbCat, rbPage) || rbFind(rbCat, null); rbShow(f.cat.id, f.page.id); }
     // While a field has the focus the page is left alone: a refresh must not take what is being typed or dragged.
-    var f = document.activeElement, busy = f && $('page').contains(f) && /INPUT|SELECT/.test(f.tagName);
+    // A drop-down only counts while its list may be open (it keeps the focus after it closed without a choice, which
+    // used to freeze the page until a click elsewhere); a slider while it is held, focused or not (WebKit takes the
+    // focus off a range input as the mouse goes down on it, so a page made anew ended the drag at once).
+    var f = document.activeElement, busy = (dragging && Date.now() - dragAt < 10000) || (f && $('page').contains(f) &&
+      (f.tagName === 'SELECT' ? Date.now() - selectAt < 8000 : f.type !== 'range' && f.tagName === 'INPUT'));
     var html = pageHtml();
     try { localStorage.setItem('prefs.at', JSON.stringify({ area: area, cat: rbCat, page: rbPage })); } catch (e) {}
     if (html === lastHtml || (busy && !force)) return;
     $('page').innerHTML = html, lastHtml = html;
   }
+  var selectAt = 0, dragging = false, dragAt = 0;  // (a lost pointerup doesn't keep the page still for long)
   function narrow() { return window.innerWidth <= 700; }
   var wasNarrow = narrow();
   window.addEventListener('resize', function () {
@@ -1178,10 +1185,30 @@
       if (out && !out.dataset.fixed) rbItems(t.closest('[data-cat]').dataset.cat, t.closest('[data-cat]').dataset.page).forEach(function (i) { if (i.p === t.dataset.p) out.textContent = fmt(i, +t.value); });
       return;
     }
-    if (t.type === 'range') { var o = option(t.dataset.k) || {}; t.nextElementSibling.textContent = t.value + (o.unit ? ' ' + o.unit : ''); }
+    if (t.type === 'range') {
+      dragAt = Date.now();
+      var o = option(t.dataset.k) || {};
+      t.nextElementSibling.textContent = t.value + (o.unit ? ' ' + o.unit : '');
+      // The value goes out while the slider moves (a few times a second), so what it sets follows the hand: the
+      // metronome of outputsync's Fine-tune, not only where it was let go.
+      if (t.dataset.k) {
+        var key = t.dataset.k, v = t.value;
+        sliderNext = { key: key, v: v };
+        if (!sliderTimer) sliderSend();
+      }
+    }
   });
+  var sliderNext = null, sliderTimer = 0, sliderSent = {};
+  function sliderSend() {
+    sliderTimer = 0;
+    if (!sliderNext) return;
+    if (sliderSent[sliderNext.key] !== sliderNext.v) setValue(sliderNext.key, sliderNext.v), sliderSent[sliderNext.key] = sliderNext.v;
+    sliderNext = null;
+    sliderTimer = setTimeout(sliderSend, 80);
+  }
   $('page').addEventListener('change', function (e) {
     var t = e.target;
+    if (t.type === 'range') dragging = false;
     if (t.dataset && t.dataset.rb) { rbChange(t); return; }
     if (!t.dataset || !t.dataset.k) return;
     var v = t.value;
@@ -1190,16 +1217,28 @@
       if (t.min !== '' && +v < +t.min) v = t.min;
       if (t.max !== '' && +v > +t.max) v = t.max;
     }
+    if (t.type === 'range') { sliderNext = null; if (sliderSent[t.dataset.k] === v) { t.blur(); return; } sliderSent[t.dataset.k] = v; }
     setValue(t.dataset.k, v);
     if (t.tagName === 'SELECT' || t.type === 'range') t.blur();
   });
-  $('page').addEventListener('pointerdown', function (e) { if (e.target.dataset.rb === 'slider') e.target.focus(); });  // (no refresh while dragging)
-  $('page').addEventListener('pointerup', function (e) { var t = e.target; if (t.dataset.rb === 'slider') setTimeout(function () { t.blur(); }, 50); });  // (released where it was: no change event)
+  $('page').addEventListener('pointerdown', function (e) {
+    var t = e.target;
+    if (t.tagName === 'SELECT') selectAt = Date.now();
+    if (t.type === 'range') dragging = true, dragAt = Date.now(), t.focus();  // (no refresh while dragging)
+  });
+  window.addEventListener('pointerup', function (e) {  // (released where it was: no change event)
+    var t = e.target;
+    if (!dragging) return;
+    dragging = false;
+    if (t && t.type === 'range') setTimeout(function () { t.blur(); }, 50);
+    else setTimeout(render, 0);
+  });
+  $('page').addEventListener('keydown', function (e) { if (e.target.tagName === 'SELECT') selectAt = Date.now(); }, true);
   $('page').addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur();
     if (e.key === 'Escape' && /INPUT|SELECT/.test(e.target.tagName)) { e.stopPropagation(); e.target.blur(); render(true); }
   });
-  $('page').addEventListener('focusout', function () { setTimeout(render, 0); });
+  $('page').addEventListener('focusout', function () { selectAt = 0; setTimeout(render, 0); });
   $('search').addEventListener('input', function () { filter = this.value.trim().toLowerCase(); render(true); $('main').scrollTop = 0; });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;

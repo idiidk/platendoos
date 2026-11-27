@@ -174,6 +174,21 @@ std::string livesJson(const char* mod) {
                        .add("why", !modEnabled(mod) ? "The feature is off." : s.why ? s.why() : ""));
     return j.text();
 }
+static std::vector<std::pair<std::string, std::string (*)()>>& statuses() {
+    static std::vector<std::pair<std::string, std::string (*)()>>* v = new std::vector<std::pair<std::string, std::string (*)()>>;
+    return *v;
+}
+void status(const char* mod, std::string (*text)()) { statuses().push_back({mod, text}); }
+std::string statusOf(const char* mod) {
+    std::string out;
+    if (!modEnabled(mod)) return out;
+    for (auto& s : statuses())
+        if (s.first == mod && s.second) {
+            std::string t = s.second();
+            if (!t.empty()) out += (out.empty() ? "" : "\n") + t;
+        }
+    return out;
+}
 bool runAction(const std::string& id) {
     for (ActionEntry& a : actions())
         if (a.id == id && modEnabled(a.mod.c_str())) return a.run(), true;

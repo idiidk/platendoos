@@ -85,8 +85,16 @@ HTDemucs v4 ~9, RoFormer models ~10-12.
   by the cache key: folder `<engine>-<model>-<3|4>`, the model being the weights' name and size
   (`htdemucs-<size>` on macOS, `htdemucs-onnx-<size>` on Windows). Without the model rekordbox's engine separates.
   ~1 s per 11.8 s chunk in rekordbox (0.5 s standalone). Checked against Spleeter's stems of the same chunks:
-  correlation 0.7-0.97 per slot, so the slots line up. Still open: seams at chunk edges (each chunk gets only
-  rekordbox's 93 ms of context); `AudioPartSeparator::getStreamAt` could give it more.
+  correlation 0.7-0.97 per slot, so the slots line up. Seams at chunk edges (rekordbox's context is 93 ms for
+  Spleeter, 23 ms for Demucs3): since 0.7.4 (macOS) `wideInput` reads more around each chunk with
+  `AudioPartSeparator::getStreamAt`, up to what two model runs reach anyway (1.75 segments: 1.35 s each side with
+  Demucs3, 0.94 s with Spleeter), checked against rekordbox's own input where they overlap (and not used when only
+  silence comes back where the track goes on); such chunks are stored under `<engine>-htdemucs-<size>-wide-<n>`.
+  Measured in-process on 6 Spotify tracks (75 s each, against the excerpt separated in one call): error power within
+  23 ms of a chunk edge against the error elsewhere +3 dB with Demucs3's context, -0.3 to +2.4 dB with Spleeter's,
+  -1 to -7 dB widened; overall agreement 0-1 dB better. A quick window (one segment, 0.5 s margins) is as close
+  as a chunk. Windows: not yet (getStreamAt isn't in its tables). autocue still separates with 93 ms (its stores stay
+  under the plain key, which decks no longer read).
 - [x] Which stems are kept (`stemcache_keep`, *Save stems to disk* in the stems window): `all` as before; `chosen` stores
   only the chunks of tracks the stems window's run separates (the run's current track, or one in `tracks.txt` from
   an earlier run); `none` nothing new. What isn't stored goes to the in-memory store Spotify tracks use

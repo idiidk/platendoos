@@ -37,6 +37,24 @@ installed platendoos in place (see [Installation](./installation#after-a-rekordb
   *Preferences* keeps the new model out of memory as well. `stemcache_lazy_model=0` loads it at startup as before.
 - **No more waiting for the beat analysis** (**betterstems**). While a stem control is on, HTDemucs no longer
   holds back for a newly loaded track's beat analysis (up to 8 s).
+- **Cleaner stems where one 11-second part meets the next** (**stemcache**, **betterstems**; macOS). rekordbox
+  gives its separator only a sliver of audio around each part: 93 ms with the speed setting, 23 ms with the quality
+  setting. HTDemucs is least sure at the ends of what it gets, so the stems were rougher there, every 11 seconds,
+  most with the quality setting. Each part now gets 1 to 1.35 s more audio on each side, for no extra model time;
+  measured over six tracks against the same music separated in one piece, with the quality setting the error at
+  those edges was twice the error elsewhere and is now no higher than elsewhere. Stems stored before are separated
+  again once (they are kept apart); on Windows stems are separated as before.
+- **FLX4 pads and beat FX after switching** (**flx4**). Going into or out of the STEMS pads could leave the controller
+  on PAD FX with its pads dark, or with stem lights stuck on; the pad mode button went out on decks 3 and 4; and right
+  after rekordbox started, the beat FX lever's position wasn't known yet, so the first SHIFT + PLAY put the beat FX on
+  no channel at all. All three are fixed.
+- **Livelier audio settings in the Preferences window** (**prefs**, **outputsync**). A new audio device (a Bluetooth
+  speaker that just connected) shows up after *Refresh* and when devices change; the output delay applies while you
+  drag its slider, so the metronome follows at once; a *Now:* line shows the delay in use.
+- **No more grids that run backwards** (**bettergrid**). On two hardcore tracks rekordbox's analysis saved two beat
+  grids one after the other (the track at 215 BPM, then again from the start at a quarter of that), and bettergrid
+  kept that because Beat This! was unsure of those tracks. A grid whose beats go back in time is now never saved:
+  only its longest stretch of beats in order is kept, and the track's BPM follows that grid.
 
 ## 0.7.3 (2026-11-27)
 

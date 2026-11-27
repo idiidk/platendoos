@@ -153,6 +153,10 @@ struct LiveSwitch {
 void liveSwitch(const LiveSwitch& s);
 bool setLive(const std::string& id, bool on);
 void windowClosed();  // (the window closed: the whileOpen switches go off)
+// A line a mod's page shows under its settings, worded at run time from what runs now (outputsync: which devices it
+// lines up and by how much). "" shows nothing. Main thread.
+void status(const char* mod, std::string (*text)());
+std::string statusOf(const char* mod);
 
 // Pages of the window that aren't the mods' settings: what another part has to set (rekordbox's own preferences,
 // mods/prefs). The window gets state() under the source's id in what it is sent, and the source gets the page's

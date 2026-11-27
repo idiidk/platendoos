@@ -615,6 +615,7 @@ static void refreshAudio(const char* from) {
     logf("outputsync: audio devices looked for again and '%s' opened anew%s%s (%s)", before.c_str(), opened ? "" : ": it didn't open, rekordbox took ",
          opened ? "" : ("'" + now + "'").c_str(), from);
     if (g_page && g_row && fn<bool (*)(void*)>(A_isShowing)(g_row)) fn<void (*)(void*)>(A_updateAllItem)(g_page);  // the page shows what there is now
+    if (auto reload = service<void (*)()>("prefs.reload")) reload();  // ...and the platendoos Preferences window's copy of it
     replan();
 }
 
@@ -755,8 +756,9 @@ static bool patchResized() {
 extern "C" void rbm_hook_prefs_audio_row(void* page, const void* list) {
     RBM_ORIG(prefs_audio_row, void (*)(void*, const void*))(page, list);
     if (!g_on || g_broken || !page || !list) return;
-    // The row's juce objects are made at sizes taken from the tested build (no recipe reads them): only there.
-    if (!testedBuild()) {
+    // The row's juce objects are made at sizes taken from the tested build (no recipe reads them): only there, and in
+    // the checked one (7.2.20: the same sizes in every operator new before their constructors).
+    if (!checkedBuild()) {
         static bool said;
         if (!said) said = true, logf("outputsync: untested rekordbox build: no Preferences row (the delay itself works)");
         return;
@@ -804,7 +806,44 @@ static void checkRow() {
     }
 }
 
-RBM_MOD({.name = "outputsync", .tick = tick, .enabled = &g_on,
+// A setting changed (the platendoos Preferences window, the config file): the delay follows at once, not at the next
+// two-second replan, so the metronome moves while the Fine-tune slider is dragged; the dialog's own row shows it too.
+static void settingChanged() {
+    if (!g_on) return;
+    replan();
+    if (g_switch) setToggle(g_switch, g_lineUp);
+    if (g_slider && (int)lround(fn<double (*)(void*)>(A_getValue)(g_slider)) != g_offsetMs) fn<void (*)(void*, double, int)>(A_setValue)(g_slider, g_offsetMs, 0);
+}
+
+// macOS's list of audio devices changed (a Bluetooth device connected, a device was plugged in or out): the plan is
+// made again, and the platendoos Preferences window's copy of rekordbox's Audio page is made anew, whose device
+// drop-down only follows rekordbox's list as it was when the page was made.
+static void devicesChanged() {
+    if (!g_on) return;
+    replan();
+    if (auto reload = service<void (*)()>("prefs.reload")) reload();
+}
+
+static void init() {
+    for (const Setting* s : {&opt::lineup, &opt::offset, &opt::ms}) s->onChange(&settingChanged);
+    AudioObjectPropertyAddress a{kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
+    AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &a, dispatch_get_main_queue(), ^(UInt32, const AudioObjectPropertyAddress*) { devicesChanged(); });
+}
+
+// What runs now, in the settings window under the mod's settings: the devices, their latencies and the delay worked
+// out from them (the automatic part, which the Fine-tune slider adds to).
+static std::string statusLine() {
+    if (g_broken) return "Not working with this rekordbox build: nothing is delayed.";
+    if (g_planDesc.empty()) return "";
+    if (!g_canLineUp) return "Now: rekordbox plays to one device, nothing to line up. Choose a second output (such as PC MASTER OUT on Bluetooth speakers) in rekordbox's Audio settings.";
+    if (!g_lineUp) return "Now: two devices, nothing delayed (Line up is off).";
+    std::string ms = opt::ms.text();
+    return "Now: " + g_planDesc + ".\n" + (ms == "auto" || ms.empty() ? "The delay is worked out from the latencies the devices report; Fine-tune adds to it."
+                                                                         : "The delay is the one set under More options (Delay to use), plus Fine-tune.");
+}
+static int g_statusLine = (settings::status("outputsync", &statusLine), 0);
+
+RBM_MOD({.name = "outputsync", .init = init, .tick = tick, .enabled = &g_on,
          .title = "Speakers and headphones",
          .about = "Lines up speakers and headphones when rekordbox plays to two devices, such as Bluetooth speakers and a controller.",
          .area = "decks", .order = 20, .rekordboxPage = "Audio/Configuration"});

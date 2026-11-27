@@ -33,7 +33,9 @@ outputsync*), right under the audio device:
   slider and the metronome are greyed out, and the line says so.
 
 The switch and the fine-tune are also in the [settings window](./badge#the-settings-window), under **Decks &
-sound**.
+sound**. There the delay changes while you drag the slider (the metronome follows), and a *Now:* line says what
+is lined up and by how much. A device that connects (a Bluetooth speaker) shows up in the Audio page's list by
+itself.
 - **Refresh audio devices** (also in the settings window): rekordbox looks for audio devices again and opens the
   device you have selected anew. For a device you plugged in or changed that doesn't show up or stays silent,
   without restarting rekordbox. The sound stops for a moment. Your choice of device stays as it is.

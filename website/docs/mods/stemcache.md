@@ -102,6 +102,12 @@ On an M2 Pro: a muted stem is gone about 0.3 s after the press, and 0.4 to 0.6 s
 wasn't separated yet (a model run that is under way is finished first). Where the stems are there already, a
 stem control takes under a tenth of a second. `stemcache_quick=0` turns the second part off.
 
+### Where two parts meet <span class="pd-tag">mac</span>
+
+rekordbox separates a track in parts of 11 seconds and gives its separator only a sliver of audio around each (23 ms
+with the quality setting), so the stems were rougher where two parts meet. HTDemucs now gets 1 to 1.35 s more on each
+side, which makes those places as clean as the rest. Stems stored by an earlier version are separated again once.
+
 ## Quality and size
 
 Stems are stored as AAC:

@@ -1509,6 +1509,27 @@ static void bpmOfGrid(const void*, const std::string&, const BeatArray&, const B
 static void bpmAnalysisEnds(const void*) {}
 #endif
 
+// A grid whose beats go back in time somewhere is never saved: rekordbox's beat job handed over two grids joined end to
+// end on two hardcore tracks (11-27: 215.12 BPM to the end of the track, then the same track again from 0.4 s at
+// 53.78, a quarter of it), which bettergrid kept because Beat This! was unsure there. Of such a grid only its longest
+// stretch of beats in order is kept (there: the 215 BPM grid over the whole track). Empty: the beats are in order.
+static std::vector<char> inOrder(const char* d, int n, const std::string& uri) {
+    if (!d || n < 2) return {};
+    int best = 0, bestLen = 0, from = 0, backs = 0;
+    for (int i = 1; i <= n; i++) {
+        if (i < n && beatTime(d, i) > beatTime(d, i - 1)) continue;
+        if (i < n) backs++;
+        if (i - from > bestLen) best = from, bestLen = i - from;
+        from = i;
+    }
+    if (!backs) return {};
+    int back = best + bestLen < n ? best + bestLen : best;  // where the kept stretch ends (or, kept from there: begins)
+    logf("bettergrid: the grid's beats go back in time %d time%s (beat %d of %d at %.3f s, after %.3f s): only beats %d-%d kept (%.2f BPM)  %s",
+         backs, backs == 1 ? "" : "s", back, n, beatTime(d, back), beatTime(d, back - 1), best, best + bestLen - 1,
+         (beatWord(d, best) >> 16) / 100.0, uri.c_str());
+    return std::vector<char>(d + (size_t)best * beatSize(), d + (size_t)(best + bestLen) * beatSize());
+}
+
 // ---- hooks ------------------------------------------------------------------------------------
 
 // CBeatAnalyzeThread::NotifyResult(beat job) -> b notifyBeat(this, job's beats): the grid to save.
@@ -1520,7 +1541,20 @@ extern "C" void rbm_hook_grid_save(void* thread, const BeatArray* beats) {
         return orig(thread, beats);
     }
     Outcome mine = combinedBeats(thread, *beats);
-    if (!mine.uri.empty()) bpmOfGrid(thread, mine.uri, view(mine.beats), *beats);
+    bool cut = false;
+    if (!mine.uri.empty() && applying()) {  // (beats in order, whichever grid is saved)
+        bool own = mine.beats.empty();
+        std::vector<char> kept = own ? inOrder(beats->data, beats->used, mine.uri)
+                                     : inOrder(mine.beats.data(), (int)(mine.beats.size() / beatSize()), mine.uri);
+        if (!kept.empty()) {
+            mine.beats = std::move(kept);
+            mine.rbBars.clear();  // (rekordbox's numbering per beat, for the whole grid: not for a part of it)
+            cut = true;
+        }
+    }
+    // (A cut grid: rekordbox's BPM came from both grids (107.56 for 215.12 and 53.78), so the collection's is
+    // compared with the kept grid's tempo whatever rekordbox's beats said.)
+    if (!mine.uri.empty()) bpmOfGrid(thread, mine.uri, view(mine.beats), cut ? BeatArray{nullptr, 0, 0} : *beats);
     if (mine.beats.empty()) {
         dropApplied(thread);
         return orig(thread, beats);
@@ -1596,7 +1630,12 @@ static void notifyBeat(void (*orig)(void*, const BeatArray*), void* thread, cons
         logf("bettergrid: notifyBeat %d beats (first %.3f s), combined %zu beats  %s", beats ? beats->used : -1,
              beats && beats->data && beats->used > 0 ? beatTime(beats->data, 0) : -1.0, have ? mine.beats.size() / beatSize() : (size_t)0,
              songPath(thread).c_str());
-    if (!have) return orig(thread, beats);
+    if (!have) {
+        std::vector<char> kept = g_on && applying() && beats ? inOrder(beats->data, beats->used, songPath(thread)) : std::vector<char>();
+        if (kept.empty()) return orig(thread, beats);
+        BeatArray a = view(kept);
+        return orig(thread, &a);
+    }
     if (sameBeats(*beats, mine.beats)) {
         // Still the combined grid: left as it is, with the bars the phrase analysis may have renumbered. Unless
         // only the bars were Beat This!'s and these are exactly rekordbox's own again: its list from before (it

@@ -320,6 +320,7 @@ std::string g_cat, g_page;  // what the component shows now ("" before the first
 bool g_selected;
 std::string g_json;         // what the window gets (state())
 double g_readAt[3];         // when the shown page is read again: a click is handled a moment later
+double g_rebuildAt[2];      // when the shown page is made anew (reloadSoon)
 double g_saveAt;            // when rekordbox's settings are saved (0: nothing to save)
 int g_openType = -1;        // rekordbox's own dialog is to open at this category...
 std::string g_openPage;     // ...and this page of it
@@ -539,6 +540,7 @@ void destroy() {
     g_waiting.clear();
     g_clickAt = 0;
     for (double& t : g_readAt) t = 0;
+    for (double& t : g_rebuildAt) t = 0;
 }
 
 // Shows a page in the component (its rows are made anew: they read their settings) and reads it.
@@ -567,6 +569,16 @@ void readSoon() {  // a click is posted: its effect (and what it enables or grey
     double t = now();
     g_readAt[0] = t + 0.12, g_readAt[1] = t + 0.5, g_readAt[2] = t + 1.5;
 }
+
+// What a row lists is read when the row is made: the Audio drop-down's devices, for one, follow a device that comes
+// (rekordbox adds it), not one that goes, and its own dialog makes its rows anew each time it opens. Offered to other
+// mods as "prefs.reload" (outputsync: the audio devices changed, or were looked for again): the shown page is made
+// anew a moment later, and once more after rekordbox has settled, so the window lists what there is now.
+void reloadSoon() {
+    double t = now();
+    g_rebuildAt[0] = t + 0.4, g_rebuildAt[1] = t + 2.0;
+}
+RBM_PROVIDE("prefs", "prefs.reload", &reloadSoon, &g_on);
 
 // The control a message names: by its path in the shown page.
 void* control(const std::string& path) {
@@ -866,6 +878,11 @@ void tick() {
         waited.swap(g_waiting);
         for (const std::string& m : waited) onMessage(m);
     }
+    for (double& at : g_rebuildAt)  // (prefs.reload: not while a click is on its way to a control of the page)
+        if (at && t >= at && t >= g_clickAt + kClickTime) {
+            at = 0;
+            if (g_selected && show(g_cat, g_page)) logf("prefs: %s/%s made anew (what it lists changed)", g_cat.c_str(), g_page.c_str());
+        }
     static double every;
     bool due = t - every >= 1.0;  // (and once a second: what rekordbox changed in its controls by itself)
     for (double& at : g_readAt)
