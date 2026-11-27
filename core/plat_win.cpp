@@ -11,6 +11,7 @@
 #include <winhttp.h>
 #include <io.h>
 #include "plat.h"
+#include "settings.h"
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -18,6 +19,11 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const rbm::Setting workerPriority{"worker_priority", 1, {.label = "Priority of background work", .help = "What the mods' analysis and separation threads run at, so the window and the audio stay quick. Automatic: below normal on a PC with four or more cores.", .choices = {{"1", "Automatic"}, {"0", "Normal"}, {"-1", "Below normal"}, {"-2", "Lowest"}}, .advanced = true, .page = "about"}};
+}  // namespace opt
 
 #pragma comment(lib, "bcrypt.lib")
 #pragma comment(lib, "shell32.lib")
@@ -162,7 +168,7 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 // worker_priority as a thread priority, read from the config each time (the config is loaded after DllMain).
 static int workerPriority() {
-    int v = (int)cfgNum("worker_priority", 1);
+    int v = (int)opt::workerPriority.number();
     if (v > 0) v = g_cores >= 4 ? -1 : 0;
     return v >= 0 ? THREAD_PRIORITY_NORMAL : v == -1 ? THREAD_PRIORITY_BELOW_NORMAL : THREAD_PRIORITY_LOWEST;
 }
@@ -423,6 +429,54 @@ void openTextFile(const std::string& s) {
     for (wchar_t& c : w) if (c == L'/') c = L'\\';
     std::wstring args = L"\"" + w + L"\"";
     ShellExecuteW(nullptr, L"open", L"notepad.exe", args.c_str(), nullptr, SW_SHOWNORMAL);
+}
+// (Run on the test PC, 2026-11-26: rekordbox closed and came back with its mods after about 40 s.)
+bool restartApp() {
+    // platendoos.exe is next to rbmods.dll (resourcesDir() is the rbmods folder there); it gets the rekordbox.exe that
+    // runs now, so a rekordbox started from another place (--rekordbox) comes back as the same one.
+    std::wstring launcher = (std::filesystem::path(wide(resourcesDir())).parent_path() / L"platendoos.exe").wstring();
+    wchar_t exe[MAX_PATH * 4];
+    DWORD n = GetModuleFileNameW(nullptr, exe, (DWORD)std::size(exe));
+    if (!n || n >= std::size(exe) || GetFileAttributesW(launcher.c_str()) == INVALID_FILE_ATTRIBUTES) return false;
+    auto quoted = [](std::wstring s) {  // inside a PowerShell '...' string
+        for (size_t i = 0; (i = s.find(L'\'', i)) != std::wstring::npos; i += 2) s.insert(i, 1, L'\'');
+        return L"'" + s + L"'";
+    };
+    // A hidden PowerShell waits for this process to end (a minute at most: rekordbox may ask something first), and
+    // starts platendoos again only when it has.
+    std::wstring pid = std::to_wstring(GetCurrentProcessId());
+    std::wstring cmd = L"powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"Wait-Process -Id " + pid +
+                       L" -Timeout 60 -ErrorAction SilentlyContinue; if (-not (Get-Process -Id " + pid +
+                       L" -ErrorAction SilentlyContinue)) { Start-Process -FilePath " + quoted(launcher) +
+                       L" -ArgumentList '--rekordbox', ([char]34 + " + quoted(std::wstring(exe, n)) + L" + [char]34) }\"";
+    STARTUPINFOW si{};
+    si.cb = sizeof si;
+    PROCESS_INFORMATION pi{};
+    std::vector<wchar_t> line(cmd.begin(), cmd.end());
+    line.push_back(0);
+    if (!CreateProcessW(nullptr, line.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP, nullptr, nullptr, &si, &pi))
+        return false;
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    // As the window's close button: rekordbox's own quit. Its main window is its largest visible one titled "rekordbox".
+    struct Find { HWND best; LONG area; } f{nullptr, 0};
+    EnumWindows(
+        [](HWND h, LPARAM lp) -> BOOL {
+            DWORD p;
+            GetWindowThreadProcessId(h, &p);
+            wchar_t t[32];
+            if (p != GetCurrentProcessId() || !IsWindowVisible(h) || !GetWindowTextW(h, t, 32) || wcscmp(t, L"rekordbox")) return TRUE;
+            RECT r;
+            GetWindowRect(h, &r);
+            Find* f = (Find*)lp;
+            LONG a = (r.right - r.left) * (r.bottom - r.top);
+            if (a > f->area) f->best = h, f->area = a;
+            return TRUE;
+        },
+        (LPARAM)&f);
+    if (!f.best) return false;  // (the helper then waits its minute and starts nothing: rekordbox is still there)
+    PostMessageW(f.best, WM_CLOSE, 0, 0);
+    return true;
 }
 // rekordbox.exe's file version (7.2.19.x -> "7.2.19").
 std::string appVersion() {

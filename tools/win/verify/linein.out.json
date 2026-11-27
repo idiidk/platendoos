@@ -1,0 +1,229 @@
+[
+ {
+  "item": "__ZNK8djengine10DjEngineIF11getDjSystemEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1425400c0",
+  "confidence": "high",
+  "why": "linein (7.2.19). Already verified (v1.out.json) and in the table (rva 25400c0): leaf 'mov rax,[rcx+0xb0]; ret' (mac [this+0xc0]). PlayCuePanelDJ::changeDvsMode 0x1418ee450 calls SingletonHolder<DjEngineIF>::get 0x141424a00 -> this -> DjSystem::getPlayerControl 0x142d76680 and DjSystem::enableInputThru 0x142d75f30 with the result, so the mod's engine() -> getDjSystem(e) -> DjSystem* works as on mac (this in rcx)"
+ },
+ {
+  "item": "__ZN8DjSystem15enableInputThruEib",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142d75f30",
+  "confidence": "high",
+  "why": "linein (7.2.19). DjSystem::enableInputThru(int deck, bool) with DjUnitAudioGraph::enableInputThru and RekordboxDjPlayerUnit::enableInputThru inlined: graph=[rcx+0x58] (mac 0x50), magic 0x5e715e28 check through the graph's vbtable ([graph+0x418]), deck < [graph+0x51c], unit=[[graph+0x510]+deck*8], [unit+0x358] (BPMManager, mac 0x370) non-null, byte [unit+0x208]=r8b (mac 0x220), then the BPMManager quantize/tap/auto-BPM calls (vcalls on [bpm+0x190], mode [bpm+0x178] saved to [unit+0x368], mac 0x380). MS x64: rcx=DjSystem*, edx=deck, r8b=on; the mod's (void*,int,bool) cast is right. Callers exactly as mac: DeckMuteManager::updateMuteState 0x1418bbe30, checkDDJRRSelector 0x1418bc910, changeDvsMode 0x1418ee450 (call at 0x1418ee52f between isSetupUtilityOutputRoutingThru and updateDVSThroughMode, as mac). Windows drops mac's RbxLog error branch (just returns)"
+ },
+ {
+  "item": "__ZN6rbxfrm16DjUnitAudioGraph15enableInputThruEib",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142cd5190",
+  "confidence": "high",
+  "why": "linein (7.2.19). Standalone copy with no callers (its only mac caller DjSystem::enableInputThru 0x142d75f30 inlines it): 'cmp edx,[rcx+0x51c]; jge ret; unit=[[rcx+0x510]+edx*8] (null if unsigned out of range, as mac jbe); [unit+0x358] null -> ret; byte [unit+0x208]=r8b; ...' = mac 102af1490 with RekordboxDjPlayerUnit::enableInputThru inlined (count 0x53c->0x51c, array 0x530->0x510). The mod only reads offsets from it; never call it"
+ },
+ {
+  "item": "__ZN6rbxfrm21RekordboxDjPlayerUnit15enableInputThruEb",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142da4230",
+  "confidence": "high",
+  "why": "linein (7.2.19). Standalone, no direct callers (inlined into 0x142d75f30 and 0x142cd5190): this=rcx, dl=on; [rcx+0x358] (BPMManager*, mac 0x370) null -> ret; byte [rcx+0x208]=dl (mac 0x220); on: [bpm+0x190] vcall slot 0x10 (disableQuantize), [rbx+0x368]==1 (mac 0x380) -> tap-like sequence else auto-BPM; off: [rbx+0x368]=[bpm+0x178] (getBPMMode), enableQuantize: same branches as mac 102f06cf0. The only other writer of byte [unit+0x208] is the constructor 0x142da4370 (word [rdi+0x208]=0x100: thru 0, 0x209=1)"
+ },
+ {
+  "item": "__ZN6rbxfrm21RekordboxDjPlayerUnit12processBlockERN4juce11AudioBufferIfEERNS1_10MidiBufferE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142da3c80",
+  "confidence": "high",
+  "why": "linein (7.2.19). Slot 10 (+0x50) of RekordboxDjPlayerUnit's primary vtable 0x1457dda68 and in no other vtable. rcx=unit, rdx=AudioBuffer<float>*, r8=MidiBuffer*. Same body as mac 102f06ec0 with unit fields -0x18: own input-copy AudioBuffer at +0x220 (mac 0x238; numChannels 0x220, size 0x224, channels 0x230, isClear 0x340), per channel copy buffer->ch (memcpy) or clear (memset) unless already clear; [unit+0x360] BPM detector (mac 0x378) vcall +0x50 only when thru byte [unit+0x208]; player [unit+0x218] (mac 0x230) vcall +0x268(1, unit+0x158) when thru else +0x270(0, ...) (mac +0x270/+0x278 with unit+0x180: one destructor slot less); input GainSmoother [unit+0x348] target 1/0 by thru (mac 0x360, setTargetGain inlined), player GainSmoother [unit+0x350] by byte [unit+0x209] (mac 0x368/0x221); applyGainRamp 0x142cd9d40; player processBlock [[unit+0x210]]+0x50 (mac 0x228); add the copy back (copyWithMultiply and clear isClear when buffer isClear, else addWithMultiply 0x140f5f650)"
+ },
+ {
+  "item": "__ZTVN6rbxfrm21RekordboxDjPlayerUnitE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1457dda68",
+  "confidence": "high",
+  "why": "linein (7.2.19). RTTI .?AVRekordboxDjPlayerUnit@rbxfrm@@: two vtables. 0x1457dda68 = COL offset 0 (76 slots; bases IAudioProcessUnit and juce::AudioProcessor both at 0, so the unit pointer in the graph's array is this vptr's object), slot 10 = processBlock 0x142da3c80. 0x1457dda50 = the IControlClient subobject at +0x158 (2 slots). The virtual base ExistenceConfirmable (the 0x5e715e28 magic) has no vtable on Windows (vbptr at +0x150). Table already has it: addr __ZTV... 57dda58 (= vtable - 0x10) and +0x10 57dda68, so the mod's at(A_unitVtable)+0x10+V_unitProcess lands on the Windows vtable + V_unitProcess. The vtable is in .rdata (read-only): patchSlot must change protection (plat::patchMemory)"
+ },
+ {
+  "item": "V_unitProcess",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZTVN6rbxfrm21RekordboxDjPlayerUnitE",
+  "kind_recipe": "vt:__ZN6rbxfrm21RekordboxDjPlayerUnit12processBlockERN4juce11AudioBufferIfEERNS1_10MidiBufferE",
+  "nth": 0,
+  "value": "0x50",
+  "confidence": "high",
+  "why": "slot offset from the Windows vtable address 0x1457dda68 (mac 0x58 from symbol+0x10 because of the virtual-base word; from the objects' vptr 0x50 on both). Windows slots: 0 scalar deleting dtor (mac D1,D0), 1-3 AAXClientExtensions, 4 getName, 5 getAlternateDisplayNames 0x142c42fa0, 6 prepareToPlay 0x142da3f80, 7 releaseResources 0x142da3c20, 8 memoryWarningReceived, 9 processBlock(AudioBuffer<double>&) 0x142c41780 (juce default), 10 processBlock(AudioBuffer<float>&) 0x142da3c80: MSVC puts the two overloads in reverse order, so float is the second, as the dtor merge and overload swap cancel out. maketable's vt recipe gives 8*10 from the verified method address"
+ },
+ {
+  "item": "__ZN13MainComponent16callInputThroughEib",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x14182fe30",
+  "confidence": "high",
+  "why": "linein (7.2.19). Only exists as the DeckMuteManagerListener override: slot 3 of MainComponent's vtable 0x1439e1428 for the subobject at +0x3c0 (mac thunk __ZThn1088_: +0x440), so this = MainComponent+0x3c0 (thisDelta 0x3c0). Body as mac 100a3dd80: deck 2 or 3 only, holder [this+0x100] (whole 0x4c0), PlayerComponent [holder+0xe0] -> setExternalInput 0x1418f8270(deck==2, on, 1); RbxEffectPanel [this+0x1d8] (whole 0x598, mac 0x640) -> RbxEffectPanel::setExternalInput 0x1416fbcc0. The mod does not call it (offsets only)"
+ },
+ {
+  "item": "__ZN6djplay15PlayerComponent16setExternalInputEbbb",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x1418f8270",
+  "confidence": "high",
+  "why": "linein (7.2.19). Same as mac 10253ce60: ApplicationMode::isMode(2), BigInteger copy of [[this+0x148]+0x120], operator[] 0/1, showMixerDeck 0x1418f5b00(2|3, 1), then PlayerPanelL::setExternalInput 0x1419034c0([this+0x148], b1, b2), isMode(1) and the selectInput lambda 0x141908020. Callers: callInputThrough 0x14182fe30, 0x141830230 (MainComponent, whole this), finalizeDevice 0x141836330 x2, 0x1418f7930"
+ },
+ {
+  "item": "__ZN6djplay15PlayerComponent12PlayerPanelL20updateDVSThroughModeEib",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x1419048b0",
+  "confidence": "high",
+  "why": "linein (7.2.19). this=rcx PlayerPanelL, edx=deck, r8b=on (the mod's (void*,int,bool) cast fits). As mac 102537690: getWaveView 0x1418f6000([this+0xf0]), getWidgetWaveView(deck%2) 0x141a3dab0, WidgetWaveView::setInputThru 0x141a1bc10, then per deck 0-3 VirtualDeckPanel::setInputThru 0x141951150 on [this+0x448/0x450/0x458/0x460] (mac 0x468..0x480) and TrackInfoView::setInputThru 0x141929fe0 on [this+0x3a8..0x3c0] (mac 0x3c8..0x3e0). Only caller changeDvsMode 0x1418ee450 (call at 0x1418ee541 right after DjSystem::enableInputThru, with the same deck and flag), as mac. Not virtual: no this adjustment"
+ },
+ {
+  "item": "__ZN4juce14AudioProcessor20setPlayConfigDetailsEiidi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142c41da0",
+  "confidence": "high",
+  "why": "linein (7.2.19). Called from AudioProcessorPlayer::setProcessor 0x143017ed0 at 0x143017fda (rcx=processor, edx=ins, r8d=outs, xmm3=rate, [rsp+0x20]=block size: the 5th arg on the stack) and from the RekordboxDjPlayerUnit ctor 0x142da4370; body as mac 10276ed40: compares [this+0x108]/[this+0x10c] (bus channel counts, mac 0x138/0x13c), canonicalChannelSet + setChannelLayoutOfBus for input then output, disableNonMainBuses, then movsd [this+0x30]=rate, [this+0x38]=block (as mac). setRateAndBufferSizeDetails is inlined into setProcessor (also [rdi+0x30]/[rdi+0x38])"
+ },
+ {
+  "item": "O_sysGraph",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN8DjSystem15enableInputThruEib",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "value": "0x58",
+  "confidence": "high",
+  "why": "DjSystem's DjUnitAudioGraph* (mac 0x50): 0x142d75f30 'mov r9,[rcx+0x58]'; also DjSystem::getMixerState 0x142d765c0 (v1.out.json) reads graph=[this+0x58]"
+ },
+ {
+  "item": "O_graphCount",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6rbxfrm16DjUnitAudioGraph15enableInputThruEib",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "value": "0x51c",
+  "confidence": "high",
+  "why": "juce::Array<RekordboxDjPlayerUnit*> numUsed (mac 0x53c): 'cmp edx,[rcx+0x51c]' in DjUnitAudioGraph::enableInputThru 0x142cd5190 and 'cmp edx,[r9+0x51c]' in DjSystem::enableInputThru 0x142d75f30"
+ },
+ {
+  "item": "O_graphUnits",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6rbxfrm16DjUnitAudioGraph15enableInputThruEib",
+  "kind_recipe": "ldr x0",
+  "nth": 1,
+  "value": "0x510",
+  "confidence": "high",
+  "why": "the units array's data pointer (mac 0x530): 'mov rax,[rcx+0x510]; mov rbx,[rax+rdx*8]' in 0x142cd5190 and '[r9+0x510]' in 0x142d75f30. Elements are the units' whole-object pointers (offset 0 = AudioProcessor, primary vptr)"
+ },
+ {
+  "item": "O_unitThru",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6rbxfrm21RekordboxDjPlayerUnit15enableInputThruEb",
+  "kind_recipe": "str x19",
+  "nth": 0,
+  "value": "0x208",
+  "confidence": "high",
+  "why": "the thru bool (mac 0x220): 'mov byte ptr [rbx+0x208],dl' in RekordboxDjPlayerUnit::enableInputThru 0x142da4230, '[rbx+0x208],r8b' in 0x142cd5190 and 0x142d75f30; processBlock 0x142da3c80 tests 'cmp byte ptr [rbx+0x208],sil' twice (BPM detector, mute player)"
+ },
+ {
+  "item": "O_bufChannels",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6rbxfrm21RekordboxDjPlayerUnit12processBlockERN4juce11AudioBufferIfEERNS1_10MidiBufferE",
+  "kind_recipe": "ldr x19",
+  "nth": 0,
+  "value": "0x10",
+  "confidence": "high",
+  "why": "juce::AudioBuffer<float> channels (same as mac): processBlock 0x142da3c80 'mov rdx,[rdi+0x10]' (copy source) and 'mov rax,[rdi+0x10]' (add back); numSamples [rdi+4] in both loops; numChannels at 0: GainSmoother::applyGainRamp 0x142cd9d40 'cmp dword ptr [rdi],r15d' / 'cmp r9d,[rdi]' over the channels with [rdi+0x10]"
+ },
+ {
+  "item": "O_bufClear",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6rbxfrm21RekordboxDjPlayerUnit12processBlockERN4juce11AudioBufferIfEERNS1_10MidiBufferE",
+  "kind_recipe": "ldr x19",
+  "nth": 2,
+  "value": "0x120",
+  "confidence": "high",
+  "why": "isClear (same as mac): processBlock 0x142da3c80 'cmp byte ptr [rdi+0x120],sil' (copy or clear the input), 'cmp byte ptr [rdi+0x120],0; mov byte ptr [rdi+0x120],0' (add back); the unit's own buffer at +0x220 has its isClear at 0x340 = 0x220+0x120; applyGainRamp also reads [rdi+0x120]"
+ },
+ {
+  "item": "O_procRate",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN4juce14AudioProcessor20setPlayConfigDetailsEiidi",
+  "kind_recipe": "str x20",
+  "nth": 0,
+  "value": "0x30",
+  "confidence": "high",
+  "why": "juce::AudioProcessor's sample rate double (same as mac): setPlayConfigDetails 0x142c41da0 'movsd [rdi+0x30],xmm6' (block size [rdi+0x38]); setProcessor 0x143017ed0's inlined setRateAndBufferSizeDetails 'movsd [rdi+0x30],xmm3'. AudioProcessor is at offset 0 of RekordboxDjPlayerUnit (COL), so unit+0x30 as on mac"
+ },
+ {
+  "item": "O_mainHolder",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN13MainComponent16callInputThroughEib",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "value": "0x4c0",
+  "confidence": "high",
+  "why": "whole-MainComponent offset (mac 0x568). The Windows recipe function 0x14182fe30 has this = MainComponent+0x3c0 (DeckMuteManagerListener subobject) and reads [rcx+0x100] (0x3c0+0x100=0x4c0); 0x141830230 (MainComponent method on the whole object, same body shape) reads [rcx+0x4c0] and [rcx+0x598]; the ctor 0x141815bd0 stores [r15+0x4c0] (r15 = the object it also stores in getInstance's global 0x145fe0ea0, so MainComponent::getInstance 0x14182a9c0 returns the whole object). A field signature must not look for 0x4c0 in 0x14182fe30"
+ },
+ {
+  "item": "O_holderPlayers",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN13MainComponent16callInputThroughEib",
+  "kind_recipe": "ldr x8",
+  "nth": 0,
+  "value": "0xe0",
+  "confidence": "high",
+  "why": "holder -> PlayerComponent* (same as mac): 0x14182fe30 'mov rcx,[rax+0xe0]' and 0x141830230 'mov rcx,[rax+0xe0]', both then call PlayerComponent::setExternalInput 0x1418f8270"
+ },
+ {
+  "item": "O_playersPanel",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN6djplay15PlayerComponent16setExternalInputEbbb",
+  "kind_recipe": "ldr x19",
+  "nth": 0,
+  "value": "0x148",
+  "confidence": "high",
+  "why": "PlayerComponent -> PlayerPanelL* (same as mac): setExternalInput 0x1418f8270 'mov rcx,[rbx+0x148]' -> PlayerPanelL::setExternalInput 0x1419034c0 (non-virtual: the stored pointer is the PlayerPanelL this) and BigInteger copy of [[rbx+0x148]+0x120]; changeDvsMode 0x1418ee450 also takes [[..+0xa8]+0x148] as the this of isSetupUtilityOutputRoutingThru and updateDVSThroughMode"
+ },
+ {
+  "item": "unitPointerKind",
+  "kind": "note",
+  "verdict": "ok",
+  "fn": null,
+  "value": "0x0",
+  "confidence": "high",
+  "why": "No adjustment: the array element at [graph+0x510] is the whole RekordboxDjPlayerUnit (rekordbox writes [elem+0x208] and reads [elem+0x358] with it unadjusted, the same fields RekordboxDjPlayerUnit::enableInputThru 0x142da4230 uses on its this); IAudioProcessUnit and juce::AudioProcessor are at offset 0, so its first word is the primary vtable 0x1457dda68 holding processBlock, and processBlock's rcx is this same pointer (the mod's d.unit == unit test works). The thru flag 0x208 and the sample rate 0x30 are relative to it, as on mac"
+ },
+ {
+  "item": "processBlockAbi",
+  "kind": "note",
+  "verdict": "ok",
+  "win": null,
+  "fn": null,
+  "confidence": "high",
+  "why": "void __fastcall(RekordboxDjPlayerUnit* rcx (whole object = AudioProcessor subobject), juce::AudioBuffer<float>* rdx, juce::MidiBuffer* r8); returns nothing. The mod's void(*)(void*,void*,void*) fits MS x64 unchanged (the replacement must keep xmm6-15 like any MSVC function; the original saves xmm6/xmm7). Input path identical to mac: it copies buffer channels 0..min(own numChannels [unit+0x220]) (numSamples capped by [unit+0x224]) into its own buffer whenever buffer isClear==0 (else clears its copy), regardless of thru; only when thru: BPM detector on the copy and the player muted (player vcall +0x268 vs +0x270) and the input GainSmoother ramps to 1; the copy is then added back after the player's processBlock. So writing channels 0-1 and setting isClear=0 before calling the original works the same (function 0x142da3c80)"
+ },
+ {
+  "item": "thruResets",
+  "kind": "note",
+  "verdict": "ok",
+  "fn": null,
+  "confidence": "high",
+  "why": "Same flag semantics as mac: byte [unit+0x208] is written only by the ctor (0, 0x142da4370) and the enableInputThru code (DjSystem::enableInputThru 0x142d75f30 with both inlined, plus uncalled copies 0x142cd5190/0x142da4230); processBlock only reads it. DjSystem::enableInputThru has the mac callers: DeckMuteManager::updateMuteState 0x1418bbe30 calls it with false at 0x1418bc032 after its 'STATE CHANGE!!! DECK n : PLAY' log, then mutes via getPlayerControl vcall +0x268 and getMixerControl (0x142d76620) vcall +0x170, as mac; checkDDJRRSelector 0x1418bc910 and changeDvsMode 0x1418ee450 too. So rekordbox switches it off on its own on Windows as well: holding the flag on every block is still needed"
+ }
+]

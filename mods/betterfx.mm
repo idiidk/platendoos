@@ -31,6 +31,15 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting filter{"betterfx_filter", true, {.label = "Color FX Filter", .help = "The FLX4's filter knob: a smooth sweep and the full range.", .restart = true}};
+const Setting eq{"betterfx_eq", true, {.label = "EQ and isolator", .help = "The same curves, without thumps on fast moves.", .restart = true, .rekordboxPage = "Controller/Mixer"}};
+const Setting reverb{"betterfx_reverb", true, {.label = "Reverb", .help = "A new, smoother reverb.", .restart = true}};
+const Setting echo{"betterfx_echo", true, {.label = "Echo and Pitch Echo", .help = "No dips while the tempo changes.", .restart = true}};
+const Setting roll{"betterfx_roll", true, {.label = "Roll, Reverse Roll and Slip Roll", .help = "No dip on every repeat.", .restart = true}};
+}  // namespace opt
+
 // Intel Macs (rekordbox's x86_64 half, docs/intel-mac.md): the same. Every offset has the same value in both halves
 // (recipes.py check --x86), and so do the layouts written into this file (Filter's coefficients, RingBuffer's channel
 // pointers and length, the roll reader's 12 bytes of loop parameters, juce::AudioBuffer). Denormals: rekordbox's audio
@@ -590,11 +599,11 @@ static void tick() {  // main thread, every 0.1 s
 }
 
 static void init() {
-    g_filterOn = cfgInt("betterfx_filter", 1) != 0;
-    g_eqOn = cfgInt("betterfx_eq", 1) != 0;
-    g_reverbOn = cfgInt("betterfx_reverb", 1) != 0;
-    g_echoOn = cfgInt("betterfx_echo", 1) != 0;
-    g_rollOn = cfgInt("betterfx_roll", 1) != 0;
+    g_filterOn = opt::filter.integer() != 0;
+    g_eqOn = opt::eq.integer() != 0;
+    g_reverbOn = opt::reverb.integer() != 0;
+    g_echoOn = opt::echo.integer() != 0;
+    g_rollOn = opt::roll.integer() != 0;
     std::string done;
     // Originals first, so a replacement can always fall back.
     if (g_filterOn) {
@@ -628,4 +637,12 @@ static void init() {
     logf("betterfx: on:%s", done.empty() ? " nothing" : done.c_str());
 }
 
-RBM_MOD({.name = "betterfx", .init = init, .tick = tick, .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"decks", "Decks & sound",
+    "What you hear and mix: inputs, outputs, the mixer's effects.",
+    "<circle cx=\"8\" cy=\"8\" r=\"6\"/><circle cx=\"8\" cy=\"8\" r=\"1.6\"/>", 10}; }
+
+RBM_MOD({.name = "betterfx", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Mixer effects",
+         .about = "Better-sounding versions of rekordbox's filter, EQ, reverb, echo and roll.",
+         .area = "decks", .order = 30, .rekordboxPage = "Controller/Effect"});

@@ -81,10 +81,8 @@ With rekordbox's *STEMS Analysis Process* set to its quality engine, rekordbox i
 from the start of the track, so a press late in a track takes longer there; with the default engine it starts at
 the playhead.
 
-::: warning Windows
-On Windows this is new: the same code as on macOS, checked against rekordbox 7.2.19 and 7.2.20 in an emulator, but
-not yet run on a Windows machine. It is off unless you switch it on.
-:::
+On Windows it is the same code; it was run on a Windows PC with rekordbox 7.2.19 (and checked against 7.2.20 in an
+emulator).
 
 ## Quality and size
 

@@ -17,6 +17,11 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting debug{"spotifydl_debug", false, {.label = "Also log every audio piece", .debug = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 
 namespace {
@@ -42,7 +47,7 @@ static void done(int err, int curl, const char* msg, int status, const SpHTTPHea
     Call* c = (Call*)ctx;
     c->err = err, c->curl = curl, c->status = status, c->len = len, c->answered = true;
     static bool shown;
-    if (!shown && cfgInt("spotifydl_debug", 0) && status == 206) {
+    if (!shown && opt::debug.integer() && status == 206) {
         shown = true;
         logf("spotifydl: answer: err %d, %d, msg %s, status %d, %u bytes, %u headers", err, curl, msg ? msg : "(null)", status, len, nhdrs);
         for (unsigned i = 0; hdrs && i < nhdrs; i++) logf("spotifydl:   %s: %s", hdrs[i].key ? hdrs[i].key : "?", hdrs[i].value ? hdrs[i].value : "");
@@ -104,7 +109,7 @@ static void get(const char* url, const SpHTTPHeader* hdrs, unsigned nhdrs, unsig
         if (took > 1 || failed)
             logf("spotifydl: %s took %.1fs: status %d, error %d/%d", where(url).c_str(), took, c->status, c->err, c->curl);
     } else if (from >= 0) {
-        if (cfgInt("spotifydl_debug", 0)) logf("spotifydl: %s bytes %lld-%lld: %u in %.3fs", id.c_str(), from, to, c->len, took);
+        if (opt::debug.integer()) logf("spotifydl: %s bytes %lld-%lld: %u in %.3fs", id.c_str(), from, to, c->len, took);
         std::lock_guard<std::mutex> l(g_lock);
         if (from == 0) g_downloads[id] = Download{c->t0, c->t0 + took};
         auto it = g_downloads.find(id);
@@ -123,4 +128,12 @@ static void get(const char* url, const SpHTTPHeader* hdrs, unsigned nhdrs, unsig
     delete c;
 }
 
-RBM_MOD({.name = "spotifydl", .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"spotify", "Spotify",
+    "Spotify playlists, their audio and their cover art.",
+    "<path d=\"M3 5.5c3.5-1.3 7-1 10 .8M3.8 8.3c2.9-1 5.8-.7 8.2.7M4.8 11c2.1-.6 4.1-.4 5.9.5\"/>", 40}; }
+
+RBM_MOD({.name = "spotifydl", .enabled = &g_on,
+         .title = "Spotify load times",
+         .about = "Logs where a Spotify track's load time goes.",
+         .area = "spotify", .order = 90});

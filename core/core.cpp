@@ -12,9 +12,7 @@
 #include <filesystem>
 #include <map>
 #include <mutex>
-#include "defaultoff.h"
 #include "library.h"
-#include "config_template.h"
 
 namespace rbm {
 
@@ -103,32 +101,40 @@ JStr::~JStr() { at<void (*)(JStr*)>(A_stringDtor)(this); }
 // ---- config / log -------------------------------------------------------------------------
 
 static std::map<std::string, std::string> g_cfg;  // g_cfgLock (read from any thread, replaced on the main thread)
+static std::map<std::string, std::string> g_cfgAtStart;  // g_cfgLock: g_cfg as it was when the mods' switches were latched
+static bool g_cfgStartKept;
+static std::atomic<uint64_t> g_cfgGeneration{0};
 static std::mutex g_cfgLock;
 static double g_cfgCheckedAt = -100;
 static FILE* g_log;
 
 static std::string configFile() { return plat::configDir() + "/config.txt"; }
 
-// Once per run: a config from before it had the .txt (Notepad can't open a name without one) is renamed, and the
-// list of every option, all commented out, is written or added at the end if the file doesn't have it yet.
+// Once per run: a config from before it had the .txt (Notepad can't open a name without one) is renamed.
 static void prepareConfigFile() {
     namespace fs = std::filesystem;
     std::string path = configFile(), old = plat::configDir() + "/config";
     std::error_code ec;
     fs::create_directories(plat::fsPath(plat::configDir()), ec);
     if (fs::exists(plat::fsPath(old), ec) && !fs::exists(plat::fsPath(path), ec)) fs::rename(plat::fsPath(old), plat::fsPath(path), ec);
+}
+// The list of every mod and setting, all commented out (settings::configList), is added at the end of a config file
+// that has none yet. Once the mods are registered (main thread, at startup).
+static void addConfigList() {
+    std::string path = configFile();
     bool listed = false, newlineAtEnd = true;
     if (FILE* f = plat::openFile(path, "r")) {
         char line[512];
         while (fgets(line, sizeof line, f)) {
-            if (!strncmp(line, "# platendoos options", 20)) listed = true;
+            const char* text = !strncmp(line, "\xEF\xBB\xBF", 3) ? line + 3 : line;  // (Notepad's byte-order mark)
+            if (!strncmp(text, "# platendoos options", 20)) listed = true;
             newlineAtEnd = strchr(line, '\n') != nullptr;
         }
         fclose(f);
     }
     if (listed) return;
     if (FILE* f = plat::openFile(path, "a")) {
-        fprintf(f, "%s%s\n", newlineAtEnd ? "" : "\n", kConfigTemplate);
+        fprintf(f, "%s%s", newlineAtEnd ? "" : "\n", settings::configList().c_str());
         fclose(f);
     }
 }
@@ -147,6 +153,7 @@ void reloadConfig(bool force) {
     char line[512];
     while (fgets(line, sizeof line, f)) {
         std::string s(line);
+        if (!s.compare(0, 3, "\xEF\xBB\xBF")) s.erase(0, 3);  // (a byte-order mark before the first line)
         s.erase(s.find_last_not_of("\r\n") + 1);
         size_t eq = s.find('=');
         if (s.empty() || s[0] == '#' || eq == std::string::npos) continue;
@@ -159,8 +166,10 @@ void reloadConfig(bool force) {
     }
     fclose(f);
     std::lock_guard<std::mutex> l(g_cfgLock);
+    if (c != g_cfg) g_cfgGeneration++;
     g_cfg.swap(c);
 }
+uint64_t cfgGeneration() { return g_cfgGeneration; }
 
 void setCfg(const char* key, const std::string& value) {
     std::string path = configFile();
@@ -206,62 +215,8 @@ bool cfgHas(const char* key) {
     return g_cfg.count(key) > 0;
 }
 
-const std::vector<ConfigSection>& configSections() {
-    static std::vector<ConfigSection> sections;
-    static std::once_flag once;
-    std::call_once(once, [] {
-        std::map<std::string, std::vector<std::string>> choices;
-        for (const char* p = kConfigChoices; *p;) {  // "key=a|b|c;"
-            const char* eq = strchr(p, '='), *end = strchr(p, ';');
-            if (!eq || !end || eq > end) break;
-            std::vector<std::string>& v = choices[std::string(p, eq)];
-            for (const char* q = eq + 1;;) {
-                const char* bar = (const char*)memchr(q, '|', end - q);
-                v.emplace_back(q, bar ? bar : end);
-                if (!bar) break;
-                q = bar + 1;
-            }
-            p = end + 1;
-        }
-        std::vector<std::string> said;  // the "#   ..." lines above an option
-        bool inSummary = false;
-        for (const char* p = kConfigTemplate; *p;) {
-            const char* nl = strchr(p, '\n');
-            std::string line(p, nl ? nl : p + strlen(p));
-            p = nl ? nl + 1 : p + line.size();
-            size_t eq = line.find('=');
-            if (line.compare(0, 7, "# ---- ") == 0 && line.size() > 12) {
-                sections.push_back({line.substr(7, line.size() - 12), "", {}});
-                inSummary = true, said.clear();
-            } else if (sections.empty()) {
-            } else if (line.compare(0, 4, "#   ") == 0) {
-                said.push_back(line.substr(4)), inSummary = false;
-            } else if (inSummary && line.compare(0, 2, "# ") == 0) {
-                sections.back().summary += (sections.back().summary.empty() ? "" : " ") + line.substr(2);
-            } else if (line.size() > 1 && line[0] == '#' && eq != std::string::npos && line.find(' ') > eq) {
-                std::string key = line.substr(1, eq - 1);
-                inSummary = false;
-                if (key != sections.back().mod) {
-                    ConfigOption o;
-                    o.key = key, o.def = line.substr(eq + 1);
-                    for (auto& t : said) o.text += (o.text.empty() ? "" : " ") + t;
-                    auto c = choices.find(key);
-                    if (c != choices.end()) o.kind = ConfigOption::Choice, o.choices = c->second;
-                    else if (strstr(kConfigSwitches, (" " + key + " ").c_str())) o.kind = ConfigOption::Switch;
-                    sections.back().options.push_back(o);
-                }
-                said.clear();
-            } else said.clear(), inSummary = false;
-        }
-    });
-    return sections;
-}
-
 void unsetCfg(const char* key) {
-    std::string path = configFile(), def;
-    for (const ConfigSection& s : configSections())
-        for (const ConfigOption& o : s.options)
-            if (o.key == key) def = o.def;
+    std::string path = configFile(), def = setting(key).def;
     FILE* f = plat::openFile(path, "r");
     if (!f) return;
     std::vector<std::string> lines;
@@ -299,6 +254,13 @@ std::string cfgStr(const char* key, const char* def) {
     return it == g_cfg.end() ? def : it->second;
 }
 
+std::string cfgStrAtStart(const char* key, const char* def) {
+    std::lock_guard<std::mutex> l(g_cfgLock);
+    const auto& c = g_cfgStartKept ? g_cfgAtStart : g_cfg;
+    auto it = c.find(key);
+    return it == c.end() ? def : it->second;
+}
+
 double cfgNum(const char* key, double def) {
     std::lock_guard<std::mutex> l(g_cfgLock);
     auto it = g_cfg.find(key);
@@ -316,6 +278,16 @@ std::mutex g_latchLock;
 std::map<std::string, bool> g_latch;
 std::atomic<bool> g_latched;  // start()'s main-thread step has recorded the switches (until then they're read live)
 }  // namespace
+bool offUnlessAsked(const char* mod) {
+#ifdef _WIN32
+    const char* here = "win";
+#else
+    const char* here = "mac";
+#endif
+    for (const Mod& m : mods())
+        if (!strcmp(m.name, mod)) return m.untested && !strcmp(m.untested, here);
+    return false;
+}
 bool modSwitchNow(const char* mod) { return cfgNum(mod, offUnlessAsked(mod) ? 0 : 1) != 0; }
 bool modSwitchAtStart(const char* mod) {
     if (!g_latched) return modSwitchNow(mod);
@@ -1005,6 +977,11 @@ std::string playlistName(const std::string& id) {
 
 static std::atomic<bool> g_quitting{false};
 bool quitting() { return g_quitting; }
+static std::vector<void (*)()>& quitters() {
+    static std::vector<void (*)()>* v = new std::vector<void (*)()>;
+    return *v;
+}
+void atQuit(void (*fn)()) { quitters().push_back(fn); }
 void parkIfQuitting() {
     while (g_quitting) std::this_thread::sleep_for(std::chrono::seconds(60));
 }
@@ -1306,6 +1283,7 @@ static void coreCommand() {
 #ifdef _WIN32
 void rememberColumnPlaces();  // columns.cpp
 #endif
+void retitleColumns();        // columns.cpp
 static void tickAll() {
     reloadConfig();
     // This build lacks something the core needs (symbols.cpp checkBuild): every mod is off, and the core's own
@@ -1315,12 +1293,14 @@ static void tickAll() {
     if (now() - recordedAt >= 1) recordedAt = now(), recordShownPlaylist();
     hotLoad();
     coreCommand();
+    settings::tick();
     slowdrive::tick();
     for (Mod& m : mods()) {
         bool on = modEnabled(m.name);
         if (m.enabled) *m.enabled = on;
         if (m.tick && on) m.tick();
     }
+    if (!columns().empty()) retitleColumns();
 #ifdef _WIN32
     if (!columns().empty()) rememberColumnPlaces();
 #endif
@@ -1333,6 +1313,11 @@ static void latchSwitches() {
         for (Mod& m : mods()) g_latch.emplace(m.name, modSwitchNow(m.name));
         g_latched = true;
     }
+    {   // ... and the whole config as it is now, for the options that are read once (cfgStrAtStart)
+        std::lock_guard<std::mutex> l(g_cfgLock);
+        if (!g_cfgStartKept) g_cfgAtStart = g_cfg, g_cfgStartKept = true;
+    }
+    settings::rememberStart();
     for (Mod& m : mods())
         if (m.enabled) *m.enabled = modEnabled(m.name);
 }
@@ -1348,11 +1333,13 @@ void start() {
     plat::onQuit([] {
         g_quitting = true;
         logf("rbmods: rekordbox quits: the mods' own threads stop");
+        for (void (*fn)() : quitters()) fn();  // (atQuit: before rekordbox's own shutdown, which is the next observer)
     });
     // Mods' init runs on the main thread once the app is up (all static registrations are done by then).
     plat::onMain([] {
         checkBuild();
         latchSwitches();  // after checkBuild, whose versionOff modEnabled counts
+        addConfigList();
         std::string names;
         for (Mod& m : mods()) {
             names += std::string(names.empty() ? "" : ", ") + m.name + (modEnabled(m.name) ? "" : " (off)");

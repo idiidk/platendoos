@@ -5,15 +5,15 @@ set -euo pipefail
 here=${0:A:h}
 source "$here/tools/build/edition.sh"
 mkdir -p "$here/build"
-python3 -I "$here/tools/build/config_gen.py" "$here" > "$here/core/config_template.h.new"
-cmp -s "$here/core/config_template.h.new" "$here/core/config_template.h" || mv "$here/core/config_template.h.new" "$here/core/config_template.h"
-rm -f "$here/core/config_template.h.new"
 # platendoos's version, shown by the badge: the commit, "+" when built with uncommitted changes.
 # PLATENDOOS_VERSION (set by tools/build/release.sh) names a release build; otherwise the commit, + when uncommitted changes
 if [[ -n ${PLATENDOOS_VERSION:-} ]]; then build=$PLATENDOOS_VERSION; else
     build=$(git -C "$here" rev-parse --short HEAD 2>/dev/null || echo dev)
     [[ -n $(git -C "$here" status --porcelain 2>/dev/null) ]] && build="$build+"
 fi
+# The settings' declarations must be ones tools/build/settings_parse.py reads as this build does (the docs' option
+# tables, the patcher and the config list for other platforms are made from what it reads): it says where, if not.
+python3 -I "$here/tools/build/settings_parse.py" --check "$here" || exit 1
 # Shared sources (core, mods, engines) build for both; files ending in _win.* or _ort.* (and engines/ort.cpp) are Windows-only (tools/win/build.sh).
 srcs=("$here"/core/*.(mm|cpp)(N) "$here"/mods/*.(mm|cpp)(N) "$here"/engines/*.(mm|cpp)(N))
 defs=()

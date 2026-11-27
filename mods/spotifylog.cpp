@@ -17,4 +17,7 @@ extern "C" void rbm_hook_log_trim(const void* file, int64_t maxSize) {
     RBM_ORIG(log_trim, void (*)(const void*, int64_t))(file, maxSize);
 }
 
-RBM_MOD({.name = "spotifylog", .enabled = &g_on});
+RBM_MOD({.name = "spotifylog", .enabled = &g_on,
+         .title = "Spotify log",
+         .about = "Stops rekordbox from rewriting its Spotify log file several times a second.",
+         .area = "spotify", .order = 80});

@@ -48,9 +48,6 @@ srcs=($root/core/*.cpp(N) $root/mods/*.cpp(N) $root/engines/*.cpp(N))
 srcs=(${srcs:#*_mac.*})
 srcs+=($root/third_party/lzfse/*.c)  # LZFSE for stemcache's lossless chunks (macOS: libcompression)
 # which mod each hook belongs to (core/image_win.cpp switches off a mod whose hooks aren't all in place)
-python3 -I $root/tools/build/config_gen.py $root > $root/core/config_template.h.new
-cmp -s $root/core/config_template.h.new $root/core/config_template.h || mv $root/core/config_template.h.new $root/core/config_template.h
-rm -f $root/core/config_template.h.new
 python3 -I $here/hookmods.py $root > $obj/hookmods.cpp.new
 cmp -s $obj/hookmods.cpp.new $obj/hookmods.cpp || mv $obj/hookmods.cpp.new $obj/hookmods.cpp
 srcs+=$obj/hookmods.cpp
@@ -73,7 +70,7 @@ print -r -- '1 ICON "platendoos.ico"' > $obj/icon.rc
 [[ $obj/icon.res -nt $ico ]] || ( cd $obj && $llvm/llvm-rc -no-preprocess -fo icon.res icon.rc )
 
 # compile in parallel, only what changed. Any header of ours newer than an object rebuilds it (headers aren't
-# tracked per file: a changed core/defaultoff.h once left core.cpp's object, and so the mods' defaults, stale).
+# tracked per file: a changed header once left core.cpp's object, and so the mods' defaults, stale).
 newest_h=( $root/(core|mods|engines|patcher)/*.(h|inc)(N) $root/private/mods/*.(h|inc)(N) )
 newest_h=$(ls -t $newest_h | head -1)   # (one file: a glob qualifier on the array sorted nothing, and no header was ever newer)
 # (RBM_JOBS=<n>: at most n compiles at a time, for when the Mac is close to its process limit and forks fail)
@@ -104,6 +101,7 @@ $lld/lld-link /nologo /dll /debug /pdbaltpath:%_PDB% /out:$pkg/rbmods.dll $objs 
 $llvm/clang-cl $cflags /c /Fo$obj/launcher.obj -- $here/launcher.cpp
 $lld/lld-link /nologo /subsystem:windows /out:$pkg/platendoos.exe $obj/launcher.obj $obj/icon.res $libpaths kernel32.lib shell32.lib user32.lib
 # the patcher (patcher/): installs this folder for the rekordbox on a PC, with a window; shares core/webui_win.cpp
+python3 -I $root/tools/build/settings_parse.py --check $root || exit 1  # (as compile.sh: the declarations must be readable)
 python3 -I $root/tools/build/patcher_gen.py $root > $obj/patcher_gen.h.new
 cmp -s $obj/patcher_gen.h.new $obj/patcher_gen.h || mv $obj/patcher_gen.h.new $obj/patcher_gen.h
 rm -f $obj/patcher_gen.h.new

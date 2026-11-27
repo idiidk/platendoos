@@ -84,5 +84,8 @@ void init() { logf(g_patched ? "spotifystart: on" : "spotifystart: not this reko
 
 }  // namespace
 
-RBM_MOD({.name = "spotifystart", .init = init});
+RBM_MOD({.name = "spotifystart", .init = init,
+         .title = "Spotify start fix",
+         .about = "Fixes Spotify hanging on \"loading\" at launch in rekordbox 7.2.19.",
+         .area = "spotify", .order = 70});
 #endif

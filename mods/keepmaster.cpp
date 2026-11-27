@@ -129,4 +129,12 @@ static void init() {
     if (deck && local) logf("keepmaster: a master change never changes the tempo of a playing deck");
 }
 
-RBM_MOD({.name = "keepmaster", .init = init, .tick = tick, .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"decks", "Decks & sound",
+    "What you hear and mix: inputs, outputs, the mixer's effects.",
+    "<circle cx=\"8\" cy=\"8\" r=\"6\"/><circle cx=\"8\" cy=\"8\" r=\"1.6\"/>", 10}; }
+
+RBM_MOD({.name = "keepmaster", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Steady sync master",
+         .about = "Changing the sync master never changes the tempo of a deck you hear.",
+         .area = "decks", .order = 50});

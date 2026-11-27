@@ -19,7 +19,7 @@ bool load() {
             return false;
         }
         MLModelConfiguration* cfg = [MLModelConfiguration new];
-        cfg.computeUnits = cfgInt("gpu", 1) ? MLComputeUnitsCPUAndGPU : MLComputeUnitsCPUOnly;
+        cfg.computeUnits = setting("gpu").integer() ? MLComputeUnitsCPUAndGPU : MLComputeUnitsCPUOnly;
         NSError* err = nil;
         double t = now();
         g_model = [MLModel modelWithContentsOfURL:[NSURL fileURLWithPath:path] configuration:cfg error:&err];

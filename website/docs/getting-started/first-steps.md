@@ -32,9 +32,9 @@ rekordbox from the plain one.
 
 ### The chip's window
 
-<figure class="shot"><img src="/img/about.webp" alt="The settings window: the list of mods on the left, the stemcache mod's options on the right, each with a description and a switch, list or field"><figcaption>The chip's window: every mod with its switch, and the selected mod's options.</figcaption></figure>
+<figure class="shot"><img src="/img/about.webp" alt="The Preferences window: areas such as Decks & sound, Stems and Analysis on the left; on the right the Stems area with a card per feature, each option a line with a switch, a list or a field"><figcaption>The Preferences window: areas on the left, each feature a card with its options.</figcaption></figure>
 
-Clicking the chip opens the settings window:
+Clicking the chip opens a small window with the versions; its **Preferences…** button opens the Preferences window:
 
 - rekordbox's and platendoos's versions, and how many mods are on;
 - on the left every mod, with a lamp for its state: green when it runs, grey when it is off, orange when its

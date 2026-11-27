@@ -21,12 +21,22 @@ rekordbox leaves off.
 
 ## Using it
 
-In rekordbox's **Preferences > Audio**:
+In rekordbox's **Preferences > Audio** there is a section **Speakers and headphones** (marked *platendoos ·
+outputsync*), right under the audio device:
 
 - **Line up speakers and headphones**: the switch (`outputsync_lineup`).
-- A **fine-tune slider** under it, in ms on top of the reported difference (+ = headphones later;
+- A **fine-tune slider** under it, in ms on top of the reported difference (to the right the headphones play later;
   `outputsync_offset`).
-- A **metronome** switch: clicks on every output, so you can hear whether they line up and tune by ear.
+- A **metronome** switch: clicks on every output, so you can hear whether they line up and tune by ear. Every fourth
+  click is higher, so you can tell which click of the speakers belongs to which of the headphones.
+- A line that says what is lined up now. While rekordbox plays to one device there is nothing to line up: the
+  slider and the metronome are greyed out, and the line says so.
+
+The switch and the fine-tune are also in the [settings window](./badge#the-settings-window), under **Decks &
+sound**.
+- **Refresh audio devices** (also in the settings window): rekordbox looks for audio devices again and opens the
+  device you have selected anew. For a device you plugged in or changed that doesn't show up or stays silent,
+  without restarting rekordbox. The sound stops for a moment. Your choice of device stays as it is.
 
 Bluetooth is often later than it reports. Then set `outputsync_ms=` a number of milliseconds and tune it by ear while
 both play; it's picked up within seconds.

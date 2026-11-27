@@ -370,4 +370,12 @@ static void init() {
     else logf("multisort: the header's look could not be hooked (%d entries): other sorted columns show as plain titles", patched);
 }
 
-RBM_MOD({.name = "multisort", .init = init, .tick = tick, .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"lists", "Track list",
+    "Columns, sorting and the right-click menu.",
+    "<path d=\"M2.5 4h11M2.5 8h11M2.5 12h7\"/>", 50}; }
+
+RBM_MOD({.name = "multisort", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Sort by several columns",
+         .about = "Each click on a column header adds it to the sort.",
+         .area = "lists", .order = 20});

@@ -23,8 +23,8 @@ const modGroups: { text: string; mods: [string, string?][] }[] = [
   { text: 'Spotify', mods: [['spotifyapi'], ['spotifyfix'], ['spotifystart', 'win'], ['autocue'], ['genres'], ['spotifyaudio'], ['artcache'], ['spotifylog'], ['spotifydl']] },
   { text: 'Analysis', mods: [['analyzer'], ['bettergrid'], ['betterkey'], ['quickdeck'], ['parallel'], ['tfpool'], ['streamio'], ['timing']] },
   { text: 'Browsing and playing', mods: [['stemcache'], ['betterstems'], ['fastwave'], ['audiomem', 'mac'], ['betterfx', 'mac'], ['keepmaster'], ['tidymenu'], ['multisort'], ['keycolumn'], ['xfadelock'], ['outputsync', 'mac'], ['fontcache', 'mac'], ['quickframe', 'mac'], ['relayout', 'mac']] },
-  { text: 'Controllers', mods: [['flx4']] },
-  { text: 'Quieter in the background', mods: [['framerate'], ['badge'], ['screeninfo', 'mac'], ['midipoll', 'mac'], ['idlewake', 'mac']] },
+  { text: 'Controllers', mods: [['flx4'], ['linein']] },
+  { text: 'Quieter in the background', mods: [['framerate'], ['badge'], ['prefs'], ['screeninfo', 'mac'], ['midipoll', 'mac'], ['idlewake', 'mac']] },
 ]
 const tag = (p?: string) => (p === 'mac' ? ' <span class="pd-tag">mac</span>' : p === 'win' ? ' <span class="pd-tag">win</span>' : '')
 

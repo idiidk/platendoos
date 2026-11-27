@@ -26,6 +26,12 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting mb{"spotifyaudio_mb", 256, {.label = "Memory for the tracks read last", .unit = "MB", .min = 0, .max = 8192, .step = 64}};
+const Setting wait{"spotifyaudio_wait", 90, {.label = "Keep trying to open a stream for", .unit = "s", .min = 10, .max = 600, .step = 5, .advanced = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 
 namespace {  // file-local: another mod has types of the same names
@@ -64,7 +70,7 @@ bool decode(const std::string& uri, std::vector<int16_t>* out, int* rate, std::s
     // (rekordbox 7.2.20 asks the juce thread it runs on whether to stop while it waits for the download: this thread
     // isn't one of juce's)
     JuceThreadScope onJuceThread;
-    double t0 = now(), maxWait = cfgNum("spotifyaudio_wait", 90);
+    double t0 = now(), maxWait = opt::wait.number();
     bool waited = false;
     while (g_on && now() - t0 < maxWait) {
         JStr path(uri.c_str());
@@ -124,7 +130,7 @@ bool read(const char* uriC, Pcm* stereo, int* rate, std::string* why) {
     {
         std::lock_guard<std::mutex> l(g_lock);
         g_decoding.erase(uri);
-        double cap = std::max(0.0, cfgNum("spotifyaudio_mb", 256)) * 1e6;
+        double cap = std::max(0.0, opt::mb.number()) * 1e6;
         if (ok && (double)(pcm->size() * sizeof(int16_t)) <= cap) {
             g_kept[uri] = {pcm, *rate, now()};
             g_keptBytes += pcm->size() * sizeof(int16_t);
@@ -145,10 +151,13 @@ void tick() {
     if (now() < nextAt) return;
     nextAt = now() + 5;
     std::lock_guard<std::mutex> l(g_lock);
-    trim(std::max(0.0, cfgNum("spotifyaudio_mb", 256)) * 1e6);  // (a smaller limit set meanwhile)
+    trim(std::max(0.0, opt::mb.number()) * 1e6);  // (a smaller limit set meanwhile)
 }
 
 }  // namespace
 
 RBM_PROVIDE("spotifyaudio", "spotifyaudio.read", read, &g_on);
-RBM_MOD({.name = "spotifyaudio", .init = init, .tick = tick, .enabled = &g_on});
+RBM_MOD({.name = "spotifyaudio", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Spotify audio for the windows",
+         .about = "Lets the auto cues and genres windows hear a Spotify track, read from the stream into memory.",
+         .area = "spotify", .order = 30});

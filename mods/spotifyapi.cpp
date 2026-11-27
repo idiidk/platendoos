@@ -12,6 +12,11 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting slots{"spotifyapi_slots", 3, {.label = "Lists loaded at once", .min = 1, .max = 8, .step = 1, .restart = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 static thread_local bool t_slot;  // this thread holds a slot rather than the lock
 
@@ -20,7 +25,7 @@ namespace {
 struct Slots {
     std::mutex m;
     std::condition_variable cv;
-    int n = std::max(1, std::min(cfgInt("spotifyapi_slots", 3), 8));
+    int n = std::max(1, std::min(opt::slots.integer(), 8));
     void wait() {
         std::unique_lock<std::mutex> l(m);
         cv.wait(l, [&] { return n > 0; });
@@ -73,4 +78,12 @@ extern "C" void* rbm_hook_bridge_pool(void* pool, int threads, size_t stackSize,
     return RBM_ORIG(bridge_pool, void* (*)(void*, int, size_t, int))(pool, threads, stackSize, priority);
 }
 
-RBM_MOD({.name = "spotifyapi", .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"spotify", "Spotify",
+    "Spotify playlists, their audio and their cover art.",
+    "<path d=\"M3 5.5c3.5-1.3 7-1 10 .8M3.8 8.3c2.9-1 5.8-.7 8.2.7M4.8 11c2.1-.6 4.1-.4 5.9.5\"/>", 40}; }
+
+RBM_MOD({.name = "spotifyapi", .enabled = &g_on,
+         .title = "Spotify lists",
+         .about = "Loads several Spotify track lists at once instead of one after the other.",
+         .area = "spotify", .order = 50});

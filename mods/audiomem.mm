@@ -55,6 +55,15 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting decks{"audiomem_decks", true, {.label = "Keep a playing deck's audio ready", .restart = true}};
+const Setting ahead{"audiomem_ahead", 20, {.label = "Seconds kept ready ahead of the playhead", .unit = "s", .min = 2, .max = 120, .step = 1, .restart = true, .needs = "audiomem_decks"}};
+const Setting fx{"audiomem_fx", true, {.label = "Keep the FX buffers in memory", .restart = true}};
+const Setting code{"audiomem_code", true, {.label = "Keep rekordbox's own code in memory", .restart = true}};
+const Setting lazy{"audiomem_lazy", true, {.label = "Prepare a deck's buffers off the main thread", .restart = true, .advanced = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 
 static const Addr A_getPlayingTime{"__ZNK8djengine10DjEngineIF14getPlayingTimeENS_15EnPlayerChannelE"};  // ms
@@ -348,7 +357,7 @@ void summary(const char* when) {
 
 void keeper() {
     pthread_setname_np("rbmods audiomem");
-    if (cfgInt("audiomem_code", 1)) pinCode();
+    if (opt::code.integer()) pinCode();
     long lastPinned = -1, lastBack = 0;
     double pinnedAt = 0, backAt = now(), codeAt = 0;
     unsigned round = 0;
@@ -374,10 +383,10 @@ void keeper() {
 }
 
 void init() {
-    g_fx = cfgInt("audiomem_fx", 1) != 0;
-    g_decks = cfgInt("audiomem_decks", 1) != 0;
-    g_lazy = cfgInt("audiomem_lazy", 1) != 0;
-    int a = cfgInt("audiomem_ahead", 20);
+    g_fx = opt::fx.integer() != 0;
+    g_decks = opt::decks.integer() != 0;
+    g_lazy = opt::lazy.integer() != 0;
+    int a = opt::ahead.integer();
     g_ahead = a < 2 ? 2 : a > 120 ? 120 : a;
     double swap = swapUsedGb();
     if (swap >= 2) logf("audiomem: %.1f GB of swap in use: this Mac is short of memory, and audio is the first thing to notice. Closing other apps before a set helps", swap);
@@ -407,7 +416,10 @@ void tick() {
 
 }  // namespace
 
-RBM_MOD({.name = "audiomem", .init = init, .tick = tick, .enabled = &g_on});
+RBM_MOD({.name = "audiomem", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Audio memory",
+         .about = "Keeps the memory rekordbox's audio works with in RAM, so playback doesn't click when the Mac runs short of memory.",
+         .area = "decks", .order = 60});
 
 // ---- hooks -------------------------------------------------------------------------------------------------------
 

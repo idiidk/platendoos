@@ -1,0 +1,351 @@
+[
+ {
+  "item": "__ZN19PreferenceComponentC1E22PreferenceCategoryType18PreferencePageType",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141d9f4f0",
+  "confidence": "high",
+  "why": "rcx=this, edx=category, r8d=page (returns this in rax): calls base ctor 0x141d9f010, re-stores the 5 PreferenceComponent vtables (RTTI 0x143befb50 +0xf0/+0xf8/+0x100/+0x108), CategoryData::find(&category) 0x141d9c0e0, String(name), cmp page,-1, std::map insert at [[this+0x130]+0xf8], PreferenceCategoryComponent::selectCategory([this+0x128]); only callers PreferenceDialog ctor 0x1413c76b0 and createComponent 0x1413c7b80 (new 0x138)"
+ },
+ {
+  "item": "__ZN27PreferenceCategoryComponent12CategoryData4findERK22PreferenceCategoryType",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141d9c0e0",
+  "confidence": "high",
+  "why": "leaf, rcx=const PreferenceCategoryType*: linear search of a static table at 0x143beed00 (RVA 0x3beed00), 11 entries of 0x18 bytes {const char* name, const char* title, int type @+0x10}, returns the entry or 0; names Plan, Cloud, View, Audio, Analysis, Controller, Keyboard, DVS, Detail, Extensions, DJ System (types 0..10). First field = name as on mac, so *find(&t) works unchanged; only caller the ctor 0x141d9f4f0"
+ },
+ {
+  "item": "__ZN19PreferenceComponent14selectCategoryERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141d9fc40",
+  "confidence": "high",
+  "why": "override of a secondary-base virtual (mac __ZThn240_ thunk adds -0xf0): on Windows it sits only in the +0xf0 subobject's vtable 0x143befce8 slot 0 and takes this = PreferenceComponent+0xf0 (uses [rcx+0x20] = mac [this+0x110] page name, tail jmp setCategoryType 0x141db0240 with [rcx+0x40] = mac [this+0x130]); body = find(String) 0x141d9c120, [rax+0x10] type, \"Plan\" fallback, ApplicationMode isMode 1/2/4/8 + SettingIF setLastOpenedPageName*. CALL IT WITH g_pref + thisDelta (adj 240): prefs.cpp's selectCategory() passes g_pref unadjusted"
+ },
+ {
+  "item": "__ZN29PreferencePageSelectComponent11setPageNameERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141db11b0",
+  "confidence": "high",
+  "why": "rcx=this (primary, non-virtual), rdx=const String*: page-table search (0x18-byte entries, \"Plan\" end marker) with operator==, std::map store at [this+0x110], PreferencePageItemComponent::setPageName([this+0x130]) 0x141da8ff0 (v0-verified), virtual setVisible [vt+0x58] on [this+0x140], layout 0x141db1410, PageSelectButtonComponent::setToggleState loop 0x141c54580; callers setCategoryType 0x141db0240 and buttonClicked 0x141db0c80 as on mac"
+ },
+ {
+  "item": "__ZN29PreferencePageSelectComponent13buttonClickedEPN4juce6ButtonE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141db0c80",
+  "confidence": "high",
+  "why": "only in the Button::Listener subobject vtable 0x143bf6a98 (subobject +0xf0 = 240; slot 1 after the scalar deleting dtor 0x141db16c0, slot 2 buttonStateChanged default) and takes this = PreferencePageSelectComponent+0xf0, rdx=Button*: reset button [rcx+0x50] (mac [this+0x148]) -> BailOutChecker(rcx-0xf0), showOkCancelBox, resetItem; scroll buttons [rcx+0x60]/[rcx+0x68]; else setToggleState(false), page-table String==, setPageName(rcx-0xf0, name) 0x141db11b0. adj = +240 (maketable derives it from the vtable); the mod already passes select + thisDelta(A_pageClicked)"
+ },
+ {
+  "item": "__ZN13MainComponent14showPreferenceE22PreferenceCategoryType",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14182b250",
+  "confidence": "high",
+  "why": "rcx=MainComponent, edx=category: same body (setAlwaysOnTop(false) on two windows [this+0xad8]/[+0xae8] (mac +0xbf0/+0xc00), ModalComponentManager scan comparing names with translate(\"Preferences\"), PreferenceDialog::show(category, -1) 0x1413c7540, then scan with dynamic_cast<PreferenceDialog> and attachCallback(new PreferenceWindowCallback), else $_13 0x1418520e0 (the save lambda)"
+ },
+ {
+  "item": "__ZN6djplay9SettingIF29savePreferredSettings_GeneralEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141dca0f0",
+  "confidence": "high",
+  "why": "empty on mac (push/pop rbp/ret) and on Windows a bare 'ret 0' (likely a folded no-op); called first in $_13 0x1418520e0 with rcx=SettingIF::getInstance() exactly where mac calls it, also from ClsPrefarenceGuide::buttonClicked and its modalStateFinished. Calling it does nothing on either platform"
+ },
+ {
+  "item": "__ZN6djplay9SettingIF32savePreferredSettings_AudioMixerEbbb",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141dd1df0",
+  "confidence": "high",
+  "why": "rcx=SettingIF, dl/r8b/r9b = the three bools: dl -> MixerModeAndOptions 0x141de8d80, r8b -> MixerChannels 0x141de93e0, r9b -> MixerInputChannels 0x141dea330, tail jmp MixDevice 0x141dea690 (same as mac); $_13 calls it with 1,1,1"
+ },
+ {
+  "item": "__ZN6djplay9SettingIF28savePreferredSettings_PlayerEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141ddecb0",
+  "confidence": "high",
+  "why": "rcx=SettingIF: three SettingFile singleton get/getIntValue/setIntValue triplets as on mac (0x141e6cd40/0x141e6c450/0x141e6c4f0); third call in $_13 0x1418520e0"
+ },
+ {
+  "item": "__ZN4juce6Button12triggerClickEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142c1e450",
+  "confidence": "high",
+  "why": "leaf without unwind info (not in the function list): 'mov edx,0x2f3f4f99; jmp 0x142c0ffc0' = postCommandMessage(clickMessageId), mac identical (esi=0x2f3f4f99, jmp postCommandMessage); the only other use of the constant is Button::handleCommandMessage 0x142c1e2e0. rcx=Button*"
+ },
+ {
+  "item": "__ZNK4juce9Component9isEnabledEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142c0c360",
+  "confidence": "high",
+  "why": "leaf-ish recursive form of the same JUCE code: 'cmp byte [rcx+0xe9],0; jl -> false' (bit 15 of the flags word at +0xe8 = isDisabledFlag, mac tests 0x8000 of the same word), then parent [rcx+0x30], recurse, else true. Button::handleCommandMessage 0x142c1e2e0 inlines the first step and calls it on the parent. rcx=Component*, returns al"
+ },
+ {
+  "item": "__ZNK4juce8ComboBox11getNumItemsEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142ba2c50",
+  "confidence": "high",
+  "why": "rcx=ComboBox: MenuItemIterator ctor 0x142bac4d0 on the PopupMenu at this+0x158 (mac +0x150), next() 0x142bac240, counts items with itemID [item+8] != 0 (mac cmp/sbb, Windows cmove), returns count. Neighbours: getItemText 0x142ba2bf0, getItemForIndex 0x142ba2cd0, indexOfItemId 0x142ba2b10, getItemForId 0x142ba2d80"
+ },
+ {
+  "item": "__ZNK4juce8ComboBox11getItemTextEi",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142ba2bf0",
+  "confidence": "high",
+  "why": "rcx=ComboBox, rdx=String* result (returned in rax), r8d=index: getItemForIndex 0x142ba2cd0, copies the item's text String [item+0] with inlined refcount lock inc, else emptyString. memberString(A_comboItem, k, a) shape is right. The matcher has this address under PopupMenu::clear (wrong label)"
+ },
+ {
+  "item": "__ZNK4juce8ComboBox9getItemIdEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142ba2bc0",
+  "confidence": "high",
+  "why": "rcx=ComboBox, edx=index: getItemForIndex 0x142ba2cd0 (same iterator loop as mac, skips id 0 items), returns [item+8] or 0"
+ },
+ {
+  "item": "__ZN4juce8ComboBox13setSelectedIdEiNS_16NotificationTypeE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142ba2560",
+  "confidence": "high",
+  "why": "rcx=ComboBox, edx=id, r8d=NotificationType: getItemForId 0x142ba2d80 (inlined iterator on mac), compares lastCurrentId [this+0x1a0] (mac 0x198) and label text (label [this+0x1d8], mac 0x1d0), Label::setText 0x142b9f980, stores lastCurrentId, currentId Value [this+0x170] (mac 0x168) set via its ValueSource, repaint, sendChange 0x142ba07b0 (notification 0 = none). Called by ComboBox::setText 0x142ba20c0 as on mac"
+ },
+ {
+  "item": "__ZNK4juce8ComboBox13getSelectedIdEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142ba27d0",
+  "confidence": "high",
+  "why": "rcx=ComboBox: currentId Value [this+0x170] -> ValueSource getValue + var toInt (Value::getValue/var::operator int inlined), getItemForId 0x142ba2d80, label [this+0x1d8] textValue (+0x1d8) toString, compares with the item's text, returns [item+8] or 0 (same as mac's getSelectedId)"
+ },
+ {
+  "item": "__ZNK4juce8ComboBox7getTextEv",
+  "kind": "sym",
+  "verdict": "inlined",
+  "confidence": "high",
+  "why": "no Windows function (no call/jmp form exists): callers inline 'mov rcx,[combo+0x1d8]; add rcx,0x1d8; call Value::toString 0x142c301e0' (e.g. 0x142ba21d8 in ComboBox::setText, 0x1411c975a). Do instead: memberString(A_labelText, *(void**)(combo+0x1d8), false): juce::Label::getText(bool) 0x142b9f890 (v0-verified) with false reads exactly that Value (label +0x1d8). Needs the label pointer offset 0x1d8 (mac 0x1d0) as a win: field (see comboParts)"
+ },
+ {
+  "item": "__ZNK4juce6Button14getToggleStateEv",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x140f84540",
+  "confidence": "high",
+  "why": "real Windows function (v1's 'inlined' was wrong): rcx=Button, ValueSource [this+0x200] (isOn Value; mac x86 +0x1e0) ->getValue (vt+8), var type toBool (vt+0x30), var dtor (vt+0x58), returns al; called by Button::setToggleState(3-arg) 0x142c1e9e0 exactly where mac inlines getToggleState before comparing, and by 40+ button/LookAndFeel callers. Its 'lastToggleState' byte is [this+0x231] (mac x86 0x211). Matcher labels it Path::getTransformToScaleToFit (wrong)"
+ },
+ {
+  "item": "__ZN4juce9Component26getCurrentlyModalComponentEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142c11eb0",
+  "confidence": "high",
+  "why": "static, ecx=index: ModalComponentManager::singletonHolder, stack array [mcm+0x18] count [mcm+0x24], walks from the top skipping items with isActive byte [item+0x5c]==0, returns the index-th item's component (same as mac; Windows returns via r9 path)"
+ },
+ {
+  "item": "__ZN4juce6Slider5Pimpl13sendDragStartEv",
+  "kind": "sym",
+  "verdict": "inlined",
+  "confidence": "high",
+  "why": "no Windows function: inlined into Slider::ScopedDragNotification::ScopedDragNotification(Slider&) 0x142b9a360 (rcx=8-byte object {Slider*}, rdx=Slider; stores the slider, pimpl=[slider+0x240], startedDragging vcall [vt+0x190] on [pimpl+0x18] (mac slot +0x1a8), ListenerList<SliderListener> dragStarted call 0x140fecf10 on [pimpl+0x28], onDragStart std::function impl [slider+0x178], returns this) and into Pimpl::mouseDown 0x142b9b4a0. Do instead on Windows: void* s; ctor(&s, slider) (no mac symbol: mac inlines that ctor)"
+ },
+ {
+  "item": "__ZN4juce6Slider5Pimpl11sendDragEndEv",
+  "kind": "sym",
+  "verdict": "inlined",
+  "confidence": "high",
+  "why": "no Windows function: inlined into Slider::ScopedDragNotification::~ScopedDragNotification() 0x142b9a2a0 (rcx=&{Slider*}: pimpl=[slider+0x240], if non-null stoppedDragging vcall [vt+0x198], sliderBeingDragged [pimpl+0x240]=-1 (mac 0x220), ListenerList dragEnded 0x140fed110, onDragEnd std::function impl [slider+0x1b8]). Mac has the same dtor as __ZN4juce6Slider22ScopedDragNotificationD1Ev (x86 0x1029dabb0: [this]->pimpl->sendDragEnd), so drag end can be the dtor on both; pair it with the ctor above on Windows"
+ },
+ {
+  "item": "O_flags",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZNK4juce9Component9isShowingEv",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "win": "0x142c15550",
+  "win_fn": "0x142c15550",
+  "value": "0xe8",
+  "confidence": "high",
+  "why": "isShowing: 'test byte [rcx+0xe8],2' per component up the parent chain [+0x30], then 'test byte [rcx+0xe8],1' (peer): visible = bit 1 (value 2) of the byte at +0xe8, as the mod reads it; isDisabled = bit 15 (byte +0xe9 bit 7, isEnabled 0x142c0c360)"
+ },
+ {
+  "item": "O_name",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN4juce9Component7setNameERKNS_6StringE",
+  "kind_recipe": "add x0",
+  "nth": 0,
+  "win": "0x142c15860",
+  "win_fn": "0x142c15860",
+  "value": "0x8",
+  "confidence": "high",
+  "why": "real setName is Component vtable slot 10 (0x1457b2378) 0x142c15860: 'cmp [rcx+8],rdi' / 'xchg [rbx+8],rcx' (String assign inlined), then flags +0xe8 bit 0 peer; the matcher's 0x1410356a0 for setName is wrong. Also PreferencePageSelectComponent::buttonClicked copies the clicked button's name from [button+8]"
+ },
+ {
+  "item": "O_buttonText",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN4juce6Button13setButtonTextERKNS_6StringE",
+  "kind_recipe": "add x0",
+  "nth": 0,
+  "win": "0x142c1f1a0",
+  "win_fn": "0x142c1f1a0",
+  "value": "0x198",
+  "confidence": "high",
+  "why": "Button::setButtonText 0x142c1f1a0 (unmatched before): compares [rcx+0x198] with the new String, assigns it with 'xchg [rbx+0x198]', repaints; Button ctor 0x142c1f460 copies its name String into [this+0x198]. arm64 0x158, x86 0x178"
+ },
+ {
+  "item": "O_radioGroup",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN4juce6Button15setRadioGroupIdEiNS_16NotificationTypeE",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "win": "0x142c1e8c0",
+  "win_fn": "0x142c1e8c0",
+  "value": "0x1ec",
+  "confidence": "high",
+  "why": "setRadioGroupId 0x142c1e8c0: 'cmp [rcx+0x1ec],edx' / 'mov [rcx+0x1ec],edx' (int), then lastToggleState byte [+0x231], turnOffOtherButtonsInGroup 0x142c1e7c0; mac x86 0x1cc, arm64 0x1ac"
+ },
+ {
+  "item": "O_sliderPimpl",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZNK4juce6Slider8getValueEv",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "win": "0x142b998b0",
+  "win_fn": "0x142b998b0",
+  "value": "0x240",
+  "confidence": "high",
+  "why": "Slider::getValue 0x142b998b0 = 'mov rcx,[rcx+0x240]; jmp Pimpl::getValue 0x140fc8780' (v1-verified; also getMinimum/getMaximum and ScopedDragNotification read [slider+0x240]); arm64 0x1a0, x86 0x1f0"
+ },
+ {
+  "item": "O_sliderInterval",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN4juce6Slider5Pimpl11updateRangeEv",
+  "kind_recipe": "ldr x19",
+  "nth": 0,
+  "win": "0x140fc8450",
+  "win_fn": "0x140fc8450",
+  "value": "0x108",
+  "confidence": "high",
+  "why": "Pimpl::updateRange 0x140fc8450 (unmatched before): 'cmp [rcx+0x27c],-1' (hasCustomDecimalPlaces), numDecimalPlaces [rcx+0x278]=7, 'movsd xmm6,[rcx+0x108]' = normRange.interval (round(interval*1e7), /10 loop), then setValue/setMinValue/setMaxValue + updateText; double. Range is start +0xf8 (getMinimum), end +0x100 (getMaximum), interval +0x108"
+ },
+ {
+  "item": "O_tipText",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN16ToolTipComponent7setTextERKN4juce6StringES3_",
+  "kind_recipe": "add x20",
+  "nth": 0,
+  "win": "0x141c5b710",
+  "win_fn": "0x141c5b710",
+  "value": "0xf8",
+  "confidence": "high",
+  "why": "ToolTipComponent::setText(a,b) 0x141c5b710: a (rdx) -> String at +0x100, b (r8) -> 'lea rcx,[rbx+0xf8]' String::operator=; setText(a) 0x141c5b6e0 sets +0xf8 and clears +0x100. Same as mac"
+ },
+ {
+  "item": "O_tipTitle",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN16ToolTipComponent7setTextERKN4juce6StringES3_",
+  "kind_recipe": "add x0",
+  "nth": 0,
+  "win": "0x141c5b710",
+  "win_fn": "0x141c5b710",
+  "value": "0x100",
+  "confidence": "high",
+  "why": "same function: first argument -> 'add rcx,0x100; call String::operator= 0x142a6e5b0'. Same as mac"
+ },
+ {
+  "item": "kBounds",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": null,
+  "value": "0x38",
+  "confidence": "high",
+  "why": "juce::Component bounds x,y,w,h ints at +0x38/+0x3c/+0x40/+0x44 (e.g. PreferencePageSelectComponent::buttonClicked 0x141db0e0b..0x141db0e1d passes [c+0x38]/[+0x3c]/[+0x40]/[+0x44] to setBounds; repaints use [+0x40]/[+0x44] as w,h). Parent pointer at +0x30 (isEnabled 0x142c0c360, isShowing 0x142c15550). Both as on mac"
+ },
+ {
+  "item": "kPrefSize",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": null,
+  "win": "0x1413c7b80",
+  "win_fn": "0x1413c7b80",
+  "value": "0x138",
+  "confidence": "high",
+  "why": "PreferenceDialog::createComponent 0x1413c7b80 (unmatched before; translate(\"Preferences\") title, 'mov ecx,0x138; call operator new 0x14280dfc8', ctor 0x141d9f4f0(rax, edx, r8d), tail jmp setContentOwned): sizeof(PreferenceComponent)=0x138 as on mac. rekordbox's operator new is 0x14280dfc8 (the matcher calls it String::toStdString) (read in __ZN16PreferenceDialog15createComponentE22PreferenceCategoryType18PreferencePageType)"
+ },
+ {
+  "item": "O_comboLabel",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN4juce8ComboBox13setSelectedIdEiNS_16NotificationTypeE",
+  "kind_recipe": "ldr x20",
+  "nth": 2,
+  "win_fn": "0x142ba2560",
+  "value": "0x1d8",
+  "confidence": "high",
+  "why": "ComboBox's Label* at +0x1d8 (arm64 0x1b8 via getText 'ldr x9,[x0,#0x1b8]', x86 0x1d0): setSelectedId 0x142ba2560 'mov rcx,[r14+0x1d8]; call Label::setText 0x142b9f980' (0x142ba26f2), setText 0x142ba225f, getSelectedId 0x142ba283e. For getText on Windows call Label::getText(false) 0x142b9f890 on that label (it reads the label's textValue at label+0x1d8, arm64 +0x178). Other ComboBox parts (not needed while the getters are callable): PopupMenu at +0x158 (mac x86 0x150), currentId Value at +0x170 (0x168), lastCurrentId int +0x1a0 (0x198); PopupMenu::Item: text String +0, itemID int +8"
+ },
+ {
+  "item": "juce::Slider::ScopedDragNotification's constructor",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142b9a360",
+  "confidence": "high",
+  "why": "Slider::ScopedDragNotification::ScopedDragNotification(Slider&): rcx = the 8-byte object {Slider*}, rdx = the Slider; holds the inlined Pimpl::sendDragStart (see __ZN4juce6Slider5Pimpl13sendDragStartEv in this file); the mac build inlines this constructor, so it has no mac symbol"
+ },
+ {
+  "item": "__ZN4juce6Slider22ScopedDragNotificationD1Ev",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142b9a2a0",
+  "confidence": "high",
+  "why": "Slider::ScopedDragNotification::~ScopedDragNotification(): rcx = &{Slider*}; holds the inlined Pimpl::sendDragEnd (see __ZN4juce6Slider5Pimpl11sendDragEndEv in this file)"
+ },
+ {
+  "item": "O_tipButton",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": "__ZN16ToolTipComponent10setTooltipERKN4juce6StringE",
+  "kind_recipe": "ldr x0",
+  "nth": 0,
+  "win": "0x141c5b750",
+  "win_fn": "0x141c5b750",
+  "value": "0x110",
+  "confidence": "high",
+  "why": "ToolTipComponent::setTooltip 0x141c5b750 reads its button pointer at [rcx+0x110] and forwards to the button's setTooltip (found with the emulator test tools/win/emu/test_prefs.py, 2026-11-27); as on mac"
+ },
+ {
+  "item": "__ZN16ToolTipComponent10setTooltipERKN4juce6StringE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141c5b750",
+  "confidence": "high",
+  "why": "ToolTipComponent::setTooltip: 'mov rcx,[rcx+0x110]' then the button's virtual setTooltip (emulator test tools/win/emu/test_prefs.py)"
+ },
+ {
+  "item": "O_buttonTip",
+  "kind": "offset",
+  "verdict": "ok",
+  "fn": null,
+  "kind_recipe": "add x0",
+  "nth": 0,
+  "value": "0xf8",
+  "confidence": "high",
+  "why": "juce::Button's tooltip String (its SettableTooltipClient part's string) at +0xf8, as on mac (emulator test tools/win/emu/test_prefs.py reads the real button tooltips through it) (no Windows function reads it from the Button pointer: prefs.cpp takes O_flags + 0x10 there; mac recipe __ZN4juce6Button10setTooltipERKNS_6StringE|add x0|0)"
+ }
+]

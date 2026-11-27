@@ -47,6 +47,21 @@
 #include <thread>
 
 using namespace rbm;
+
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting provider{"autocue_provider", "openrouter", {.label = "Who places the cues", .choices = {{"openrouter", "A model from OpenRouter (your key)"}, {"claude", "Claude Code on this computer"}, {"none", "No model: the built-in rules"}}}};
+const Setting model{"autocue_model", "anthropic/claude-haiku-5.5", {.label = "OpenRouter model", .help = "Any model id from openrouter.ai/models.", .wide = true, .needs = "autocue_provider=openrouter"}};
+const Setting claudeModel{"autocue_claude_model", "haiku", {.label = "Claude Code model", .help = "An alias (haiku, sonnet) or a full name.", .needs = "autocue_provider=claude"}};
+const Setting stems{"autocue_stems", true, {.label = "Listen to the stems", .help = "Off: three bands of the mix instead, faster, no separation."}};
+const Setting parallel{"autocue_parallel", 3, {.label = "Tracks analysed at once", .min = 1, .max = 8, .step = 1}};
+const Setting claudePath{"autocue_claude_path", "", {.label = "Where the claude program is", .help = "Only if it isn't found by itself.", .wide = true, .advanced = true, .needs = "autocue_provider=claude"}};
+const Setting pads{"autocue_pads", "ABCDEFGH", {.label = "Hot cue pads", .help = "The pad of Intro, Build, Drop, Breakdown, Build 2, Drop 2, Outro and Fake drop, in that order (- for none). Easier in the Auto cues window, under Layout.", .advanced = true}};
+const Setting memory{"autocue_memory", "00000000", {.label = "Memory cues", .help = "Per cue in the same order: 1 also writes it as a memory cue.", .advanced = true}};
+const Setting buildBars{"autocue_build_bars", 0, {.label = "Build cues before their drop", .choices = {{"0", "Where the build starts"}, {"4", "4 bars"}, {"8", "8 bars"}, {"16", "16 bars"}, {"32", "32 bars"}}, .advanced = true}};
+const Setting intro{"autocue_intro", "sound", {.label = "Intro cue at", .choices = {{"sound", "The first sound"}, {"drums", "The first drums"}, {"start", "The track's first bar"}}, .advanced = true}};
+const Setting outroBars{"autocue_outro_bars", 0, {.label = "Outro cue before the end", .choices = {{"0", "Where the last loud part ends"}, {"16", "16 bars"}, {"32", "32 bars"}, {"64", "64 bars"}}, .advanced = true}};
+}  // namespace opt
 namespace web = rbm::webui;
 namespace sheet = autocue_sheet;
 
@@ -109,6 +124,13 @@ std::string memStr(const Layout& l) {
     std::string s;
     for (bool m : l.mem) s += m ? '1' : '0';
     return s;
+}
+// The layout the options say (autocue_pads ...): what the window's Layout writes, and the settings window can too.
+Layout configuredLayout() {
+    return layoutFrom(opt::pads.text(), opt::memory.text(), opt::buildBars.integer(), opt::intro.text(), opt::outroBars.integer());
+}
+bool sameLayout(const Layout& a, const Layout& b) {
+    return padsStr(a) == padsStr(b) && memStr(a) == memStr(b) && a.buildBars == b.buildBars && a.intro == b.intro && a.outroBars == b.outroBars;
 }
 char padOf(char slot) { return g_layout.pad[slot - 'A']; }   // g_lock held
 bool memOf(char slot) { return g_layout.mem[slot - 'A']; }
@@ -230,9 +252,9 @@ std::mutex g_keyLock;
 std::string g_key;  // the OpenRouter key, read from the keychain once (the OS may ask the user to allow it)
 double g_cost = 0;  // OpenRouter's cost of this session's answers
 
-bool useClaude() { return cfgStr("autocue_provider", "openrouter") == "claude"; }
-bool noModel() { return cfgStr("autocue_provider", "openrouter") == "none"; }  // the rules' cues, and no model asked
-std::string model() { return useClaude() ? cfgStr("autocue_claude_model", "haiku") : cfgStr("autocue_model", "anthropic/claude-haiku-5.5"); }
+bool useClaude() { return opt::provider.text() == "claude"; }
+bool noModel() { return opt::provider.text() == "none"; }  // the rules' cues, and no model asked
+std::string model() { return useClaude() ? opt::claudeModel.text() : opt::model.text(); }
 
 // The Claude Code CLI on this computer (looked for when the window opens).
 struct Claude {
@@ -775,7 +797,7 @@ void readTrack(int generation, int run, const std::string& uri) {
 // Reads the ticked rows not done yet, several at once (autocue_parallel; stem separation itself one track at a time), in
 // the list's order, until the playlist changes or Stop.
 void startReading(int generation) {
-    int run, n = std::clamp(cfgInt("autocue_parallel", 3), 1, 8);
+    int run, n = std::clamp(opt::parallel.integer(), 1, 8);
     {
         std::lock_guard<std::mutex> l(g_lock);
         run = ++g_readRun;
@@ -970,7 +992,7 @@ const char* const kClaudeQuiet[] = {"--safe-mode", "--strict-mcp-config", "--no-
 
 // The claude program: the config's, the usual install places, else wherever the shell finds it.
 std::string findClaude() {
-    std::string set = cfgStr("autocue_claude_path", "");
+    std::string set = opt::claudePath.text();
     if (!set.empty()) return plat::fileInfo(set, nullptr) ? set : "";
     std::string home = plat::homeDir();
     std::vector<std::string> places;
@@ -1556,6 +1578,22 @@ void saveInstructions() {
     plat::writeFileAtomic(dataDir() + "/instructions.txt", g_instructions.data(), g_instructions.size());
 }
 
+// A new layout: every track's cues follow at once (the model isn't asked again). Main thread.
+void applyLayout(const Layout& to) {
+    std::lock_guard<std::mutex> l(g_lock);
+    g_layout = to;
+    for (Row& r : g_rows) {
+        if (!r.an) continue;
+        auto before = r.draft;
+        if (!r.edited) r.draft = defaultDraft(r);
+        else r.edited = r.draft != defaultDraft(r);
+        r.version++;
+        if (r.draft != before) saveRow(r);
+    }
+    g_status.clear();
+    g_dirty = true;
+}
+
 void onMessage(const std::string& m) {
     std::string cmd = web::jsonGet(m, "cmd"), u = web::jsonGet(m, "u");
     auto row = [&](auto fn) {
@@ -1627,18 +1665,7 @@ void onMessage(const std::string& m) {
         Layout to = layoutFrom(web::jsonGet(m, "pads"), web::jsonGet(m, "mem"), atoi(web::jsonGet(m, "build").c_str()), web::jsonGet(m, "intro"), atoi(web::jsonGet(m, "outro").c_str()));
         setCfg("autocue_pads", padsStr(to)), setCfg("autocue_memory", memStr(to)), setCfg("autocue_build_bars", std::to_string(to.buildBars));
         setCfg("autocue_intro", kIntro[to.intro]), setCfg("autocue_outro_bars", std::to_string(to.outroBars));
-        std::lock_guard<std::mutex> l(g_lock);
-        g_layout = to;
-        for (Row& r : g_rows) {
-            if (!r.an) continue;
-            auto before = r.draft;
-            if (!r.edited) r.draft = defaultDraft(r);
-            else r.edited = r.draft != defaultDraft(r);
-            r.version++;
-            if (r.draft != before) saveRow(r);
-        }
-        g_status.clear();
-        g_dirty = true;
+        applyLayout(to);
     }
     else if (cmd == "select") { std::lock_guard<std::mutex> l(g_lock); g_selected = u; g_dirty = true; }
     else if (cmd == "tick") row([&](Row& r) { r.tick = web::jsonGet(m, "on") == "true"; });
@@ -1751,12 +1778,26 @@ void trackMenu(Menu* menu, const std::vector<std::string>& uris, const std::stri
 
 void tick() {
     readCommand();
+    // The layout and "use stems" are options too (the settings window, the config file): a change there is followed
+    // like one made in this window. (This window writes the options before it applies them, so nothing differs then.)
+    static double checkedAt;
+    if (now() - checkedAt >= 1) {
+        checkedAt = now();
+        Layout to = configuredLayout();
+        bool stems = opt::stems.integer() != 0, differs;
+        {
+            std::lock_guard<std::mutex> l(g_lock);
+            differs = !sameLayout(to, g_layout);
+            if (stems != g_useStems) g_useStems = stems, g_dirty = true;
+        }
+        if (differs) applyLayout(to);
+    }
     if (g_dirty.exchange(false)) sendState();
 }
 
 void init() {
-    g_useStems = cfgInt("autocue_stems", 1) != 0;
-    g_layout = layoutFrom(cfgStr("autocue_pads", "ABCDEFGH"), cfgStr("autocue_memory", "00000000"), cfgInt("autocue_build_bars", 0), cfgStr("autocue_intro", "sound"), cfgInt("autocue_outro_bars", 0));
+    g_useStems = opt::stems.integer() != 0;
+    g_layout = configuredLayout();
     plat::readFile(dataDir() + "/instructions.txt", &g_instructions);
     std::error_code ec;
     std::filesystem::create_directories(plat::fsPath(dataDir()), ec);
@@ -1764,4 +1805,7 @@ void init() {
 
 }  // namespace
 
-RBM_MOD({.name = "autocue", .init = init, .tick = tick, .playlistMenu = playlistMenu, .trackMenu = trackMenu, .enabled = &g_on, .menuOrder = 30});
+RBM_MOD({.name = "autocue", .init = init, .tick = tick, .playlistMenu = playlistMenu, .trackMenu = trackMenu, .enabled = &g_on, .menuOrder = 30,
+         .title = "Auto cues",
+         .about = "Open auto cues window in a playlist's menu places intro, build, drop and outro cues. Which cue goes on which pad is set there, under Layout.",
+         .area = "analysis", .order = 50});

@@ -350,6 +350,17 @@ void post(Window* w, const std::string& json) {
 }
 
 bool visible(Window* w) { return w && IsWindowVisible(w->hwnd); }
+// An owned window always stays above its owner: an ordinary one has no owner, and a taskbar button of its own so it
+// can be found again behind rekordbox.
+void setFloating(Window* w, bool floats) {
+    if (!w || !w->hwnd) return;
+    HWND owner = floats ? findMainWindow() : nullptr;
+    if ((HWND)GetWindowLongPtrW(w->hwnd, GWLP_HWNDPARENT) == owner) return;
+    SetWindowLongPtrW(w->hwnd, GWLP_HWNDPARENT, (LONG_PTR)owner);
+    LONG_PTR ex = GetWindowLongPtrW(w->hwnd, GWL_EXSTYLE);
+    SetWindowLongPtrW(w->hwnd, GWL_EXSTYLE, floats ? ex & ~(LONG_PTR)WS_EX_APPWINDOW : ex | WS_EX_APPWINDOW);
+    SetWindowPos(w->hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+}
 
 // Windows has no cheap occlusion query; minimised is the case that matters.
 bool onScreen(Window* w) { return visible(w) && !IsIconic(w->hwnd); }

@@ -31,6 +31,14 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting gridFirst{"betterstems_grid_first", true, {.label = "Wait for the beat grid before separating", .help = "Off: a track's stems start at once, next to its beat detection."}};
+const Setting slow{"betterstems_slow", false, {.label = "Use HTDemucs even where it is slow", .help = "Windows and Intel Macs: on the CPU, or on a GPU that needs over a second for a segment.", .restart = true}};
+const Setting liveRest{"betterstems_live_rest", 0, {.label = "Rest between segments while a deck plays", .help = "In times the segment's own duration.", .min = 0, .max = 10, .step = 0.5, .advanced = true}};
+const Setting warmup{"betterstems_warmup", true, {.label = "Run the model once at launch", .advanced = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 
 namespace {
@@ -128,8 +136,8 @@ static void testSignal(std::vector<float>& l, std::vector<float>& r) {
 // it is the warm-up Apple Silicon runs too, and it is checked like every segment, below); over kSlowSegment
 // rekordbox's own engine separates. On the CPU (gpu=0 betterstems_slow=1) nothing runs at launch.
 static bool fastEnough() {
-    bool anyway = cfgInt("betterstems_slow", 0) != 0;
-    if (!cfgInt("gpu", 1)) return true;  // (betterstems_slow=1: the backend didn't load it otherwise)
+    bool anyway = opt::slow.integer() != 0;
+    if (!setting("gpu").integer()) return true;  // (betterstems_slow=1: the backend didn't load it otherwise)
     std::vector<float> l, r, out;
     testSignal(l, r);
     double took = 0;
@@ -238,7 +246,7 @@ static bool segment(const float* l, const float* r, std::vector<float>& out, dou
     // The beat grid first. A track loaded on a deck is analysed and separated at the same moment, and the model would
     // share the GPU (or the cores) with Beat This! and rekordbox's beat detection, which the DJ needs sooner than the
     // stems: a segment waits while an analysis is at its beat stage, a few seconds at most.
-    if (cfgInt("betterstems_grid_first", 1)) {
+    if (opt::gridFirst.integer()) {
         double t0 = now();
         while (analysisBeatStage() && now() - t0 < kGridFirst) std::this_thread::sleep_for(std::chrono::milliseconds(20));
         static std::atomic<int> said{0};
@@ -305,7 +313,7 @@ static bool separate(const float* inL, const float* inR, int n, float* const out
         if (!segment(l.data(), r.data(), res)) return false;
         // While a deck plays, a rest after each segment (betterstems_live_rest times the segment's own time, half a
         // second at most; 0: none): the model fills the GPU the waveforms are drawn with, segment after segment.
-        if (double rest = slowdrive::deckPlays() ? cfgNum("betterstems_live_rest", 0) : 0; rest > 0)
+        if (double rest = slowdrive::deckPlays() ? opt::liveRest.number() : 0; rest > 0)
             std::this_thread::sleep_for(std::chrono::duration<double>(std::min(0.5, (now() - segmentAt) * rest)));
         for (int j = 0; j < kL; j++) {
             int i = start + j;
@@ -327,7 +335,7 @@ static void init() {
 #if !defined(_WIN32) && !RBM_MAC_X86  // (an Intel Mac ran its timed segments in loadModel)
             // One segment of silence, so the first track of the session doesn't pay for the model's first run (the
             // GPU pipeline is built then: it took 6 s when it met Beat This!'s first run on a deck load).
-            if (g_state != 2 || !cfgInt("betterstems_warmup", 1)) return;
+            if (g_state != 2 || !opt::warmup.integer()) return;
             double t0 = now();
             std::vector<float> quiet(kL), out;
             if (segment(quiet.data(), quiet.data(), out)) logf("betterstems: model warmed up (%.1f s)", now() - t0);
@@ -342,4 +350,12 @@ RBM_PROVIDE("betterstems", "betterstems.active", active, &g_on);
 RBM_PROVIDE("betterstems", "betterstems.version", version, &g_on);
 RBM_PROVIDE("betterstems", "betterstems.separate", separate, &g_on);
 
-RBM_MOD({.name = "betterstems", .init = init, .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"stems", "Stems",
+    "How stems are separated and which ones are kept.",
+    "<path d=\"M3 13V8M6.3 13V3M9.7 13V6M13 13V10\"/>", 20}; }
+
+RBM_MOD({.name = "betterstems", .init = init, .enabled = &g_on,
+         .title = "HTDemucs stems",
+         .about = "Separates stems with HTDemucs v4 instead of rekordbox's own engine: cleaner stems.",
+         .area = "stems", .order = 20});

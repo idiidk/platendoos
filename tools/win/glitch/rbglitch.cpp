@@ -4,6 +4,8 @@
 //
 //   rbglitch rec <out.wav> <seconds> [device name part]   WASAPI loopback of a playback device (default: the
 //                                                         default one): mono 16-bit WAV + <out.wav>.pkt.csv
+//   rbglitch tone <seconds> [device name part] [hz] [dBFS]  plays a sine (default 1000 Hz, -12 dBFS; hz 0: a soft rising chime) to a playback
+//                                                         device in shared mode (an input for linein's loopback test)
 //   rbglitch suspend <pid> <ms>                           stops every thread of a process for <ms> (a dropout on purpose)
 //   rbglitch threads <pid> <seconds> <out.csv> [ms]       CPU time per thread per interval, priorities, names, modules
 //   rbglitch run <script> <outdir>                        runs a timed script (below) in the desktop session
@@ -165,6 +167,85 @@ static int rec(const std::string &out, double seconds, const std::string &want) 
     fclose(f);
     fclose(pk);
     printf("%s rec: %llu frames at %d Hz from %s\n", clock(nowMs()).c_str(), total, rate, name.c_str());
+    return 0;
+}
+
+// ---- tone ----
+static int tone(double seconds, const std::string &want, double hz, double db) {
+    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    IMMDeviceEnumerator *en = nullptr;
+    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void **)&en))) return printf("tone: no enumerator\n"), 1;
+    IMMDevice *dev = nullptr;
+    std::string name;
+    IMMDeviceCollection *col = nullptr;
+    en->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &col);
+    UINT n = 0;
+    if (col) col->GetCount(&n);
+    for (UINT i = 0; i < n && !dev; i++) {
+        IMMDevice *d = nullptr;
+        col->Item(i, &d);
+        IPropertyStore *ps = nullptr;
+        std::string nm;
+        if (SUCCEEDED(d->OpenPropertyStore(STGM_READ, &ps))) {
+            PROPVARIANT v;
+            PropVariantInit(&v);
+            if (SUCCEEDED(ps->GetValue(PKEY_Device_FriendlyName, &v)) && v.vt == VT_LPWSTR) nm = narrow(v.pwszVal);
+            PropVariantClear(&v);
+            ps->Release();
+        }
+        if (want.empty() || nm.find(want) != std::string::npos) dev = d, name = nm;
+        else d->Release();
+    }
+    if (!dev) return printf("tone: no playback device matching '%s'\n", want.c_str()), 1;
+    IAudioClient *ac = nullptr;
+    if (FAILED(dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void **)&ac))) return printf("tone: Activate failed\n"), 1;
+    WAVEFORMATEX *wf = nullptr;
+    ac->GetMixFormat(&wf);
+    bool isFloat = wf->wFormatTag == WAVE_FORMAT_IEEE_FLOAT || (wf->wFormatTag == WAVE_FORMAT_EXTENSIBLE && wf->wBitsPerSample == 32);
+    if (!isFloat) return printf("tone: mix format isn't float\n"), 1;
+    HRESULT hr = ac->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 1000000, 0, wf, nullptr);
+    if (FAILED(hr)) return printf("tone: Initialize failed %08lx\n", hr), 1;
+    IAudioRenderClient *rc = nullptr;
+    if (FAILED(ac->GetService(__uuidof(IAudioRenderClient), (void **)&rc))) return printf("tone: no render client\n"), 1;
+    UINT32 size = 0;
+    ac->GetBufferSize(&size);
+    int ch = wf->nChannels, rate = wf->nSamplesPerSec;
+    double amp = pow(10.0, db / 20.0), ph = 0, step = 2 * M_PI * hz / rate;
+    unsigned long long sample = 0;
+    ac->Start();
+    double t0 = nowMs();
+    printf("%s tone: %.0f Hz (0: chime) at %.1f dBFS to %s (%d Hz, %d channels)\n", clock(t0).c_str(), hz, db, name.c_str(), rate, ch);
+    fflush(stdout);
+    while (nowMs() - t0 < seconds * 1000) {
+        UINT32 pad = 0;
+        ac->GetCurrentPadding(&pad);
+        UINT32 room = size - pad;
+        if (room) {
+            BYTE *data = nullptr;
+            if (SUCCEEDED(rc->GetBuffer(room, &data))) {
+                float *f = (float *)data;
+                for (UINT32 i = 0; i < room; i++) {
+                    float v;
+                    if (hz > 0) {
+                        v = (float)(amp * sin(ph));
+                        ph += step;
+                        if (ph > 2 * M_PI) ph -= 2 * M_PI;
+                    } else {  // hz 0: a soft chime, A major rising (A4 C#5 E5 A5) twice a second, then a rest
+                        static const double notes[] = {440.0, 554.37, 659.26, 880.0};
+                        double t = (double)sample++ / rate, cycle = fmod(t, 3.0);
+                        int k = (int)(cycle / 0.5);
+                        double nt = cycle - k * 0.5;
+                        double f = k < 4 ? notes[k] : 0, env = f ? std::min(1.0, nt / 0.008) * exp(-nt * 5.0) : 0;
+                        v = (float)(amp * env * (sin(2 * M_PI * f * nt) + 0.25 * sin(4 * M_PI * f * nt)) / 1.25);
+                    }
+                    for (int c = 0; c < ch; c++) f[i * ch + c] = v;
+                }
+                rc->ReleaseBuffer(room, 0);
+            }
+        }
+        Sleep(10);
+    }
+    ac->Stop();
     return 0;
 }
 
@@ -567,6 +648,7 @@ int main(int argc, char **argv) {
     }
     auto arg = [&](size_t i, const char *d = "") { return a.size() > i ? a[i] : std::string(d); };
     if (arg(0) == "rec" && a.size() >= 3) return rec(a[1], atof(a[2].c_str()), arg(3));
+    if (arg(0) == "tone" && a.size() >= 2) return tone(atof(a[1].c_str()), arg(2), a.size() > 3 ? atof(a[3].c_str()) : 1000, a.size() > 4 ? atof(a[4].c_str()) : -12);
     if (arg(0) == "suspend" && a.size() >= 3) return suspend(atoi(a[1].c_str()), atoi(a[2].c_str()));
     if (arg(0) == "threads" && a.size() >= 4) return threads(atoi(a[1].c_str()), atof(a[2].c_str()), a[3], atoi(arg(4, "50").c_str()));
     if (arg(0) == "run" && a.size() >= 3) return run(a[1], a[2]);

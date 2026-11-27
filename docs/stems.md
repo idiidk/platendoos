@@ -121,8 +121,9 @@ HTDemucs v4 ~9, RoFormer models ~10-12.
   7.2.19; the scanner finds them all in 7.2.20 (checked by disassembly). There the slots are only swapped once
   the option is switched on. `tools/win/emu/test_stemcache.py` runs the DLL against both builds: the swap, the
   three replacements through rekordbox's own forwarders and originals, which deck a control belongs to, and the
-  wait with rekordbox's `threadShouldExit` (59 checks). Not run on a Windows machine: threads, the engine wrapper
-  around the wait, and what the separator does when it ends.
+  wait with rekordbox's `threadShouldExit` (59 checks). Run on a Windows PC on 2026-11-26 (7.2.19): a load
+  logged the four mute resets for the right deck, the first chunk was separated and the rest waited, and a click on
+  the on-screen VOCAL mute started the separation; with `stemcache_keep=chosen` a deck's track went to memory only.
   `tools/dev/stemtest.mm` (hot-loaded) drives all of this without a mouse: load, play, seek, the on-screen stem
   buttons, the isolator and FX setters, and `rec`, which taps each mixer channel's audio in the process
   (`EnvelopeGeneratorArray::processBlock`) and logs its level per half second.

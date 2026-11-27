@@ -195,23 +195,14 @@ inline int cfgInt(const char* key, int def) { return (int)cfgNum(key, def); }
 void setCfg(const char* key, const std::string& value);  // rewrites that line of the config file (a new one: under its "#key=" line)
 void unsetCfg(const char* key);         // back to the default: its line becomes the "#key=default" of the list again
 bool cfgHas(const char* key);           // the config file sets it
-// Every mod's options as the config file lists them (core/config_template.h, made by tools/build/config_gen.py from
-// the sources): for the settings window.
-struct ConfigOption {
-    enum Kind { Text, Switch, Choice };
-    std::string key, def, text;  // text: what the list says about it
-    Kind kind = Text;
-    std::vector<std::string> choices;
-};
-struct ConfigSection {
-    std::string mod, summary;
-    std::vector<ConfigOption> options;
-};
-const std::vector<ConfigSection>& configSections();
+uint64_t cfgGeneration();               // goes up whenever a re-read of the config file found it changed
+// The value as it was when rekordbox started: what a part that reads its option once (ConfigOption::restart) runs on.
+std::string cfgStrAtStart(const char* key, const char* def = "");
 bool modEnabled(const char* mod);       // "<mod>=0" in the config disables a mod (default on), as does a build
                                         // in which its addresses aren't all found. Decided once at startup (the config as
                                         // it was then) and kept for the session: a changed switch applies after a restart.
 bool modSwitchNow(const char* mod);     // the config's switch for the mod as it is now (live; versionOff not counted)
+bool offUnlessAsked(const char* mod);  // the mod says it is untested on this platform (Mod::untested): off without "<mod>=1"
 bool modSwitchAtStart(const char* mod); // the same, as it was when rekordbox started: what modEnabled follows
 bool versionOff(const char* mod);       // off because this rekordbox build lacks something it needs
 void logf(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -239,6 +230,18 @@ struct Mod {
     void (*trackMenu)(Menu*, const std::vector<std::string>& uris, const std::string& selection) = nullptr;
     volatile bool* enabled = nullptr;                 // kept equal to modEnabled(name), for hooks on any thread
     int menuOrder = 50;                               // position of its playlist menu items (lower first)
+    // What the mod is to the people who use it, for the settings window and the config file's list (settings.h):
+    const char* title = nullptr;                      // a few plain words ("Beat grids"); none: its name
+    const char* about = nullptr;                      // a sentence or two
+    const char* area = nullptr;                       // the window's area it is shown in (settings::areas()); none: "More"
+    int order = 50;                                   // its place there (lower first)
+    // "win" / "mac": built there but not yet run there, so off until the config asks for it (<mod>=1). The patcher
+    // and the config's list read it too (tools/build/patcher_gen.py, settings_parse.py).
+    const char* untested = nullptr;
+    // "Audio/Configuration" (rekordbox's category id / page id, or the category alone): the mod's card is shown on that
+    // page of rekordbox's own preferences in the Preferences window, next to the settings it belongs with, instead of
+    // in its area (where a line leads to it). Without rekordbox's pages there (the prefs mod off): in its area.
+    const char* rekordboxPage = nullptr;
 };
 std::vector<Mod>& mods();
 struct ModRegistrar { ModRegistrar(Mod m) { mods().push_back(m); } };
@@ -279,6 +282,13 @@ template <typename F> inline F service(const char* name) { return (F)provided(na
 //   "tidymenu.finish"       Menu* (Menu* menu)  the menu is built: hangs the submenu in it, gives the menu to show
 //                           (a copy without the disabled items, or menu)
 //   "tidymenu.done"         void ()  it was shown
+
+// Offered by badge:
+//   "badge.openPrefs"       bool (const char* cat, const char* page)  opens the Preferences window at a category and
+//                           page of rekordbox's preferences (prefs' ids; "": as it is); false while badge is off
+// Offered by prefs:
+//   "prefs.perform"         what MainComponent's command target has in perform's vtable slot while prefs has swapped
+//                           it (flx4 checks the slot before it gives MainComponent a command)
 
 // Offered by genres (see mods/genres.h):
 //   "genres.detect"         bool (const std::vector<float>* mono, int rate, Style* out)  any thread; false: no model
@@ -357,6 +367,10 @@ void startupTask(std::function<void()> fn);
 // mutexes too: a lock after that aborts), so a thread of a mod's own that runs for the app's lifetime calls
 // parkIfQuitting() in its loop and stops there for good. Windows: never set (ExitProcess ends the threads first).
 bool quitting();
+// fn runs on the main thread when rekordbox is about to quit, before rekordbox's own shutdown (this observer was
+// registered before juce's; one a mod registers itself with plat::onQuit comes after it, with the engine already
+// gone). For what must not outlive rekordbox's objects. macOS; Windows: never called.
+void atQuit(void (*fn)());
 void parkIfQuitting();
 
 void menuAddSeparator(Menu* m);
@@ -596,3 +610,6 @@ void tick();           // core, main thread: looks at the decks
 }  // namespace slowdrive
 
 }  // namespace rbm
+
+#include "settings.h"
+

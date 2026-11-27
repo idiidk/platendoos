@@ -82,8 +82,26 @@ run)
 stop)
     # CloseMainWindow only sees windows on its own desktop, so it runs in the user's session (task rbclose)
     ps <<'EOF'
+# (WM_CLOSE to rekordbox's own window, class JUCE_*: CloseMainWindow may pick the mods' Preferences window instead)
 @'
-foreach ($n in 'rekordbox','platendoos') { Get-Process $n -ea 0 | % { $_.CloseMainWindow() | Out-Null } }
+Add-Type @"
+using System; using System.Text; using System.Runtime.InteropServices;
+public class C2 {
+  public delegate bool P(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(P p, IntPtr l);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+  public static int Close(uint want) { int n = 0;
+    EnumWindows((h, l) => { uint pid; GetWindowThreadProcessId(h, out pid); if (pid != want) return true;
+      var t = new StringBuilder(256); GetWindowText(h, t, 256); var c = new StringBuilder(256); GetClassName(h, c, 256);
+      if (t.ToString() == "rekordbox" && c.ToString().StartsWith("JUCE_")) { PostMessage(h, 0x10, IntPtr.Zero, IntPtr.Zero); n++; }
+      return true; }, IntPtr.Zero);
+    return n; } }
+"@
+foreach ($p in Get-Process rekordbox -ea 0) { if ([C2]::Close([uint32]$p.Id) -eq 0) { $p.CloseMainWindow() | Out-Null } }
+Get-Process platendoos -ea 0 | % { $_.CloseMainWindow() | Out-Null }
 '@ | Set-Content -Encoding ascii C:\rb\close.ps1
 $p = New-ScheduledTaskPrincipal -UserId (whoami) -LogonType Interactive -RunLevel Highest
 Register-ScheduledTask -Force -TaskName rbclose -Principal $p `

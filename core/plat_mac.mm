@@ -137,6 +137,38 @@ void openPath(const std::string& s) {
         [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:@(s.c_str())]];
     }
 }
+bool restartApp() {
+    @autoreleasepool {
+        NSString* bundle = NSBundle.mainBundle.bundlePath;
+        if (!bundle.length) return false;
+        // Waits for this rekordbox to be gone, then for the rekordboxAgent it started (a rekordbox that finds the old
+        // agent still closing can fail with "Communication with rekordboxAgent failed": ten seconds for it to go by
+        // itself, then it is ended, as tools/build/quit.sh does), then opens the app again.
+        static const char script[] =
+            "pid=$1; app=$2; agent=\"$app/Contents/MacOS/rekordboxAgent.app/Contents/MacOS/rekordboxAgent\"\n"
+            "i=0; while kill -0 \"$pid\" 2>/dev/null && [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done\n"
+            "kill -0 \"$pid\" 2>/dev/null && exit 0\n"
+            "agents() { ps -axo pid=,command= | awk -v p=\"$agent\" '{ c = $0; sub(/^ *[0-9]+ /, \"\", c); if (c == p || index(c, p \" \") == 1) print $1 }'; }\n"
+            "i=0; while [ -n \"$(agents)\" ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i+1)); done\n"
+            "for a in $(agents); do kill \"$a\" 2>/dev/null; sleep 1; done\n"
+            "exec /usr/bin/open \"$app\"\n";
+        std::string pid = std::to_string(getpid()), app = bundle.fileSystemRepresentation;
+        const char* argv[] = {"/bin/sh", "-c", script, "platendoos-restart", pid.c_str(), app.c_str(), nullptr};
+        posix_spawnattr_t attr;
+        posix_spawnattr_init(&attr);
+        posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID);  // its own session: it outlives this process
+        posix_spawn_file_actions_t fa;
+        posix_spawn_file_actions_init(&fa);
+        for (int fd = 0; fd < 3; fd++) posix_spawn_file_actions_addopen(&fa, fd, "/dev/null", fd ? O_WRONLY : O_RDONLY, 0);
+        pid_t child = 0;
+        int rc = posix_spawn(&child, "/bin/sh", &fa, &attr, (char* const*)argv, *_NSGetEnviron());
+        posix_spawn_file_actions_destroy(&fa);
+        posix_spawnattr_destroy(&attr);
+        if (rc != 0) return false;
+        dispatch_async(dispatch_get_main_queue(), ^{ [NSApp terminate:nil]; });
+        return true;
+    }
+}
 void openTextFile(const std::string& s) {
     @autoreleasepool {
         NSURL* file = [NSURL fileURLWithPath:@(s.c_str())];

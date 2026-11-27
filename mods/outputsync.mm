@@ -3,6 +3,9 @@
 // Bluetooth speakers sound a tenth of a second or more after the controller, so the headphones run ahead of the
 // speakers. This delays the faster devices' audio to match the slowest one, so speakers and headphones line up.
 // Bluetooth devices report their latency; the real delay is often longer, so it can be set by ear.
+// Its row in Preferences > Audio also has a Refresh audio devices button: rekordbox looks for audio devices again and
+// reconnects the audio (its own routine for waking from sleep), for a device that was plugged in or changed and
+// didn't show up or stayed silent, without restarting rekordbox.
 //   config: outputsync=0 to disable
 //           outputsync_lineup=1  the switch in rekordbox's Preferences > Audio ("Line up speakers and headphones")
 //           outputsync_offset=0  fine-tune in ms on top (+ = headphones later), the slider under that switch; there
@@ -30,11 +33,22 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting lineup{"outputsync_lineup", true, {.label = "Line up speakers and headphones", .help = "Delays the quicker device so both sound at the same moment."}};
+const Setting offset{"outputsync_offset", 0, {.label = "Fine-tune", .help = "To the right the headphones play later, to the left earlier.", .unit = "ms", .min = -300, .max = 300, .step = 1, .slider = true, .needs = "outputsync_lineup"}};
+const Setting ms{"outputsync_ms", "auto", {.label = "Delay to use", .help = "auto: what the devices report. A number: delay the quicker devices by that many milliseconds.", .advanced = true, .needs = "outputsync_lineup"}};
+const Setting clocks{"outputsync_clocks", false, {.label = "Log the devices' clocks every 30 seconds", .debug = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 static volatile bool g_broken = false;    // the device field isn't what it was: stay out of the way
 static volatile bool g_lineUp = true;     // outputsync_lineup: the Preferences switch
 static volatile int g_offsetMs = 0;       // outputsync_offset: the Preferences fine-tune slider (+ = headphones later)
 static volatile bool g_metronome = false;  // the Preferences metronome switch (not saved)
+static bool g_metroWindow = false;         // ...switched on in the platendoos Preferences window (which stops it when it closes)
+static std::string g_planDesc;  // main thread: what replan last made of the devices ("" before the first)
+static bool g_canLineUp;        // main thread: rekordbox plays to two or more devices now
 
 namespace {
 
@@ -239,9 +253,13 @@ static void addClicks(DevicePlan& d, const AudioTimeStamp* t, AudioBufferList* o
         UInt32 frames = b.mDataByteSize / (sizeof(float) * b.mNumberChannels);
         float* io = (float*)b.mData;
         for (UInt32 f = 0; f < frames; f++, io += b.mNumberChannels) {
-            double ph = fmod(t0 + f / d.rate, 0.5);
-            if (ph >= 0.03) continue;
-            float v = (float)(0.5 * sin(2 * M_PI * 1500 * ph) * exp(-ph / 0.006));
+            // A click every half second, the same instant on every device (the host's clock); every fourth one is
+            // the "one": higher and a little longer, so it is clear which click of the speakers belongs to which of
+            // the headphones when they are far apart.
+            double at = t0 + f / d.rate, ph = fmod(at, 0.5);
+            if (ph >= 0.04) continue;
+            bool one = fmod(at, 2.0) < 0.5;
+            float v = (float)((one ? 0.6 : 0.4) * sin(2 * M_PI * (one ? 2400 : 1200) * ph) * exp(-ph / (one ? 0.009 : 0.006)));
             for (UInt32 c = 0; c < b.mNumberChannels; c++) io[c] += v;
         }
     }
@@ -308,6 +326,7 @@ extern "C" void rbm_hook_output_sync(void* self, const AudioTimeStamp* now, cons
 }
 
 static void checkRow();
+static void refreshAudio(const char* from);
 
 // ---- main thread --------------------------------------------------------------------------
 
@@ -359,11 +378,12 @@ static void forgetQuiet() {
 static void replan() {
     static std::string lastDesc = "-";
     if (g_broken) return;
-    g_lineUp = cfgInt("outputsync_lineup", 1) != 0;
-    g_offsetMs = std::clamp(cfgInt("outputsync_offset", 0), -500, 500);
-    Plan* next = makePlan(g_lineUp, cfgStr("outputsync_ms", "auto"), g_offsetMs);
+    g_lineUp = opt::lineup.integer() != 0;
+    g_offsetMs = std::clamp(opt::offset.integer(), -500, 500);
+    Plan* next = makePlan(g_lineUp, opt::ms.text(), g_offsetMs);
     Plan* cur = g_plan.load();
     std::string desc = next ? next->desc : "rekordbox plays to one device: nothing to line up";
+    g_canLineUp = next != nullptr, g_planDesc = desc;
     if (next && cur && next->layout == cur->layout) {
         for (size_t d = 0; d < next->devices.size(); d++)
             for (size_t i = 0; i < next->devices[d].streams.size(); i++) cur->devices[d].streams[i].delay = next->devices[d].streams[i].delay;
@@ -382,12 +402,13 @@ static void replan() {
 
 static void tick() {
     static double at = -10, clocksAt = 0;
+    if (devCommand("outputsync") == "refresh") refreshAudio("test command");
     if (!g_hostToSec) {
         mach_timebase_info_data_t tb;
         mach_timebase_info(&tb);
         g_hostToSec = (double)tb.numer / tb.denom / 1e9;
     }
-    if (cfgInt("outputsync_clocks", 0) && now() - clocksAt > 30) clocksAt = now(), logClocks();
+    if (opt::clocks.integer() && now() - clocksAt > 30) clocksAt = now(), logClocks();
     checkRow();
     if (now() - at < 2) return;
     at = now();
@@ -414,14 +435,44 @@ static void tick() {
 // ---- Preferences > Audio: the mod's row ---------------------------------------------------
 
 // rekordbox's rows are PreferenceBaseItem classes (628 wide), stacked by ItemPageComponent::resized from its own list
-// (each row's height + 4). The mod's row is a plain juce::Component added to the page after the AudioDevice row, and
-// the page's resized (its vtable slot) is replaced by the same stacking with the row in its list place. In the row:
-// the on/off switch in the look of rekordbox's own (as ExtensionEnableVideo), a fine-tune slider and a metronome
-// switch. JUCE through rekordbox's own symbols.
+// (each row's height + 4): a card in the page's colour with a 20 pt bold heading at 20,20 and its controls from
+// 52,56 (as AudioSampleRate's constructor lays them out). The mod's row is one more of them, made the same way: a
+// PreferenceBaseItem (which paints the card), the heading "Speakers and headphones" with "platendoos" at its right,
+// the on/off switch in the look of rekordbox's own (as ExtensionEnableVideo), a fine-tune slider, a metronome
+// switch, a line that says what is lined up now, and the Refresh button. It is added to the page after the
+// AudioDevice row, and the page's resized (its vtable slot) is replaced by the same stacking with the row in its
+// list place. The page object is the same for every Preferences category: on any other the row is taken out again.
+// JUCE through rekordbox's own symbols.
 static const Addr A_componentCtor{"__ZN4juce9ComponentC2Ev"};
 static const Addr A_toggleCtor{"__ZN4juce12ToggleButtonC1ERKNS_6StringE"};
 static const Addr A_sliderCtor{"__ZN4juce6SliderC1ENS0_11SliderStyleENS0_20TextEntryBoxPositionE"};
 static const Addr A_labelCtor{"__ZN4juce5LabelC1ERKNS_6StringES3_"};
+static const Addr A_rowCtor{"__ZN18PreferenceBaseItemC2Ev"};   // rekordbox's own row class: it paints the card's background
+static const Addr A_fontCtor{"__ZN4juce4FontC1Efi"};           // juce::Font(float height, int style): 1 = bold
+static const Addr A_fontDtor{"__ZN4juce4FontD1Ev"};
+static const Addr A_labelSetFont{"__ZN4juce5Label7setFontERKNS_4FontE"};
+static const Addr A_labelJustify{"__ZN4juce5Label20setJustificationTypeENS_13JustificationE"};
+static const Addr A_labelSetText{"__ZN4juce5Label7setTextERKNS_6StringENS_16NotificationTypeE"};
+static const Addr A_setEnabled{"__ZN4juce9Component10setEnabledEb"};
+static const Addr A_removeChild{"__ZN4juce9Component20removeChildComponentEPS0_"};
+static const Addr A_textButtonCtor{"__ZN4juce10TextButtonC1ERKNS_6StringE"};  // (a TextButton adds no fields to juce::Button: a ToggleButton's size)
+// "Refresh audio devices": the list of devices is read again, the audio device closed, and the device that was
+// selected opened anew, the way the Audio drop-down selects one (SettingIF::loadPreferredSettings_Audio). Not
+// rekordbox's own reconnect (SettingIF::audioDeviceReconnect, what it runs after the computer wakes): that ends in
+// its plug-and-play choice of a device, which took a virtual device over the chosen speakers here (2026-11-26) and
+// kept it for the next launches.
+static const Addr A_settingIF{"__ZN6djplay9SettingIF11getInstanceEv"};
+static const Addr A_currentDevice{"SettingIF::getCurrentAudioDevice", [] {  // juce::String (SettingIF*, false): the output device's name; const from 7.2.20 on
+    uintptr_t a = symbol("__ZNK6djplay9SettingIF21getCurrentAudioDeviceEb");
+    return a ? a : symbol("__ZN6djplay9SettingIF21getCurrentAudioDeviceEb");
+}};
+static const Addr A_selectDevice{"__ZN6djplay9SettingIF27loadPreferredSettings_AudioERKN4juce6StringE"};  // bool: it opened
+static const Addr A_cacheDevices{"__ZN6djplay9SettingIF30startCacheAvailableAudioDeviceEv"};
+static const Addr A_audioObject{"__ZN8djengine10DjEngineIF20getAudioDeviceObjectEv"};   // rb::AudioDeviceManager*
+static const Addr A_closeAudio{"__ZN2rb18AudioDeviceManager16closeAudioDeviceEv"};
+static const Addr A_plugAndPlay{"__ZN6djplay9SettingIF11plugAndPlayEb"};
+static const Addr A_muteOffCheck{"__ZN6djplay9SettingIF17startMuteOffCheckEv"};
+static const Addr A_updateAllItem{"__ZN17ItemPageComponent13updateAllItemEv"};          // every row of a Preferences page reads its setting again
 static const Addr A_addAndMakeVisible{"__ZN4juce9Component17addAndMakeVisibleEPS0_i"};
 static const Addr A_setBounds{"__ZN4juce9Component9setBoundsEiiii"};
 static const Addr A_setSize{"__ZN4juce9Component7setSizeEii"};
@@ -466,7 +517,8 @@ enum { kAudioDeviceRow = 38 };  // PreferenceItem::Type AudioDevice
 enum { kSwitchOn = 0x1006502, kSwitchOff = 0x1006503, kSwitchText = 0x1006501, kTextColour = 0x300000b };
 enum { kLabelText = 0x1000281, kSliderBackground = 0x1001200, kSliderThumb = 0x1001300, kSliderTrack = 0x1001310,
        kSliderBoxText = 0x1001400, kSliderBoxBackground = 0x1001500, kSliderBoxOutline = 0x1001700 };
-enum { kRowWidth = 628, kRowHeight = 112 };
+enum { kRowWidth = 628, kRowHeight = 250 };
+enum { kButtonColour = 0x1000100, kButtonText = 0x1000102 };  // juce::TextButton::buttonColourId, textColourOffId
 
 template <typename F> static F fn(const Addr& a) { return at<F>(a); }
 static const char* className(void* c) { return *(const char**)((char*)(*(void***)c)[-1] + 8); }  // RTTI, mangled
@@ -500,12 +552,10 @@ enum : size_t { kToggleSize = 0x220, kLabelSize = 0x260, kSliderSize = 0x200 };
 enum : size_t { kToggleSize = 0x1f8, kLabelSize = 0x220, kSliderSize = 0x1a8 };
 #endif
 
-static void* g_row;        // the row, made once and never deleted (rekordbox only detaches its rows)
 static void* g_switch;     // its juce::ToggleButtons and juce::Slider
 static void* g_metroSwitch;
 static void* g_slider;
 static void* g_after;      // the page row the mod's row follows (AudioDevice)
-static void* g_page;       // the page it was added to
 
 static void* toggle(void* row, const char* text, int x, int y, void* lnf, void* sample, uint32_t textColour) {
     void* b = ::operator new(kToggleSize);
@@ -521,16 +571,56 @@ static void* toggle(void* row, const char* text, int x, int y, void* lnf, void* 
     setColour(b, kSwitchText, textColour);
     return b;
 }
-static void* label(void* row, const char* text, int x, int y, int w, uint32_t colour) {
+// size: the font's height (0: the label's own); right: against the right edge.
+static void* label(void* row, const char* text, int x, int y, int w, uint32_t colour, float size = 0, bool bold = false, bool right = false) {
     void* l = ::operator new(kLabelSize);
     memset(l, 0, kLabelSize);
     JStr name(""), t(text);
     fn<void (*)(void*, const JStr*, const JStr*)>(A_labelCtor)(l, &name, &t);
     add(row, l);
-    setBounds(l, x, y, w, 22);
+    setBounds(l, x, y, w, size > 16 ? 24 : 20);
     setColour(l, kLabelText, colour);
+    if (size > 0) {
+        void* font[2] = {};  // a juce::Font is one pointer
+        fn<void (*)(void*, float, int)>(A_fontCtor)(font, size, bold ? 1 : 0);
+        fn<void (*)(void*, const void*)>(A_labelSetFont)(l, font);
+        fn<void (*)(void*)>(A_fontDtor)(font);
+    }
+    fn<void (*)(void*, int)>(A_labelJustify)(l, right ? 34 : 33);  // centredRight / centredLeft
     return l;
 }
+static void setLabel(void* l, const std::string& text) {
+    JStr t(text.c_str());
+    fn<void (*)(void*, const JStr*, int)>(A_labelSetText)(l, &t, 0);
+}
+static void setEnabled(void* c, bool on) { fn<void (*)(void*, bool)>(A_setEnabled)(c, on); }
+
+// The row's Refresh button (and the test command "refresh" in command-outputsync). Main thread.
+static void* g_row;
+static void* g_page;
+static void refreshAudio(const char* from) {
+    void* settings = fn<void* (*)()>(A_settingIF)();
+    void* e = engine();
+    void* manager = e ? fn<void* (*)(void*)>(A_audioObject)(e) : nullptr;
+    if (!settings || !manager) return;
+    std::string before = memberString(A_currentDevice, settings, false);
+    fn<void (*)(void*)>(A_cacheDevices)(settings);
+    fn<void (*)(void*)>(A_closeAudio)(manager);
+    JStr name(before.c_str());
+    bool opened = !before.empty() && fn<bool (*)(void*, const JStr*)>(A_selectDevice)(settings, &name);
+    // (the device is gone or won't open: rekordbox's own choice, as its drop-down does then)
+    if (!opened) fn<void (*)(void*, bool)>(A_plugAndPlay)(settings, false);
+    fn<void (*)(void*)>(A_muteOffCheck)(settings);
+    std::string now = memberString(A_currentDevice, settings, false);
+    logf("outputsync: audio devices looked for again and '%s' opened anew%s%s (%s)", before.c_str(), opened ? "" : ": it didn't open, rekordbox took ",
+         opened ? "" : ("'" + now + "'").c_str(), from);
+    if (g_page && g_row && fn<bool (*)(void*)>(A_isShowing)(g_row)) fn<void (*)(void*)>(A_updateAllItem)(g_page);  // the page shows what there is now
+    replan();
+}
+
+static void* g_fineLabel;   // the row's parts that are greyed out while there is nothing to line up
+static void* g_fineHint;
+static void* g_status;      // its line that says what is lined up now
 
 static void* makeRow(void* page) {
     void* sample = findToggle(page);
@@ -540,15 +630,19 @@ static void* makeRow(void* page) {
     }
     void* lnf = fn<void* (*)(uintptr_t)>(A_switchLnfGet)(A_switchLnf + g_slide);
     if (!lnf) return nullptr;
-    void* row = calloc(1, 0x120);  // juce::Component is 0xf0 (PreferenceBaseItem's fields start there)
-    fn<void (*)(void*)>(A_componentCtor)(row);
+    void* row = calloc(1, 0x140);  // a PreferenceBaseItem is 0x100
+    fn<void (*)(void*)>(A_rowCtor)(row);
     fn<void (*)(void*, int, int)>(A_setSize)(row, kRowWidth, kRowHeight);
     uint32_t text = fn<uint32_t (*)(void*, int)>(A_lnfFindColour)(fn<void* (*)()>(A_defaultLnf)(), kTextColour);
     uint32_t on = fn<uint32_t (*)(void*, int, bool)>(A_findColour)(sample, kSwitchOn, false);
     uint32_t off = fn<uint32_t (*)(void*, int, bool)>(A_findColour)(sample, kSwitchOff, false);
     uint32_t dim = (text & 0x00ffffff) | 0x99000000;
 
-    g_switch = toggle(row, "Line up speakers and headphones (platendoos)", 20, 20, lnf, sample, text);
+    // The heading, as rekordbox's rows have theirs, and whose settings these are.
+    label(row, "Speakers and headphones", 20, 20, 380, text, 20, true);
+    label(row, "platendoos \xC2\xB7 outputsync", 408, 22, 200, dim, 13, false, true);
+
+    g_switch = toggle(row, "Line up speakers and headphones", 52, 58, lnf, sample, text);
     setToggle(g_switch, g_lineUp);
     callback(g_switch, O_onClickF) = [] {
         bool v = fn<bool (*)(void*)>(A_getToggleState)(g_switch);
@@ -556,12 +650,12 @@ static void* makeRow(void* page) {
         replan();
     };
 
-    label(row, "Fine-tune", 48, 46, 90, text);
+    g_fineLabel = label(row, "Fine-tune", 80, 88, 80, text);
     void* sl = ::operator new(kSliderSize);
     memset(sl, 0, kSliderSize);
     fn<void (*)(void*, int, int)>(A_sliderCtor)(sl, 0, 2);  // LinearHorizontal, TextBoxRight
     add(row, sl);
-    setBounds(sl, 140, 46, 300, 22);
+    setBounds(sl, 164, 87, 424, 22);
     fn<void (*)(void*, double, double, double)>(A_setRange)(sl, -300, 300, 1);
     fn<void (*)(void*, int, bool, int, int)>(A_setTextBoxStyle)(sl, 2, false, 76, 20);
     JStr ms(" ms");
@@ -581,15 +675,51 @@ static void* makeRow(void* page) {
         setCfg("outputsync_offset", std::to_string(v));
         replan();
     };
-    label(row, "+ headphones later, - earlier; double-click: 0", 448, 46, 170, dim);
+    g_fineHint = label(row, "To the right the headphones play later, to the left earlier. Double-click for 0.", 80, 110, 520, dim, 13);
 
-    g_metroSwitch = toggle(row, "Metronome: a click on speakers and headphones, to tune by ear", 48, 80, lnf, sample, text);
+    g_metroSwitch = toggle(row, "Metronome on both, to tune by ear (every fourth click is higher)", 80, 140, lnf, sample, text);
     setToggle(g_metroSwitch, g_metronome);
     callback(g_metroSwitch, O_onClickF) = [] {
-        g_metronome = fn<bool (*)(void*)>(A_getToggleState)(g_metroSwitch);
+        g_metronome = g_canLineUp && fn<bool (*)(void*)>(A_getToggleState)(g_metroSwitch);
+        g_metroWindow = false;
         logf("outputsync: metronome %s", g_metronome ? "on" : "off");
     };
+    g_status = label(row, "", 52, 168, 556, dim, 13);
+
+    // Refresh: the devices looked for again and the audio reconnected, without restarting rekordbox.
+    void* rb = ::operator new(kToggleSize);
+    memset(rb, 0, kToggleSize);
+    JStr refresh("Refresh audio devices");
+    fn<void (*)(void*, const JStr*)>(A_textButtonCtor)(rb, &refresh);
+    add(row, rb);
+    setBounds(rb, 52, 204, 190, 24);
+    setColour(rb, kButtonColour, off);
+    setColour(rb, kButtonText, text);
+    callback(rb, O_onClickF) = [] { plat::onMain([] { refreshAudio("the button in Preferences"); }); };  // (after the click is done)
+    label(row, "Looks for devices again and reconnects the audio: a moment of silence.", 254, 206, 354, dim, 13);
     return row;
+}
+
+// What the row shows of the devices: greyed out while rekordbox plays to one device (nothing to line up: no delay to
+// set, and no metronome, which only sounds where there is something to compare), and the line that says what is
+// lined up. Main thread; cheap when nothing changed.
+static void showRowState() {
+    static std::string shown = "\x01";
+    static int shownCan = -1, shownLine = -1;
+    if (!g_row) return;
+    std::string line = g_canLineUp ? "Now: " + g_planDesc + "."
+                                   : "Nothing to line up now: rekordbox plays to one device.";
+    if (line != shown) shown = line, setLabel(g_status, line);
+    if (shownCan == (int)g_canLineUp && shownLine == (int)g_lineUp) return;
+    shownCan = g_canLineUp, shownLine = g_lineUp;
+    setEnabled(g_slider, g_canLineUp && g_lineUp);
+    setEnabled(g_fineLabel, g_canLineUp && g_lineUp);
+    setEnabled(g_fineHint, g_canLineUp && g_lineUp);
+    setEnabled(g_metroSwitch, g_canLineUp);
+    if (!g_canLineUp && g_metronome) {
+        g_metronome = false;
+        setToggle(g_metroSwitch, false);
+    }
 }
 
 // ItemPageComponent::resized, with the mod's row after g_after when it's on that page.
@@ -639,7 +769,16 @@ extern "C" void rbm_hook_prefs_audio_row(void* page, const void* list) {
     int after = -1;
     for (int i = 0; types && i < count; i++)
         if (types[i] == kAudioDeviceRow) after = i;
-    if (after < 0) return;
+    if (after < 0) {
+        // Another category's rows in the same page object: the mod's row goes (it used to stay, at the bottom of
+        // every page), and the page is laid out as rekordbox does it.
+        if (page == g_page && g_row && hasChild(page, g_row)) {
+            fn<void (*)(void*, void*)>(A_removeChild)(page, g_row);
+            g_page = nullptr;
+            g_origResized(page);
+        }
+        return;
+    }
     void** rows = *(void***)((char*)page + O_pageRows);
     int n = *(int*)((char*)page + O_pageRows + 0xc);
     if (!rows || after >= n) return;
@@ -651,16 +790,41 @@ extern "C" void rbm_hook_prefs_audio_row(void* page, const void* list) {
     g_after = rows[after];
     g_page = page;
     add(page, g_row);
+    showRowState();
     pageResized(page);
 }
 
 // The metronome stops when Preferences closes.
 static void checkRow() {
-    if (g_metronome && g_row && !fn<bool (*)(void*)>(A_isShowing)(g_row)) {
+    showRowState();
+    if (g_metronome && !g_metroWindow && g_row && !fn<bool (*)(void*)>(A_isShowing)(g_row)) {
         g_metronome = false;
         setToggle(g_metroSwitch, false);
         logf("outputsync: metronome off (Preferences closed)");
     }
 }
 
-RBM_MOD({.name = "outputsync", .tick = tick, .enabled = &g_on});
+RBM_MOD({.name = "outputsync", .tick = tick, .enabled = &g_on,
+         .title = "Speakers and headphones",
+         .about = "Lines up speakers and headphones when rekordbox plays to two devices, such as Bluetooth speakers and a controller.",
+         .area = "decks", .order = 20, .rekordboxPage = "Audio/Configuration"});
+// The metronome in the platendoos Preferences window too (settings::liveSwitch): the same clicks as the dialog's
+// switch, off again when that window closes or rekordbox goes back to one device.
+static int g_live = (settings::liveSwitch({.mod = "outputsync", .id = "outputsync.metronome",
+                                           .label = "Metronome on both, to tune by ear",
+                                           .help = "Clicks on every output, every fourth higher: move Fine-tune until they sound as one.",
+                                           .on = [] { return (bool)g_metronome; },
+                                           .set = [](bool on) {
+                                               g_metronome = on && g_canLineUp;
+                                               g_metroWindow = g_metronome;
+                                               if (g_metroSwitch) setToggle(g_metroSwitch, g_metronome);
+                                               logf("outputsync: metronome %s (the Preferences window)", g_metronome ? "on" : "off");
+                                           },
+                                           .why = [] { return g_canLineUp ? "" : "rekordbox plays to one device now: nothing to line up."; }}),
+                    0);
+
+// The settings window's Refresh audio devices button. Main thread.
+static void refreshFromSettings() { refreshAudio("the settings window"); }
+static int g_action = (settings::action("outputsync", "outputsync.refresh", "Refresh audio devices",
+                                        "Looks for audio devices again and opens yours anew: for a device that was plugged in or changed and stays "
+                                        "silent. A moment of silence.", &refreshFromSettings), 0);

@@ -37,6 +37,13 @@
 #include <set>
 
 using namespace rbm;
+
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting onAnalyse{"genres_on_analyse", false, {.label = "Fill empty Genre fields when a track is analysed"}};
+const Setting detail{"genres_detail", "style", {.label = "Genre to write", .choices = {{"style", "The specific style (Deep House)"}, {"broad", "The broad genre (House)"}}}};
+const Setting warmup{"genres_warmup", true, {.label = "Load the model at launch", .advanced = true}};
+}  // namespace opt
 namespace web = rbm::webui;
 
 namespace {  // file-local: another mod has types of the same names
@@ -144,7 +151,7 @@ bool readGenreAnyThread(const std::string& uri, std::string* genre) {
     return a->in;
 }
 
-bool broadDetail() { return cfgStr("genres_detail", "style") == "broad"; }
+bool broadDetail() { return opt::detail.text() == "broad"; }
 
 // The suggestions for a style at the chosen detail, best first, each with its score (a broad genre adds up the
 // scores of its styles among the three).
@@ -333,7 +340,7 @@ void sendState() {
                " in rekordbox's collection yet, so there's no Genre field to fill: analyse the playlist first (Open analysis window).";
     bool waitingForFiles = g_wantDetect && !g_listening && waiting && filesOn;
     std::string j = "{\"name\":" + jsonStr(g_playlistName) + ",\"rows\":" + rows + ",\"status\":" + jsonStr(g_status);
-    j += ",\"detail\":" + jsonStr(broad ? "broad" : "style") + ",\"replace\":" + b(g_replace) + ",\"onAnalyse\":" + b(cfgInt("genres_on_analyse", 0) != 0);
+    j += ",\"detail\":" + jsonStr(broad ? "broad" : "style") + ",\"replace\":" + b(g_replace) + ",\"onAnalyse\":" + b(opt::onAnalyse.integer() != 0);
     j += std::string(",\"onAnalyseOk\":") + b(!versionOff("analysis")) + ",\"canUndo\":" + b(!g_undo.empty());
     j += ",\"done\":" + std::to_string(done) + ",\"total\":" + std::to_string(g_rows.size()) + ",\"listening\":" + b(g_listening) + ",\"toWrite\":" + std::to_string(toWrite) + ",\"withGenre\":" + std::to_string(withGenre);
     j += ",\"waiting\":" + std::to_string(waiting) + ",\"canFetch\":" + b(waiting && canFetch && filesOn) + ",\"waitingForFiles\":" + b(waitingForFiles) + ",\"spotifyNote\":" + jsonStr(note);
@@ -644,7 +651,7 @@ void fillWhenAnalysed(const std::string& uri, int attempt) {
 // "genres.analysing" (core's analysis hooks, on the analysis thread): rekordbox's analysis of this track reached a
 // stage.
 void analysing(const char* p) {
-    if (!p || !*p || !cfgInt("genres_on_analyse", 0)) return;
+    if (!p || !*p || !opt::onAnalyse.integer()) return;
     std::string uri = p;
     if (!isSpotifyUri(uri) && uri.find("://") != std::string::npos) return;  // other streaming services: nothing of theirs to listen to
     {
@@ -779,8 +786,11 @@ RBM_PROVIDE("genres", "genres.forTrack", provideForTrack, &g_on);
 // most of a second).
 static void init() {
     startupTask([] {
-        if (g_on && cfgInt("genres_warmup", 1)) genres::modelAvailable();
+        if (g_on && opt::warmup.integer()) genres::modelAvailable();
     });
 }
 
-RBM_MOD({.name = "genres", .init = init, .tick = tick, .playlistMenu = playlistMenu, .trackMenu = trackMenu, .enabled = &g_on, .menuOrder = 35});
+RBM_MOD({.name = "genres", .init = init, .tick = tick, .playlistMenu = playlistMenu, .trackMenu = trackMenu, .enabled = &g_on, .menuOrder = 35,
+         .title = "Genres",
+         .about = "Fills the Genre field from what the music sounds like.",
+         .area = "analysis", .order = 40});

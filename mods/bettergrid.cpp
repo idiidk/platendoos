@@ -102,6 +102,28 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting apply{"bettergrid_apply", true, {.label = "Use the better grids", .help = "Off: both grids are only compared in the log, and rekordbox's is kept."}};
+const Setting bars{"bettergrid_bars", true, {.label = "Let the music decide where the bar starts", .help = "When rekordbox and Beat This! disagree: the 1 goes on the beat where the track changes."}};
+const Setting genre{"bettergrid_genre", true, {.label = "Let the genre pick between half and double tempo", .help = "A drum & bass track at 87 becomes 174."}};
+const Setting halfbeat{"bettergrid_halfbeat", 1, {.label = "Move grids that sit on the off-beats"}};
+const Setting offbeat{"bettergrid_offbeat", true, {.label = "Fix grids that sit on a hi-hat or a clap"}};
+const Setting kick{"bettergrid_kick", true, {.label = "Move the grid onto the kicks", .help = "When the kick sits a steady 50 ms or more off the grid over the whole track."}};
+const Setting title{"bettergrid_title", "BT BPM", {.label = "Title of the Beat This! BPM column"}};
+const Setting minFit{"bettergrid_min_fit", 0.6, {.label = "Trust Beat This! from this fit on", .min = 0, .max = 1, .step = 0.05, .advanced = true}};
+// (Beat This! on the CPU is several times slower than Core ML on Apple Silicon: more patience on Windows and Intel Macs)
+#if defined(_WIN32) || RBM_MAC_X86
+const Setting wait{"bettergrid_wait", 60, {.label = "Wait for the combined grid at most", .unit = "s", .min = 0, .max = 600, .step = 5, .advanced = true}};
+#else
+const Setting wait{"bettergrid_wait", 20, {.label = "Wait for the combined grid at most", .unit = "s", .min = 0, .max = 600, .step = 5, .advanced = true}};
+#endif
+const Setting rbFirst{"bettergrid_rb_first", true, {.label = "Show rekordbox's grid on the deck meanwhile", .advanced = true}};
+const Setting slow{"bettergrid_slow", false, {.label = "Wait for Beat This! on a deck even where it is slow", .help = "Windows and Intel Macs.", .advanced = true}};
+const Setting warmup{"bettergrid_warmup", true, {.label = "Run the model once at launch", .advanced = true}};
+const Setting debug{"bettergrid_debug", 0, {.label = "Log the beats of both grids", .debug = true}};
+}  // namespace opt
+
 static const int kColumnId = 57;  // unused by rekordbox
 static const Offset S_beatInfo{0xc, "__ZN8analyzer13AnalyzeJobKey6getKeyERN4juce5ArrayINS_16DetailedBeatInfoENS1_20DummyCriticalSectionELi0EEEfNSt3__110shared_ptrIfEEjbmm", "movz x14", 0};  // sizeof(DetailedBeatInfo)
 
@@ -204,7 +226,7 @@ static State& state() {
 }
 static const double kAppliedFor = 900;  // s an applied grid stays valid for its analysis' later hooks
 
-static bool applying() { return cfgInt("bettergrid_apply", 1) != 0; }
+static bool applying() { return opt::apply.integer() != 0; }
 
 // An entry of rekordbox's beat array.
 static size_t beatSize() { return (size_t)S_beatInfo; }
@@ -240,7 +262,7 @@ static beatthis::Model& model() {
         std::string res = plat::resourcesDir() + "/" + file, err;
         bool there = std::filesystem::exists(plat::fsPath(res));
         double t0 = now();
-        auto units = cfgInt("gpu", 1) ? beatthis::ComputeUnits::CpuAndGpu : beatthis::ComputeUnits::CpuOnly;
+        auto units = setting("gpu").integer() ? beatthis::ComputeUnits::CpuAndGpu : beatthis::ComputeUnits::CpuOnly;
         bool ok = there && m.load(res, &err, units);
         if (!ok) logf("bettergrid: model not loaded: %s", there ? err.c_str() : "model missing");
         else logf("bettergrid: model loaded (%.1fs, %s)", now() - t0, m.device().c_str());
@@ -394,12 +416,12 @@ static Combined combine(const std::string& uri, const std::atomic<bool>& gone) {
     c.beats = std::move(r.beats);
     std::sort(c.beats.begin(), c.beats.end());
     c.btDownbeat = c.bt.firstBeat + 60 / c.bt.bpm * c.bt.downbeatIndex;
-    c.use = c.bt.confidence >= cfgNum("bettergrid_min_fit", 0.6);
+    c.use = c.bt.confidence >= opt::minFit.number();
     if (c.use) {
         auto kick = std::make_shared<std::vector<float>>(), level = std::make_shared<std::vector<float>>();
         placeOnOnsets(c, onsets(*mono, rate, kick.get(), level.get()));
         c.kick = kick, c.level = level;
-        if (cfgInt("bettergrid_bars", 1)) {
+        if (opt::bars.integer()) {
             double b0 = now();
             c.bands = std::make_shared<const barphase::Bands>(barphase::bands(mono->data(), mono->size(), rate));
             c.bandsMs = (now() - b0) * 1000;
@@ -410,7 +432,7 @@ static Combined combine(const std::string& uri, const std::atomic<bool>& gone) {
     // The genre, for the tempo's octave. On this worker, next to rekordbox's beat job: when no genre is known yet the
     // genres mod runs its style model on this audio and keeps the result. Also for a grid that can't be used: this
     // is the only audio the genres mod gets of a Spotify track during its analysis (its Genre first).
-    if (applying() && cfgInt("bettergrid_genre", 1) && !gone) {
+    if (applying() && opt::genre.integer() && !gone) {
         using ForTrack = bool (*)(const char* uri, const std::vector<float>* mono, int rate, std::string* genre);
         if (auto forTrack = service<ForTrack>("genres.forTrack")) {
             double g0 = now();
@@ -546,7 +568,7 @@ static void gridPrefetch(const void* thread) {
     // track that is on a deck keeps rekordbox's own grid, which shows as soon as rekordbox has it: a DJ is waiting
     // for it. Tracks analysed from the Analysis window or the collection wait for Beat This! as before.
     // bettergrid_slow=1: wait on a deck too. (Windows and Intel Macs: on Apple Silicon it is never slow.)
-    if (!cfgInt("bettergrid_slow", 0) && model().slow()) {
+    if (!opt::slow.integer() && model().slow()) {
         bool onDeck = false;
         for (int ch = 0; ch < deckCount(); ch++) onDeck |= deckPath(ch) == uri;
         if (onDeck) {
@@ -800,7 +822,7 @@ static HalfBeat halfBeatOff(const BeatArray& a, const Combined& c) {
         if (f < 0.2 || f > 0.8) on++;
         else if (f > 0.3 && f < 0.7) between++;
     }
-    if (cfgNum("bettergrid_debug", 0) > 0)
+    if (opt::debug.number() > 0)
         logf("bettergrid: of Beat This!'s %zu beats (%.3f, %.3f, %.3f .. %.3f s) %ld lie in rekordbox's grid: %ld at its beats, %ld between; analysed %.1f s",
              c.beats.size(), c.beats[0], c.beats[1], c.beats[2], c.beats.back(), all, on, between, c.duration);
     if (all < 32) return h;
@@ -1246,14 +1268,10 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
         abandon(job);
         return out;
     }
-#if defined(_WIN32) || RBM_MAC_X86
     // Beat This! on the CPU (ONNX Runtime) is several times slower than Core ML on Apple Silicon: in a batch of
     // analyses on a 6-core PC it needs 30-50 s past rekordbox's own grid (an Intel Mac's CPU: over 20 s under
-    // Rosetta). Waiting holds only this analysis thread.
-    double wait = cfgNum("bettergrid_wait", 60);
-#else
-    double wait = cfgNum("bettergrid_wait", 20);
-#endif
+    // Rosetta), which is why the setting's default is higher there. Waiting holds only this analysis thread.
+    double wait = opt::wait.number();
     wait = std::isfinite(wait) ? std::max(0.0, std::min(wait, 600.0)) : 20;
     double waitFrom = now();
     if (job->result.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
@@ -1262,7 +1280,7 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
         // plain rekordbox would have by now, and the combined one replaces it when it is ready. Beat This!'s own
         // early grid would only come a moment before the final one now: not shown.
         close(job);
-        if (cfgInt("bettergrid_rb_first", 1) && rb.data && rb.used > 0)
+        if (opt::rbFirst.integer() && rb.data && rb.used > 0)
             if (auto show = service<void (*)(const void*, const char*, const void*, const char*)>("quickdeck.earlyGrid"))
                 show(thread, job->uri.c_str(), &rb, "rekordbox's");
     }
@@ -1294,7 +1312,7 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
     // rekordbox's beats (its bars can still come from Beat This!).
     bool covered = !rb.data || rb.used < 1 || beatTime(rb.data, rb.used - 1) <= c.duration + 1;
     double drift = sameTempo && covered && c.use ? rbDrift(rb, c) : 0;
-    if (cfgNum("bettergrid_debug", 0) > 0) logf("bettergrid: drift %.0f ms, onset fit %d (%d clear), combined %.3f BPM", drift * 1000, (int)c.onsetFit, c.clearBeats, c.bpm);
+    if (opt::debug.number() > 0) logf("bettergrid: drift %.0f ms, onset fit %d (%d clear), combined %.3f BPM", drift * 1000, (int)c.onsetFit, c.clearBeats, c.bpm);
     if (drift != 0) sameTempo = false;  // rekordbox's beats aren't at the tempo they say: the combined grid
     int how = 0;
     bool startBeat = false, rbBars = false;
@@ -1313,7 +1331,7 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
         if (sameTempo) {
             std::vector<char> base(rb.data, rb.data + (size_t)rb.used * beatSize());
             hb = halfBeatOff(rb, c);
-            int mode = hb.mode = cfgInt("bettergrid_halfbeat", 1);
+            int mode = hb.mode = opt::halfbeat.integer();
             bool onsetsAgree = hb.on == hb.on && hb.between > 0 && hb.between >= kHalfBeatOnsets * hb.on;
             if (hb.seen && (mode >= 2 || (mode == 1 && (onsetsAgree || hb.loud)))) {
                 std::vector<char> moved = movedHalfBeat(rb, covered ? c.duration : 0);
@@ -1321,7 +1339,7 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
             }
             if (!hb.moved && covered) {
                 ok = offTheKick(rb, c);
-                ok.mode = cfgInt("bettergrid_offbeat", 1);
+                ok.mode = opt::offbeat.integer();
                 if (ok.seen && ok.agree && ok.audio && ok.mode) {
                     draw(c, 1);
                     ok.moved = how == 1;
@@ -1330,7 +1348,7 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
             if (!ok.moved) {
                 startBeat = addStartBeat(base);
                 double barAt = c.btDownbeat;  // the bars go by this downbeat: Beat This!'s, or rekordbox's where the kick comes in
-                if (!hb.moved && cfgInt("bettergrid_bars", 1)) vote = barByMusic(base, c, c.btDownbeat, 60 / c.bt.bpm);
+                if (!hb.moved && opt::bars.integer()) vote = barByMusic(base, c, c.btDownbeat, 60 / c.bt.bpm);
                 if (vote.pick) {
                     barAt = vote.at, rbBars = vote.pick == 1;
                 } else if (!hb.moved && c.level) {
@@ -1352,7 +1370,7 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
             }
         } else if (covered) {
             draw(c, 1);
-            if (drift != 0 && how == 1 && cfgInt("bettergrid_bars", 1)) {
+            if (drift != 0 && how == 1 && opt::bars.integer()) {
                 // rekordbox's tempo was right, only its beats' spacing wasn't: its bar start may still be the one
                 // to keep. The music's changes decide, as for rekordbox's own beats, on the combined beats.
                 long jr = -1;
@@ -1379,8 +1397,8 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
         const char* d = out.beats.empty() ? rb.data : out.beats.data();
         int n = out.beats.empty() ? rb.used : (int)(out.beats.size() / beatSize());
         kl = kickLine(BeatArray{(char*)d, n, n}, c);
-        kl.mode = cfgInt("bettergrid_kick", 1);
-        if (cfgNum("bettergrid_debug", 0) > 0)
+        kl.mode = opt::kick.integer();
+        if (opt::debug.number() > 0)
             logf("bettergrid: kick line %+.1f..%+.1f ms (slope %.5f), %.0f%% of the beats on it, %.1fx clear: %s", kl.atStart * 1000, kl.atEnd * 1000,
                  kl.slope, 100 * kl.share, kl.strength, kl.seen ? "off the grid" : "no");
         if (kl.seen && kl.mode) {
@@ -1388,7 +1406,7 @@ static Outcome combinedBeats(const void* thread, const BeatArray& rb) {
             if (moved.size() / beatSize() >= 16) out.beats = std::move(moved), kl.moved = true;
         }
     }
-    if (cfgNum("bettergrid_debug", 0) > 0)
+    if (opt::debug.number() > 0)
         for (int i = 0; i < 2; i++) {
             const char* d = i ? out.beats.data() : rb.data;
             int n = i ? (int)(out.beats.size() / beatSize()) : rb.used;
@@ -1574,7 +1592,7 @@ extern "C" void rbm_hook_grid_notify2(void* thread, const BeatArray* beats);
 static void notifyBeat(void (*orig)(void*, const BeatArray*), void* thread, const BeatArray* beats) {
     Applied mine;
     bool have = g_on && beats && beats->data && beats->used > 0 && appliedTo(thread, &mine);
-    if (cfgNum("bettergrid_debug", 0) > 0)
+    if (opt::debug.number() > 0)
         logf("bettergrid: notifyBeat %d beats (first %.3f s), combined %zu beats  %s", beats ? beats->used : -1,
              beats && beats->data && beats->used > 0 ? beatTime(beats->data, 0) : -1.0, have ? mine.beats.size() / beatSize() : (size_t)0,
              songPath(thread).c_str());
@@ -1622,7 +1640,7 @@ static int columnCompare(const char* a, const char* b) {
     return x < y ? -1 : x > y;
 }
 
-static std::string columnTitle() { return cfgStr("bettergrid_title", "BT BPM"); }
+static std::string columnTitle() { return opt::title.text(); }
 
 // Earlier results from the CSV.
 static void init() {
@@ -1662,7 +1680,7 @@ static void init() {
             startupTask([] {
                 if (!model().loaded()) return;
 #if !defined(_WIN32) && !RBM_MAC_X86  // (an Intel Mac ran a chunk on the GPU when it loaded the model, to time it)
-                if (!cfgInt("bettergrid_warmup", 1)) return;
+                if (!opt::warmup.integer()) return;
                 double t0 = now();
                 const int rate = 22050;
                 std::vector<float> x((size_t)rate * 15);
@@ -1679,7 +1697,18 @@ static void init() {
 
 RBM_COLUMN({.id = kColumnId, .title = columnTitle, .text = columnText, .compare = columnCompare, .after = 29, .enabled = &g_on});
 #ifndef _WIN32
-RBM_MOD({.name = "bettergrid", .init = init, .tick = tick, .enabled = &g_on});
+RBM_MOD({.name = "bettergrid", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Beat grids",
+         .about = "Better beat grids: the Beat This! beat tracker's tempo and bar starts, with every beat on the hits in the audio.",
+         .area = "analysis", .order = 20});
 #else
-RBM_MOD({.name = "bettergrid", .init = init, .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"analysis", "Grids, keys & cues",
+    "Beat grids, keys, genres and cues, and how tracks get analysed.",
+    "<path d=\"M1.5 8h2l1.5-4 2.5 9 2-7 1.5 4h3.5\"/>", 30}; }
+
+RBM_MOD({.name = "bettergrid", .init = init, .enabled = &g_on,
+         .title = "Beat grids",
+         .about = "Better beat grids: the Beat This! beat tracker's tempo and bar starts, with every beat on the hits in the audio.",
+         .area = "analysis", .order = 20});
 #endif

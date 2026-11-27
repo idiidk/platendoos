@@ -55,6 +55,29 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting parallel{"analyze_parallel", 6, {.label = "Tracks analysed at once", .help = "More is quicker until the computer runs out of cores; 6 was fastest on a 10-core Mac.", .min = 1, .max = 12, .step = 1}};
+const Setting live{"analyze_live", 1, {.label = "Tracks at once while a deck is playing", .help = "0: the run waits until the decks have stopped.", .min = 0, .max = 6, .step = 1}};
+const Setting window{"analyze_window", true, {.label = "Open the analysis window when a run starts"}};
+const Setting reopen{"analyze_reopen", true, {.label = "Reopen the playlist analysed last after a restart"}};
+const Setting fast{"analyze_fast", false, {.label = "Skip rekordbox's optional analyses", .help = "Phrase, vocal detection and similarity are left out; rekordbox adds them when the track is loaded for playing."}};
+const Setting import_{"analyze_import", true, {.label = "Import Spotify tracks that aren't in the collection yet", .help = "rekordbox only analyses collection tracks."}};
+const Setting minFreeGb{"analyze_min_free_gb", 5, {.label = "Stop a run below this much free disk space", .unit = "GB", .min = 0, .max = 500, .step = 1}};
+const Setting direct{"analyze_direct", true, {.label = "Analyse without decks", .help = "Off: tracks are loaded onto spare decks instead.", .advanced = true}};
+const Setting decks{"analyze_decks", "3,4", {.label = "Decks to use when analysing on decks", .advanced = true, .needs = "!analyze_direct"}};
+const Setting streams{"analyze_streams", 3, {.label = "Spotify tracks loaded at once, all decks counted", .min = 1, .max = 6, .step = 1, .advanced = true}};
+const Setting gap{"analyze_gap", 4, {.label = "Seconds between two loads", .unit = "s", .min = 0, .max = 60, .step = 1, .advanced = true}};
+// (a slower PC with bettergrid waiting for Beat This! on the CPU, up to 60 s past rekordbox's own grid, needs more than a Mac)
+#ifdef _WIN32
+const Setting timeout{"analyze_timeout", 180, {.label = "Give a track up after", .unit = "s", .min = 10, .max = 900, .step = 5, .advanced = true}};
+#else
+const Setting timeout{"analyze_timeout", 90, {.label = "Give a track up after", .unit = "s", .min = 10, .max = 900, .step = 5, .advanced = true}};
+#endif
+const Setting startTimeout{"analyze_start_timeout", 15, {.label = "Retry a track whose analysis doesn't start after", .unit = "s", .min = 5, .max = 120, .step = 1, .advanced = true}};
+const Setting importTimeout{"analyze_import_timeout", 20, {.label = "Wait for an imported track", .unit = "s", .min = 5, .max = 120, .step = 1, .advanced = true}};
+}  // namespace opt
+
 static const Addr A_dbHolder{"SingletonHolder<DatabaseIF>", [] { return singleton("__ZN11DetailColorC2Ev", "__ZN4juce15SingletonHolderIN2db10DatabaseIFENS_15CriticalSectionELb0EE3getEv"); }};
 static const Addr A_dbGet{"__ZN4juce15SingletonHolderIN2db10DatabaseIFENS_15CriticalSectionELb0EE3getEv"};  // SingletonHolder<db::DatabaseIF>::get()
 static const Addr A_isCollectionSong{"__ZN2db10DatabaseIF16isCollectionSongERKN4juce6StringERNS_12RowDataTrackE"};  // DatabaseIF::isCollectionSong(String const&, RowDataTrack&)
@@ -434,7 +457,7 @@ static Queue queueCollectionTrack(const std::string& uri, unsigned* id) {
 
 static Queue analyzeWithoutDeck(const std::string& uri, void* lv, void* listRowData, unsigned* id) {
     Queue q = queueCollectionTrack(uri, id);
-    if (q != Queue::Failed || !isSpotify(uri.c_str()) || !cfgInt("analyze_import", 1)) return q;
+    if (q != Queue::Failed || !isSpotify(uri.c_str()) || !opt::import_.integer()) return q;
     if (importTrack(uri)) {  // from the row core kept: works whatever list is shown
         logf("analyze: %s is not in the collection, importing it", uri.c_str());
         return Queue::Importing;
@@ -989,7 +1012,7 @@ _rbm_hook_history_add:
 
 static std::vector<int> configuredDecks() {
     std::vector<int> d;
-    std::string s = cfgStr("analyze_decks", "3,4");
+    std::string s = opt::decks.text();
     for (char* t = strtok(&s[0], ", \t"); t; t = strtok(nullptr, ", \t"))
         if (atoi(t) >= 1 && atoi(t) <= deckCount() && std::find(d.begin(), d.end(), atoi(t) - 1) == d.end())
             d.push_back(atoi(t) - 1);
@@ -1035,7 +1058,7 @@ static void stopRun(const char* why, const std::string& explain = "") {
 
 // Analyses the playlist the browser shows (or is about to show: id).
 static void startRun(bool force, const std::string& id = "") {
-    bool direct = cfgInt("analyze_direct", 1) != 0;
+    bool direct = opt::direct.integer() != 0;
     std::vector<int> decks = configuredDecks();
     if (!direct && decks.empty()) { logf("analyze: no usable deck in analyze_decks"); return; }
     g_run = Run();
@@ -1047,7 +1070,7 @@ static void startRun(bool force, const std::string& id = "") {
         g_runStarted.clear();
     }
     if (direct) {
-        int n = std::max(1, cfgInt("analyze_parallel", 6));
+        int n = std::max(1, opt::parallel.integer());
         for (int i = 0; i < n; i++) g_run.slots.push_back(Slot{-1});
     } else {
         for (int ch : decks) g_run.slots.push_back(Slot{ch});
@@ -1061,8 +1084,8 @@ static void startRun(bool force, const std::string& id = "") {
         logf("analyze: start%s without decks, %d at a time", force ? " (re-analyse)" : "", (int)g_run.slots.size());
     else
         logf("analyze: start%s on deck(s) %s, max %d Spotify tracks loaded, gap %.1fs", force ? " (re-analyse)" : "",
-             cfgStr("analyze_decks", "3,4").c_str(), cfgInt("analyze_streams", 3), cfgNum("analyze_gap", 4));
-    if (cfgInt("analyze_window", 1)) analyzer::showWindow();
+             opt::decks.text().c_str(), opt::streams.integer(), opt::gap.number());
+    if (opt::window.integer()) analyzer::showWindow();
 }
 
 // Saved for reopening it after a restart, once the browser shows it.
@@ -1138,14 +1161,6 @@ static void reopenPlaylist() {
 #endif
 }
 
-// Seconds an analysis may run (analyze_timeout). A slower PC with bettergrid waiting for Beat This! on the CPU
-// (up to 60 s past rekordbox's own grid) needs more than a Mac.
-#ifdef _WIN32
-static const double kAnalyzeTimeout = 180;
-#else
-static const double kAnalyzeTimeout = 90;
-#endif
-
 // Watches a direct analysis; true once rekordbox's analyser has finished the track (or given up).
 static bool directFinished(Slot& s, double t) {
     if (s.importing) {
@@ -1167,7 +1182,7 @@ static bool directFinished(Slot& s, double t) {
             s.stableSince = s.checkedAt = 0;
             return false;
         }
-        if (t - s.importStartedAt <= cfgNum("analyze_import_timeout", 20)) return false;
+        if (t - s.importStartedAt <= opt::importTimeout.number()) return false;
         logf("analyze: row %d: %s did not show up in the collection after %.0fs", s.row, s.uri.c_str(),
              t - s.importStartedAt);
         g_run.failed++;
@@ -1209,12 +1224,12 @@ static bool directFinished(Slot& s, double t) {
         s.stableSince = 0;
     }
     bool finished = done && t - s.stableSince >= 1;
-    bool timedOut = t - s.clockFrom > cfgNum("analyze_timeout", kAnalyzeTimeout);
+    bool timedOut = t - s.clockFrom > opt::timeout.number();
     // A thread that holds the track but never begins its analysis (left paused) counts as not started.
     // (Only with the timing mod running: off, e.g. on Windows, it records nothing and every analysis looked unstarted.)
     bool timing = provided("timing.report") != nullptr;
     bool neverStarted = (!s.seenRunning || (timing && analysisTiming(s.uri, s.timingFrom).empty())) &&
-                        t - s.clockFrom > cfgNum("analyze_start_timeout", 15);
+                        t - s.clockFrom > opt::startTimeout.number();
     if (!finished && !skipped && !timedOut && !neverStarted) return false;
 
     CollectionTrack c;
@@ -1297,7 +1312,7 @@ static bool slotFinished(Slot& s, double t) {
         s.checkedAt = t;
         done = isAnalyzed(s.uri);
     }
-    bool timedOut = t - s.startedAt > cfgNum("analyze_timeout", kAnalyzeTimeout);
+    bool timedOut = t - s.startedAt > opt::timeout.number();
     if (!done && !timedOut) return false;
 
     logf("analyze: row %d on deck %d %s bpm=%.2f after %.1fs [%s]", s.row, s.ch + 1, done ? "ok" : "TIMEOUT", bpm,
@@ -1388,7 +1403,7 @@ static bool oldGrid(const std::string& uri) {
     if (uri.find("/rekordbox/Sampler/") != std::string::npos) return false;  // rekordbox's own sampler sounds: left alone
     if (trackNote(uri, "bt_bpm").empty()) return true;
     std::string fit = trackNote(uri, "bt_fit");
-    return !fit.empty() && atof(fit.c_str()) < cfgNum("bettergrid_min_fit", 0.6) && trackNote(uri, "bt_fv").empty();
+    return !fit.empty() && atof(fit.c_str()) < setting("bettergrid_min_fit").number() && trackNote(uri, "bt_fv").empty();
 }
 
 // Whether a row can only be imported from its playlist row, so waits while another list is shown.
@@ -1600,11 +1615,11 @@ static void tick() {
     static bool started;
     if (!started) {
         started = true;
-        if (cfgInt("analyze_reopen", 1)) g_reopenUntil = now() + 120;
+        if (opt::reopen.integer()) g_reopenUntil = now() + 120;
     }
     reopenPlaylist();
     readCommand();
-    g_fast = cfgInt("analyze_fast", 0) != 0;
+    g_fast = opt::fast.integer() != 0;
     if (g_run.running) readSpotifyLog();  // fallback only
     // Forget decks this mod loaded once they hold something else; re-eject ours if they came back.
     double t0 = now();
@@ -1644,7 +1659,7 @@ static void tick() {
         diskAt = t0;
         uint64_t free = plat::diskFree(plat::configDir());
         // A run writes only rekordbox's analysis files: 1 GB is room enough, unless another mod writes more meanwhile.
-        double need = cfgNum("analyze_min_free_gb", 5);
+        double need = opt::minFreeGb.number();
         std::string hint;
         auto diskUse = service<bool (*)(std::string*)>("analyzer.diskUse");
         if (!(diskUse && diskUse(&hint))) need = std::min(need, 1.0), hint.clear();
@@ -1758,12 +1773,12 @@ static void tick() {
     // miss cycles (2-6 CoreAudio overloads) and held the main thread up for 0.3 s; six at once is for when nobody plays.
     static bool liveSaid;
     bool live = slowdrive::deckPlays();
-    if (live && active >= std::max(0, cfgInt("analyze_live", 1))) free = nullptr;
+    if (live && active >= std::max(0, opt::live.integer())) free = nullptr;
     if (live != liveSaid) {
         liveSaid = live;
-        if (live) logf("analyze: a deck plays: %d track(s) at a time until the decks have stopped", std::max(0, cfgInt("analyze_live", 1)));
+        if (live) logf("analyze: a deck plays: %d track(s) at a time until the decks have stopped", std::max(0, opt::live.integer()));
     }
-    double gap = g_run.direct ? 0.2 : cfgNum("analyze_gap", 4);
+    double gap = g_run.direct ? 0.2 : opt::gap.number();
     bool canLoad = free && t - g_run.lastLoadAt >= gap;
     // A track another mod holds back waits while it does; the window says the run waits for it only once nothing else
     // can start (pickRow).
@@ -1795,7 +1810,7 @@ static void tick() {
         if (needsStream && g_run.direct)
             for (Slot& s : g_run.slots) streams += s.row >= 0 && s.streams;
         int limitLeft = needsStream ? spotifyLimitLeft() : 0;
-        if (free && streams < cfgInt("analyze_streams", 3) && !limitLeft) {
+        if (free && streams < opt::streams.integer() && !limitLeft) {
             takeRow(row);
             bool retrying = info(row).state == State::Retry;
             *free = Slot{free->ch};
@@ -2013,7 +2028,7 @@ void setUserPaused(bool paused) {
 
 void stop() { stopRun("stopped"); }
 
-bool fastMode() { return cfgInt("analyze_fast", 0) != 0; }
+bool fastMode() { return opt::fast.integer() != 0; }
 void setFastMode(bool on) {
     setCfg("analyze_fast", on ? "1" : "0");
     g_fast = on;
@@ -2023,7 +2038,7 @@ void setFastMode(bool on) {
 // "Genre first": the genres mod's switch (its window has it too). The model listens to a track when bettergrid asks
 // for its genre, before the grid's tempo is picked; with the switch on, what it heard also fills an empty Genre field.
 bool hasGenres() { return service<void*>("genres.forTrack") != nullptr; }
-bool genreFirst() { return cfgInt("genres_on_analyse", 0) != 0; }
+bool genreFirst() { return setting("genres_on_analyse").integer() != 0; }
 void setGenreFirst(bool on) {
     setCfg("genres_on_analyse", on ? "1" : "0");
     logf("analyze: genre first %s", on ? "on" : "off");
@@ -2049,7 +2064,7 @@ void retryFailed() {
         for (int r : g_run.retry) info(r).state = State::Retry;
         g_run.slots.clear();
         if (g_run.direct) {
-            for (int i = 0, n = std::max(1, cfgInt("analyze_parallel", 6)); i < n; i++) g_run.slots.push_back(Slot{-1});
+            for (int i = 0, n = std::max(1, opt::parallel.integer()); i < n; i++) g_run.slots.push_back(Slot{-1});
         } else {
             for (int ch : configuredDecks()) g_run.slots.push_back(Slot{ch});
         }
@@ -2106,4 +2121,12 @@ static void init() {
         logf("analyzer: in this rekordbox build a Spotify track analysed from the stream can lose its end (its readers can't follow the download)");
 }
 
-RBM_MOD({.name = "analyzer", .init = init, .tick = tick, .playlistMenu = playlistMenu, .trackMenu = trackMenu, .enabled = &g_on, .menuOrder = 10});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"analysis", "Grids, keys & cues",
+    "Beat grids, keys, genres and cues, and how tracks get analysed.",
+    "<path d=\"M1.5 8h2l1.5-4 2.5 9 2-7 1.5 4h3.5\"/>", 30}; }
+
+RBM_MOD({.name = "analyzer", .init = init, .tick = tick, .playlistMenu = playlistMenu, .trackMenu = trackMenu, .enabled = &g_on, .menuOrder = 10,
+         .title = "Playlist analysis",
+         .about = "Open analysis window in a playlist's menu analyses the whole playlist, Spotify ones too.",
+         .area = "analysis", .order = 10});

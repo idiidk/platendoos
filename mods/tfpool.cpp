@@ -23,6 +23,11 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting warmup{"tfpool_warmup", true, {.label = "Warm the beat models up at launch", .advanced = true}};
+}  // namespace opt
+
 static const Addr A_modelVptr{"__ZTVN9TFWrapper5ModelE", 0x10};  // its vtable pointer (D1, D0)
 
 static volatile bool g_on = true;
@@ -196,7 +201,7 @@ struct MadmomResult { alignas(16) char bytes[4096]; };  // (bigger than the real
 static const Addr A_madmom{"__ZN6madmom7analyzeEN4juce6StringES1_PfS2_ixb"};
 
 static void warmUp() {
-    if (!cfgInt("tfpool_warmup", 1)) return;
+    if (!opt::warmup.integer()) return;
     std::vector<std::string> lines;
     if (FILE* f = plat::openFile(warmupFile(), "r")) {
         char buf[4096];
@@ -241,4 +246,12 @@ static void warmUp() {
 static void warmUp() {}
 #endif
 
-RBM_MOD({.name = "tfpool", .init = warmUp, .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"speed", "Speed",
+    "A quicker window and less work in the background.",
+    "<path d=\"M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z\"/>", 70}; }
+
+RBM_MOD({.name = "tfpool", .init = warmUp, .enabled = &g_on,
+         .title = "Beat model stays loaded",
+         .about = "Keeps rekordbox's beat-detection model loaded between tracks instead of loading it for each one.",
+         .area = "analysis", .order = 80});

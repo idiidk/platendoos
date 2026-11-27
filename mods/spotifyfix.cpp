@@ -130,4 +130,7 @@ static void init() {
 }
 
 // The comparisons run on worker threads, so they read a flag the core keeps in sync with the config.
-RBM_MOD({.name = "spotifyfix", .init = init, .enabled = &g_on});
+RBM_MOD({.name = "spotifyfix", .init = init, .enabled = &g_on,
+         .title = "Spotify fixes",
+         .about = "Stops Spotify playlists from reloading themselves forever, and fixes a deadlock in rekordbox's Spotify client.",
+         .area = "spotify", .order = 60});

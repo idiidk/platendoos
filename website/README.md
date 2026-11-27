@@ -115,8 +115,8 @@ npm run build:with-trailer    # copies the video into the assembled pages only; 
 | `docs/public/` | Logo, icon and screenshots (`img/`) |
 
 Sources the pages were written from, to keep them in step: `README.md`, `CHANGELOG.md`, `docs/*.md`, the header
-comment at the top of each `mods/*` file, and `core/config_template.h` (every option and default; `npm run settings` makes the option tables in
-`docs/guides/settings.md` from it, the public edition's). `docs/getting-started/release-notes.md` and
+comment at the top of each `mods/*` file, and the mods' settings declarations (`core/settings.h`: every option and default; `npm run settings` makes the option
+tables in `docs/guides/settings.md` from them, the public edition's). `docs/getting-started/release-notes.md` and
 `docs/guides/loading-a-track.md`, `docs/internals/rekordbox-updates.md` and `docs/internals/windows.md` were copied from
 `CHANGELOG.md` and `docs/`, with links adjusted: copy them again when those change.
 

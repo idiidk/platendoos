@@ -72,6 +72,34 @@ class Rbmods:
             msvc.write_string(e, e.arg(1), f.read())
         return 1
 
+    def dev_files(self, config_dir="C:\\Users\\dj\\AppData\\Roaming\\rekordbox-mods"):
+        """Stand-ins for a mod's test-command files: rbm::devCommand(mod) takes the next line of
+        self.commands[mod] (a list), rbm::plat::configDir is config_dir, and rbm::plat::writeFileAtomic writes into
+        self.files_written (path -> bytes) instead of the disk."""
+        e = self.emu
+        self.commands, self.files_written = {}, {}
+
+        def dev_command(e):   # std::string devCommand(const char*): the result through the hidden pointer in rcx
+            mod = e.cstr(e.arg(1))
+            q = self.commands.get(mod) or []
+            line = q.pop(0) if q else ""
+            if line:
+                self.log.append(f"{mod}: command '{line}'")
+            msvc.write_string(e, e.arg(0), line)
+            return e.arg(0)
+
+        def config(e):
+            msvc.write_string(e, e.arg(0), config_dir)
+            return e.arg(0)
+
+        def write_file(e):    # (const std::string& path, const void* data, size_t n, bool flush)
+            self.files_written[msvc.read_string(e, e.arg(0))] = e.mem_read(e.arg(1), e.arg(2)) if e.arg(2) else b""
+            return 1
+
+        e.hook(self.dll.sym("rbm::devCommand"), dev_command, "rbm::devCommand")
+        e.hook(self.dll.sym("rbm::plat::configDir"), config, "rbm::plat::configDir")
+        e.hook(self.dll.sym("rbm::plat::writeFileAtomic"), write_file, "rbm::plat::writeFileAtomic")
+
     # -- the DLL's C runtime and static initialisers (as dllmain_crt_process_attach, without DllMain) --
     def _crt_init(self):
         e, d = self.emu, self.dll

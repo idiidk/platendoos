@@ -26,6 +26,9 @@ A run takes a few seconds per build.
 | `run.py` | The runner: `test_<name>.py` per mod, each run against each rekordbox build |
 | `test_xfadelock.py` | xfadelock (the first test: see its docstring for what runs for real and what stands in) |
 | `test_stemcache.py` | stemcache's stems on demand: the slot swap on the decks' objects, the three replacements, the wait |
+| `juce.py` | JUCE values in rekordbox's Windows layout: juce::String (rekordbox's own constructor), juce::var (its real VariantType tables), juce::Value (a SimpleValueSource with its real vtable) |
+| `test_prefs.py` | prefs: the hidden Preferences component read and operated through the mod's settings source and tick, on a fake component tree with the exe's real RTTI and JUCE getters; the click wait (kClickTime); rekordbox's Preferences command opening the window (perform's slot swap) |
+| `test_linein.py` | linein: the processBlock slot swap, manage() on fake engine objects (Windows offsets), the resampler through the swapped slot, and the whole WASAPI half (its capture thread as an emulated thread) against fake COM objects |
 
 ## Writing a test
 
@@ -47,6 +50,9 @@ A run takes a few seconds per build.
 - In a hook, `e.arg(i)` / `e.farg(i)` / `e.farg32(i)` are the call's arguments; a hook may `e.call` back into
   emulated code (rekordbox's listeners calling the mod, the mod calling rekordbox).
 - `e.py_func(fn)` makes a function pointer for a fake vtable or callback; `e.vtable([...])` a whole fake vtable.
+- `msvc.type_descriptor(exe, ".?AVName@")` finds a class's RTTI by its decorated name (a trailing single `@`: a class
+  in an anonymous namespace), `msvc.class_names` lists its bases; `t.r.dev_files()` stands in for a mod's test-command
+  files (`t.r.commands[mod]` lines for `devCommand`, `t.r.files_written` for `plat::writeFileAtomic`).
 - `e.windows` holds fake windows (title, screen rect, parent, visible) for `EnumWindows`, `CreateWindowExW`,
   `SetWindowPos` and friends; `e.send_message(hwnd, msg)` calls a window's real window procedure.
 
@@ -58,7 +64,12 @@ initialisers, and whatever mod functions a test calls.
 
 Stands in: Win32 (kernel32 heap/TLS/locks/module queries and a handful of user32 window calls, in `emu.py`); any
 other import records the call and returns 0 (`Emu(unknown="trap")` raises instead; `run.py -v` lists them).
-`CreateThread` raises (no threads), and so does a C++ throw (`RaiseException`: no unwinding), with the C++ type and
+`CreateThread` raises (no threads) unless the test calls `emu.enable_threads()`: then threads are emulated
+cooperatively (each on its own stack and TLS slots; one runs at a time, until it waits for an event or ends): the
+main thread's `WaitForSingleObject` / `WaitForMultipleObjects` run them until what it waits for is signalled, and
+`emu.run_threads()` / `emu.set_event(h)` let a test run them at a point it chooses (`CreateEventW`, `SetEvent`,
+`ResumeThread`, `ExitThread`, `GetExitCodeThread` work then; a wait's timeout never elapses by itself:
+`run_threads(timeouts=True)`). A C++ throw (`RaiseException`: no unwinding), with the C++ type and
 a stack. `rbm::logf` is captured in Python (`t.r.log`) and `rbm::plat::readFile` reads the table from the host.
 DllMain is not run (no hooks.def call sites are patched, no mod threads start): a test calls the mod's `init` and
 its functions directly. Drawing (GDI+), WebView2 and JUCE's message loop don't run; rekordbox functions that would

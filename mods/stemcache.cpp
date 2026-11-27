@@ -28,8 +28,7 @@
 //                                are thrown away when rekordbox quits) or none (nothing new is saved)
 //           stemcache_ondemand=0   1: a deck's track is separated only once a stem control is used on it
 //                                  (a stem muted, a PART ISOLATOR knob turned, the FX taken off a stem), from
-//                                  where it plays; stems that are stored already still come at once (on Windows
-//                                  new and not yet run on a Windows machine)
+//                                  where it plays; stems that are stored already still come at once
 //           stemcache_log=0   1 logs every chunk and every stem control (for debugging)
 //           stemcache_dir=<cache folder>/stems (mac ~/Library/Caches/rekordbox-mods/stems)
 //           stemcache_quality=256   how new chunks are stored: lossless | 256 | 192 | 128 (AAC kbps per stem)
@@ -67,6 +66,21 @@
 #include <vector>
 
 using namespace rbm;
+
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting keep{"stemcache_keep", "all", {.label = "Save stems to disk", .help = "Everything: every track that gets stems. Only what I separate: a track you just load onto a deck gets stems that are thrown away when rekordbox quits.", .choices = {{"all", "Everything"}, {"chosen", "Only what I separate in the stems window"}, {"none", "Nothing"}}}};
+const Setting ondemand{"stemcache_ondemand", false, {.label = "Separate only when a stem control is used", .help = "A deck's track is separated from the moment you mute a stem, turn a PART ISOLATOR knob or take the FX off a stem, starting where it plays."}};
+const Setting spotify{"stemcache_spotify", true, {.label = "Stems for Spotify tracks"}};
+const Setting quality{"stemcache_quality", "256", {.label = "Quality of saved stems", .help = "256 kbps takes about 35 MB for a 5-minute track, lossless about 125 MB.", .choices = {{"128", "128 kbps"}, {"192", "192 kbps"}, {"256", "256 kbps"}, {"lossless", "Lossless"}}, .needs = "stemcache_keep!=none"}};
+const Setting maxGb{"stemcache_max_gb", 10, {.label = "Disk space for stems", .help = "Past this the stems used longest ago are deleted. 0: no limit.", .unit = "GB", .min = 0, .max = 2000, .step = 1, .needs = "stemcache_keep!=none"}};
+const Setting memoryMb{"stemcache_memory_mb", 384, {.label = "Memory for stems that aren't saved", .unit = "MB", .min = 0, .max = 8192, .step = 64}};
+const Setting dir{"stemcache_dir", "", {.label = "Folder", .help = "Empty: the default folder.", .wide = true, .needs = "stemcache_keep!=none"}};
+const Setting minFreeGb{"stemcache_min_free_gb", 5, {.label = "Save nothing new below this much free space", .unit = "GB", .min = 0, .max = 500, .step = 1, .advanced = true, .needs = "stemcache_keep!=none"}};
+const Setting staging{"stemcache_staging", "auto", {.label = "Write to the internal disk first", .choices = {{"0", "Never"}, {"1", "Always"}, {"auto", "When the folder is on an external drive"}}, .advanced = true, .needs = "stemcache_keep!=none"}};
+const Setting stagingGb{"stemcache_staging_gb", 4, {.label = "How much may wait on the internal disk", .unit = "GB", .min = 1, .max = 200, .step = 1, .advanced = true, .needs = "stemcache_staging!=0"}};
+const Setting log{"stemcache_log", false, {.label = "Log every chunk and stem control", .debug = true}};
+}  // namespace opt
 
 #define RBM_NOINLINE __attribute__((noinline))
 
@@ -331,7 +345,7 @@ static std::atomic<int> g_pending;    // chunks waiting to be encoded (each hold
 
 // How much may wait in the staging folder (stemcache_staging_gb; 0: as much as the disk's free-space limit allows).
 static bool stagingFull() {
-    double cap = cfgNum("stemcache_staging_gb", 4) * 1e9;
+    double cap = opt::stagingGb.number() * 1e9;
     return g_stageFull || (cap > 0 && (double)g_stagedBytes >= cap);
 }
 
@@ -356,7 +370,7 @@ static void store(const std::string& path, int samples, float* const* out, int n
         std::lock_guard<std::mutex> l(g_flightLock);
         if (!g_inFlight.insert(path).second) return;
     }
-    int kbps = stemcodec::qualityKbps(cfgStr("stemcache_quality", "256"));
+    int kbps = stemcodec::qualityKbps(opt::quality.text());
     // AAC takes ~0.3 s a chunk; when chunks come faster (rekordbox's own engine, several decks) and the encoder falls
     // behind, store lossless (~0.08 s) rather than skip: a chunk left out would be separated again next time.
     if (g_pending >= 8) kbps = 0;
@@ -412,7 +426,7 @@ static std::map<std::string, std::pair<std::shared_ptr<const std::string>, doubl
 static long long g_memBytes;
 static std::atomic<int> g_memEncoding;
 static std::atomic<int> g_memHits, g_memStored;
-static double memCap() { return std::max(0.0, cfgNum("stemcache_memory_mb", 384)) * 1e6; }
+static double memCap() { return std::max(0.0, opt::memoryMb.number()) * 1e6; }
 static void memTrim(double cap) {  // (g_memLock held)
     while ((double)g_memBytes > cap && !g_mem.empty()) {
         auto oldest = g_mem.begin();
@@ -442,7 +456,7 @@ static void memStore(const std::string& name, int samples, float* const* out, in
         std::lock_guard<std::mutex> l(g_memLock);
         if (g_mem.count(name)) return;
     }
-    int kbps = stemcodec::qualityKbps(cfgStr("stemcache_quality", "256"));
+    int kbps = stemcodec::qualityKbps(opt::quality.text());
     auto pcm = std::make_shared<std::vector<float>>((size_t)n * samples);
     for (int o = 0; o < n; o++) memcpy(pcm->data() + (size_t)o * samples, out[o], samples * sizeof(float));
     g_memEncoding++;
@@ -894,7 +908,7 @@ static void prune() {
     if (pruning.exchange(true)) return;
     struct Done { ~Done() { pruning = false; } } done;
     if (!dirReady()) return;  // (not there, or it doesn't answer: the watcher says which)
-    double maxGb = cfgNum("stemcache_max_gb", 10);
+    double maxGb = opt::maxGb.number();
     std::string root = dir();
     namespace fs = std::filesystem;
     struct F { std::string path; fs::file_time_type used; long long size; };
@@ -1258,7 +1272,7 @@ static void stepPrep() {
     // The cache folder's drive is behind by as much as may wait for it: the next track starts once it has caught up
     // (below 80%), so no chunk of the run is left out.
     static bool holding;
-    bool hold = g_staging && (stagingFull() || (holding && g_stagedBytes > cfgNum("stemcache_staging_gb", 4) * 0.8e9));
+    bool hold = g_staging && (stagingFull() || (holding && g_stagedBytes > opt::stagingGb.number() * 0.8e9));
     if (hold != holding) {
         holding = hold;
         logf(hold ? "stemcache: %.1f GB of stems wait for the cache folder: the run pauses until it has caught up"
@@ -1433,7 +1447,7 @@ static void trackMenu(Menu* menu, const std::vector<std::string>& uris, const st
 }
 
 static void configure() {
-    std::string d = cfgStr("stemcache_dir", "");
+    std::string d = opt::dir.text();
     if (d.empty()) d = plat::cacheDir() + "/stems";
     if (d[0] == '~') d = plat::homeDir() + d.substr(1);
     std::lock_guard<std::mutex> l(g_lock);
@@ -1467,13 +1481,13 @@ static void watchMain() {
         }
         if (!gone && d != judged) judged = d, g_external = plat::externalVolume(d);
         {
-            std::string mode = cfgStr("stemcache_staging", "auto");
+            std::string mode = opt::staging.text();
             bool staging = mode == "0" ? false : mode == "1" ? true : judged == d ? g_external.load() : g_staging.load();
             if (staging) {
                 std::error_code ec;
                 std::filesystem::create_directories(plat::fsPath(g_stage), ec);
                 uint64_t stageFree = plat::diskFree(g_stage);
-                g_stageFull = stageFree && (double)stageFree < cfgNum("stemcache_min_free_gb", 5) * 1e9;
+                g_stageFull = stageFree && (double)stageFree < opt::minFreeGb.number() * 1e9;
             }
             if (g_staging.exchange(staging) != staging)
                 logf(staging ? "stemcache: new stems go to %s first and move to the cache folder in the background (%s)"
@@ -1482,7 +1496,7 @@ static void watchMain() {
                                                      : ("stemcache_staging=" + mode).c_str());
         }
         syncSeparated(d, !gone && fi.isDir);
-        bool full = gone || (freeBytes && (double)freeBytes < cfgNum("stemcache_min_free_gb", 5) * 1e9);
+        bool full = gone || (freeBytes && (double)freeBytes < opt::minFreeGb.number() * 1e9);
         if (first ? full : (full != g_diskFull || gone != g_dirGone))
             logf("stemcache: %s", gone ? "the cache folder is not there (drive not connected?): not storing stems"
                                       : full ? "the disk is nearly full: not storing new stems" : "storing stems again");
@@ -1518,12 +1532,12 @@ static double g_pruneAt, g_logAt;
 static int g_loggedHits, g_loggedMisses;
 static void tick() {
     double t = now();
-    g_spotify = cfgInt("stemcache_spotify", 1) != 0;
-    g_onDemand = cfgInt("stemcache_ondemand", 0);
+    g_spotify = opt::spotify.integer() != 0;
+    g_onDemand = opt::ondemand.integer();
     followStemControls();
-    g_logChunks = cfgInt("stemcache_log", 0) != 0;
+    g_logChunks = opt::log.integer() != 0;
     {
-        std::string keep = cfgStr("stemcache_keep", "all");
+        std::string keep = opt::keep.text();
         g_keep = keep == "chosen" ? kKeepChosen : keep == "none" ? kKeepNone : kKeepAll;
     }
     {
@@ -1600,4 +1614,12 @@ static void provideStoreSpotify(const float* inL, const float* inR, int inSample
 }
 RBM_PROVIDE("stemcache", "stemcache.storeSpotify", provideStoreSpotify, &g_on);
 
-RBM_MOD({.name = "stemcache", .init = init, .tick = tick, .playlistMenu = playlistMenu, .trackMenu = trackMenu, .enabled = &g_on, .menuOrder = 30});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"stems", "Stems",
+    "How stems are separated and which ones are kept.",
+    "<path d=\"M3 13V8M6.3 13V3M9.7 13V6M13 13V10\"/>", 20}; }
+
+RBM_MOD({.name = "stemcache", .init = init, .tick = tick, .playlistMenu = playlistMenu, .trackMenu = trackMenu, .enabled = &g_on, .menuOrder = 30,
+         .title = "Stems that are kept",
+         .about = "Keeps separated stems, so a track has them at once the next time. A playlist's menu has Open stems window to separate a whole playlist ahead.",
+         .area = "stems", .order = 10});

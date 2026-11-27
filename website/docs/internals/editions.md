@@ -54,8 +54,8 @@ For C++ the build scripts set `RBM_PUBLIC=1` for the public edition (`rbm::kPubl
 The output of both editions goes to the same places (`build/librbmods.dylib`, `build/win/...`): the last build wins,
 and `build/edition` records which one it was.
 
-The config template (`core/config_template.h`, made by `tools/build/config_gen.py`) holds each edition's options,
-and the [settings page](/guides/settings) lists this edition's.
+Each edition's options are the settings its mods declare (`core/settings.h`; the config file's list and the
+settings window are made from them), and the [settings page](/guides/settings) lists this edition's.
 
 ## This site
 

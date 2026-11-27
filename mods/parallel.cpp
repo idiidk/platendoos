@@ -129,4 +129,7 @@ extern "C" void rbm_hook_an_loopEnd(void* scratch) {
     RBM_ORIG(an_loopEnd, void (*)(void*))(scratch);
 }
 
-RBM_MOD({.name = "parallel", .enabled = &g_on});
+RBM_MOD({.name = "parallel", .enabled = &g_on,
+         .title = "Analysis on three cores",
+         .about = "Spreads the heaviest part of analysing a track over three cores instead of one.",
+         .area = "analysis", .order = 70});

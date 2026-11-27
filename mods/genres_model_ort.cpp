@@ -22,7 +22,7 @@ bool load() {
     double t = now();
     unsigned hw = std::thread::hardware_concurrency();
     // (on the CPU a run takes under half a second; half the cores at most, a deck may be playing)
-    g_session = ort::open(path, (int)std::clamp<unsigned>(hw / 2, 1, 4), &err, cfgInt("gpu", 1) != 0);
+    g_session = ort::open(path, (int)std::clamp<unsigned>(hw / 2, 1, 4), &err, setting("gpu").integer() != 0);
     if (!g_session) {
         logf("genres: loading the style model failed: %s", err.c_str());
         return false;

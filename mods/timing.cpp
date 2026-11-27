@@ -112,4 +112,7 @@ static std::string report(const std::string& uri, double since, double loadedAt)
 RBM_PROVIDE("timing", "timing.mark", mark, &g_on);
 RBM_PROVIDE("timing", "timing.wait", streamWait, &g_on);
 RBM_PROVIDE("timing", "timing.report", report, &g_on);
-RBM_MOD({.name = "timing", .enabled = &g_on});
+RBM_MOD({.name = "timing", .enabled = &g_on,
+         .title = "Analysis timing",
+         .about = "Logs how long each step of an analysis takes.",
+         .area = "analysis", .order = 100});

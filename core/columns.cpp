@@ -317,6 +317,35 @@ void rememberColumnPlaces() {
 }  // namespace rbm
 #endif
 
+// A column's title is its mod's option (keycol_title, bettergrid_title...): afterRestore sets it when a list's header is
+// built, which is once per list. Here a changed title goes to the headers that are there already (checked once a
+// second, main thread), so the option applies as it is set.
+namespace rbm {
+void retitleColumns() {
+    static double next;
+    static std::map<int, std::string> shown;
+    if (now() < next) return;
+    next = now() + 1;
+    for (Column& c : columns()) {
+        if (!on(c)) continue;
+        std::string t = c.title();
+        auto it = shown.find(c.id);
+        if (it == shown.end()) { shown[c.id] = t; continue; }  // (as the headers were built with)
+        if (it->second == t) continue;
+        it->second = t;
+        int lists = 0;
+        forEachListViewer([&](void*, void* lv) {
+            void* header = *(void* const*)((const char*)lv + O_viewerHeader);
+            if (!header || at<int (*)(void*, int, bool)>(A_indexOfColumn)(header, c.id, false) < 0) return;
+            JStr title(t.c_str());
+            at<void (*)(void*, int, const JStr*)>(A_setColumnName)(header, c.id, &title);
+            lists++;
+        });
+        logf("columns: column %d is now titled '%s' (%d list%s)", c.id, t.c_str(), lists, lists == 1 ? "" : "s");
+    }
+}
+}  // namespace rbm
+
 // BrowseHeaderManager::restoreHeaderInfo(ViewType, TableHeaderComponent*, BrowseProperty const&, ArtworkStatus&)
 // builds a list header from the saved layout (or the defaults). Afterwards: add our columns the layout
 // doesn't have yet, and set their titles.

@@ -35,6 +35,14 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting mode{"betterkey_mode", "compare", {.label = "Key to use", .choices = {{"compare", "rekordbox's (compare only)"}, {"replace", "The network's"}}}};
+const Setting minConf{"betterkey_min_conf", 0, {.label = "Only when the network is at least this sure", .help = "0 to 1. 0: always.", .min = 0, .max = 1, .step = 0.05, .needs = "betterkey_mode=replace"}};
+const Setting title{"betterkey_title", "CNN Key", {.label = "Title of the key column"}};
+const Setting wait{"betterkey_wait", 120, {.label = "Wait for the network at most", .unit = "s", .min = 0, .max = 600, .step = 5, .advanced = true}};
+}  // namespace opt
+
 static const Offset O_jobSpecialInfo{0x60, "__ZN8analyzer13AnalyzeJobKey6DetectEv", "ldr x19", 2};  // AnalyzeJobKey: AnalyzeJobKeySpecialInfo*
 
 static volatile bool g_on = true;
@@ -140,7 +148,7 @@ static int columnCompare(const char* a, const char* b) {
     return x - y;
 }
 
-static std::string columnTitle() { return cfgStr("betterkey_title", "CNN Key"); }
+static std::string columnTitle() { return opt::title.text(); }
 
 static keycnn::Model& model() {
     static keycnn::Model m;
@@ -157,7 +165,7 @@ static keycnn::Model& model() {
 typedef bool (*PassAudioFn)(const void** reader, const int16_t** l, const int16_t** r, size_t* n);
 
 // Whether the beat job will get the audio pass's samples (then nothing needs decoding before it).
-static bool passAudioComing() { return service<PassAudioFn>("streamio.passAudio") && cfgInt("streamio_phrase", 1) != 0; }
+static bool passAudioComing() { return service<PassAudioFn>("streamio.passAudio") && setting("streamio_phrase").integer() != 0; }
 
 // Decodes the song (analysisAudio) and runs the CNN. Takes its own copy of the path: the song source may go away if
 // rekordbox cancels the analysis.
@@ -269,7 +277,7 @@ extern "C" int rbm_hook_key_getKey(void* job, void* beats, float bpm, void* pcm,
     double waitFrom = now();
     // (the CNN takes a second or two; one that has to decode the track itself from a stream that stalled would hold
     // this analysis thread for good)
-    double wait = cfgNum("betterkey_wait", 120);
+    double wait = opt::wait.number();
     wait = std::isfinite(wait) ? std::max(0.0, std::min(wait, 600.0)) : 120;
     if (f.wait_for(std::chrono::milliseconds((long long)(wait * 1000))) != std::future_status::ready) {
         logf("betterkey: no CNN result after %.0f s, rekordbox's key kept", wait);
@@ -301,8 +309,8 @@ extern "C" int rbm_hook_key_getKey(void* job, void* beats, float bpm, void* pcm,
 }
 
 static void tick() {
-    g_replace = cfgStr("betterkey_mode", "compare") == "replace";
-    g_minConf = (float)cfgNum("betterkey_min_conf", 0);
+    g_replace = opt::mode.text() == "replace";
+    g_minConf = (float)opt::minConf.number();
 }
 
 static void init() {
@@ -312,4 +320,7 @@ static void init() {
 }
 
 RBM_COLUMN({.id = kColumnId, .title = columnTitle, .text = columnText, .compare = columnCompare, .after = 55, .enabled = &g_on});
-RBM_MOD({.name = "betterkey", .init = init, .tick = tick, .enabled = &g_on});
+RBM_MOD({.name = "betterkey", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Keys",
+         .about = "Detects keys with a neural network trained for it, which is right more often than rekordbox.",
+         .area = "analysis", .order = 30});

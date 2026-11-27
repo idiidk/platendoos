@@ -75,8 +75,8 @@ bool load(std::string* version) {
 #if RBM_MAC_X86
         // An Intel Mac, as Windows (betterstems_ort.cpp): HTDemucs only on a GPU that is fast enough (betterstems.cpp
         // times it); with gpu=0 rekordbox's own engine separates, unless betterstems_slow=1.
-        bool gpu = cfgInt("gpu", 1) != 0;
-        if (!gpu && !cfgInt("betterstems_slow", 0)) {
+        bool gpu = setting("gpu").integer() != 0;
+        if (!gpu && !setting("betterstems_slow").integer()) {
             logf("betterstems: gpu=0, and HTDemucs is slow on the CPU: rekordbox's own engine separates "
                  "(betterstems_slow=1 for HTDemucs anyway)");
             return false;

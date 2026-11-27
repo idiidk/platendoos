@@ -23,4 +23,12 @@ extern "C" void rbm_hook_midi_check(void* server) {
     RBM_ORIG(midi_check, void (*)(void*))(server);
 }
 
-RBM_MOD({.name = "midipoll", .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"controller", "Hardware",
+    "The DDJ-FLX4 and other MIDI controllers.",
+    "<rect x=\"2\" y=\"3\" width=\"12\" height=\"10\" rx=\"1.5\"/><path d=\"M5.5 5.5v5M10.5 5.5v5M4.3 8.6h2.4M9.3 6.8h2.4\"/>", 60}; }
+
+RBM_MOD({.name = "midipoll", .enabled = &g_on,
+         .title = "Controller detection",
+         .about = "Looks for newly plugged-in MIDI controllers every 2 seconds instead of every 0.3.",
+         .area = "controller", .order = 20});

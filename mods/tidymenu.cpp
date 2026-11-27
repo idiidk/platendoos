@@ -21,6 +21,13 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting group{"tidymenu_group", true, {.label = "Put the mods' items in a platendoos submenu"}};
+const Setting hide{"tidymenu_hide", true, {.label = "Hide greyed-out items"}};
+const Setting log{"tidymenu_log", false, {.label = "Log the items of each menu", .debug = true}};
+}  // namespace opt
+
 namespace {  // file-local
 
 volatile bool g_on = true;
@@ -54,7 +61,7 @@ bool g_sub, g_tidy;  // the rooms hold a menu
 Menu* submenu() {
     if (g_sub) destroyMenu(g_subRoom);
     g_sub = false;
-    if (!cfgInt("tidymenu_group", 1)) return nullptr;
+    if (!opt::group.integer()) return nullptr;
     memset(g_subRoom, 0, sizeof g_subRoom);
     g_sub = true;
     return (Menu*)g_subRoom;
@@ -112,7 +119,7 @@ void logItems(const char* what, const Menu* menu) {
 // "tidymenu.finish": the track menu is built. Hangs the submenu in it (when the mods put something in) and gives
 // the menu to show: rekordbox's, or the copy without its disabled items.
 Menu* finish(Menu* menu) {
-    bool log = cfgInt("tidymenu_log", 0) != 0;
+    bool log = opt::log.integer() != 0;
     if (g_sub) {
         if (log) logItems("the submenu", (Menu*)g_subRoom);
         bool destroyed = false;
@@ -133,7 +140,7 @@ Menu* finish(Menu* menu) {
     }
     if (g_tidy) destroyMenu(g_tidyRoom), g_tidy = false;
     if (log) logItems("rekordbox's menu", menu);
-    if (!cfgInt("tidymenu_hide", 1) || !withoutDisabled(menu)) return menu;
+    if (!opt::hide.integer() || !withoutDisabled(menu)) return menu;
     if (log) logItems("shown", (Menu*)g_tidyRoom);
     return (Menu*)g_tidyRoom;
 }
@@ -149,4 +156,12 @@ void done() {
 RBM_PROVIDE("tidymenu", "tidymenu.submenu", submenu, &g_on);
 RBM_PROVIDE("tidymenu", "tidymenu.finish", finish, &g_on);
 RBM_PROVIDE("tidymenu", "tidymenu.done", done, &g_on);
-RBM_MOD({.name = "tidymenu", .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"lists", "Track list",
+    "Columns, sorting and the right-click menu.",
+    "<path d=\"M2.5 4h11M2.5 8h11M2.5 12h7\"/>", 50}; }
+
+RBM_MOD({.name = "tidymenu", .enabled = &g_on,
+         .title = "Tidy track menu",
+         .about = "A calmer right-click menu on tracks.",
+         .area = "lists", .order = 30});

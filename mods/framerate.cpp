@@ -12,6 +12,12 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting empty{"framerate_empty", true, {.label = "Full frame rate with empty decks too"}};
+const Setting idleAfter{"framerate_idle_after", 3, {.label = "Go to 30 a second after", .help = "Seconds without touching the mouse or keyboard.", .unit = "s", .min = 1, .max = 600, .step = 1}};
+}  // namespace opt
+
 static const Addr A_mainComponent{"__ZN13MainComponent11getInstanceEv"};
 static const Addr A_changeFrameRate{"__ZN13MainComponent15changeFrameRateEb"};  // (bool full): full = RenderDelay, else 30
 
@@ -34,11 +40,11 @@ static void tick() {
     bool loaded = false, playing = false;
     for (int ch = 0; ch < deckCount() && ch < 8; ch++) loaded |= deckLoaded(ch), playing |= deckPlaying(ch);
     static double activeAt;
-    double idleAfter = cfgNum("framerate_idle_after", 3);
+    double idleAfter = opt::idleAfter.number();
     double input = plat::idleSeconds();
     if (playing || input < idleAfter) activeAt = now();
     // Full rate only while something is happening; with empty decks too (rekordbox itself: 30 fps there, always).
-    bool full = (loaded || cfgInt("framerate_empty", 1)) && now() - activeAt < idleAfter;
+    bool full = (loaded || opt::empty.integer()) && now() - activeAt < idleAfter;
     if (full != g_applied || g_rekordboxSet) setFull(full);
 }
 
@@ -51,6 +57,14 @@ static void restore() {
     g_applied = -1;
 }
 
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"speed", "Speed",
+    "A quicker window and less work in the background.",
+    "<path d=\"M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z\"/>", 70}; }
+
 RBM_MOD({.name = "framerate", .init = [] {
              plat::everyOnMain(0.1, [] { modEnabled("framerate") ? tick() : restore(); });
-         }});
+         },
+         .title = "Frame rate",
+         .about = "Full frame rate while a deck plays or you use the computer, 30 a second the rest of the time.",
+         .area = "speed", .order = 10});

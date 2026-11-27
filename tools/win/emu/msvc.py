@@ -34,6 +34,25 @@ def complete_object_locators(img, type_descriptor):
     return out
 
 
+def type_descriptor(img, decorated):
+    """The RTTI type descriptor (in .data) named decorated, e.g. ".?AVLabel@juce@@". A name ending in a single '@'
+    matches a class in an anonymous namespace (".?AVVerticalSeparator@" -> ".?AVVerticalSeparator@?A0x0a54aa24@@");
+    there must be exactly one."""
+    data = _file_image(img)
+    lo, hi = (a - img.base for a in img.section(".data"))
+    exact = not decorated.endswith("@") or decorated.endswith("@@")
+    needle = decorated.encode() + (b"\0" if exact else b"?A0x")
+    hits = []
+    i = data.find(needle, lo, hi)
+    while i >= 0:
+        if i % 8 == 0:   # (name at +16 of an 8-aligned descriptor)
+            hits.append(img.base + i - 16)
+        i = data.find(needle, i + 1, hi)
+    if len(hits) != 1:
+        raise EmuError(f"type descriptor {decorated}: {len(hits)} found")
+    return hits[0]
+
+
 def class_vtables(img, type_descriptor):
     """{subobject offset: vtable address point} of the class (from the file: unpatched)."""
     data = _file_image(img)
@@ -102,6 +121,21 @@ def write_string(emu, s, text):
         emu.w64(s, p)
     emu.w64(s + 16, len(b))
     emu.w64(s + 24, cap)
+
+
+def class_names(img, type_descriptor):
+    """The decorated names of the class and all its bases, from its class hierarchy descriptor (the class first)."""
+    data = _file_image(img)
+    cols = [c for c in complete_object_locators(img, type_descriptor) if c[1] == 0]
+    if not cols:
+        raise EmuError("no primary COL for the class")
+    chd = struct.unpack_from("<I", data, cols[0][0] - img.base + 16)[0]
+    _, _, n, bca = struct.unpack_from("<IIII", data, chd)
+    out = []
+    for i in range(n):
+        td = struct.unpack_from("<I", data, struct.unpack_from("<I", data, bca + 4 * i)[0])[0]
+        out.append(data[td + 16:data.index(b"\0", td + 16)].decode())
+    return out
 
 
 def base_offset(img, type_descriptor, base_type_descriptor):

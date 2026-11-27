@@ -15,6 +15,11 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting safe{"betterstems_safe", 0, {.label = "Safer GPU mode", .help = "Windows: for a graphics card that gives noisy stems.", .choices = {{"0", "Off"}, {"1", "No graph fusion"}, {"2", "Safe mode"}}, .restart = true, .advanced = true}};
+}  // namespace opt
+
 namespace betterstems_backend {
 
 namespace {
@@ -96,12 +101,12 @@ bool load(std::string* version) {
     std::error_code ec;
     auto size = std::filesystem::file_size(plat::fsPath(path), ec);
     if (ec) return false;
-    bool gpu = cfgInt("gpu", 1) != 0, anyway = cfgInt("betterstems_slow", 0) != 0;
+    bool gpu = setting("gpu").integer() != 0, anyway = setting("betterstems_slow").integer() != 0;
     if (!gpu && !anyway) {
         logf("betterstems: gpu=0, and HTDemucs is slow on the CPU: %s", kOwn);
         return false;
     }
-    int safe = gpu ? std::clamp(cfgInt("betterstems_safe", 0), 0, 2) : 0;
+    int safe = gpu ? std::clamp(opt::safe.integer(), 0, 2) : 0;
     auto s = openTimed(path, gpu, anyway, safe);
     if (!s) return false;
     g_level = safe;
@@ -121,7 +126,7 @@ bool safer(int than) {
     if (g_level > than) return g_session != nullptr;
     if (!g_session || g_level >= 2 || ort::provider(*g_session).rfind("GPU", 0) != 0) return false;
     logf("betterstems: trying the GPU%s", kLevel[g_level + 1]);
-    auto s = openTimed(modelPath(), true, cfgInt("betterstems_slow", 0) != 0, g_level + 1);
+    auto s = openTimed(modelPath(), true, setting("betterstems_slow").integer() != 0, g_level + 1);
     if (!s) return false;
     ort::close(*g_session);
     g_session = s;

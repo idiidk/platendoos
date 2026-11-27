@@ -21,6 +21,13 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting drawables{"quickframe_drawables", 2, {.label = "Frames queued for the display", .choices = {{"2", "2 (quicker)"}, {"3", "3 (rekordbox's own)"}}}};
+const Setting stopped{"quickframe_stopped", true, {.label = "Show frames at once while nothing plays"}};
+const Setting playing{"quickframe_playing", false, {.label = "Also while a deck plays", .help = "Quicker clicks, but a frame that is late then shows as a small stutter.", .needs = "quickframe_stopped"}};
+}  // namespace opt
+
 static __weak CAMetalLayer* g_layer;
 static bool g_touched;  // we changed g_layer's settings (so there is something to put back)
 
@@ -54,13 +61,13 @@ static void tick() {  // main thread, every 0.1 s
     if (!l) return;
     bool playing = false;
     for (int ch = 0; ch < deckCount() && ch < 8; ch++) playing |= deckPlaying(ch);
-    int drawables = cfgInt("quickframe_drawables", 2) == 3 ? 3 : 2;  // (CAMetalLayer takes 2 or 3)
-    bool sync = playing ? !cfgInt("quickframe_playing", 0) : !cfgInt("quickframe_stopped", 1);
+    int drawables = opt::drawables.integer() == 3 ? 3 : 2;  // (CAMetalLayer takes 2 or 3)
+    bool sync = playing ? !opt::playing.integer() : !opt::stopped.integer();
     static int logged = -1;
     if (logged != drawables) {
         logged = drawables;
         logf("quickframe: %d frames queued for the display instead of %d; shown as they are made while no deck plays%s", drawables, (int)l.maximumDrawableCount,
-             cfgInt("quickframe_stopped", 1) ? "" : " (off: quickframe_stopped=0)");
+             opt::stopped.integer() ? "" : " (off: quickframe_stopped=0)");
     }
     apply(l, drawables, sync);
     g_touched = true;
@@ -75,4 +82,7 @@ static void restore() {
 
 RBM_MOD({.name = "quickframe", .init = [] {
              plat::everyOnMain(0.1, [] { modEnabled("quickframe") ? tick() : restore(); });
-         }});
+         },
+         .title = "Quicker clicks",
+         .about = "What you click shows on screen sooner: a shorter queue of frames.",
+         .area = "speed", .order = 20});

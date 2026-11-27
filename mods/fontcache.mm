@@ -33,4 +33,7 @@ extern "C" CTFontRef rbm_hook_font_createCT(CGFontRef cgFont, double size) {
     return f;
 }
 
-RBM_MOD({.name = "fontcache", .enabled = &g_on});
+RBM_MOD({.name = "fontcache", .enabled = &g_on,
+         .title = "Text drawing",
+         .about = "Makes drawing text a lot cheaper, so scrolling the track list feels lighter.",
+         .area = "speed", .order = 40});

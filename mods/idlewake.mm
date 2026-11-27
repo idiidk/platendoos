@@ -32,6 +32,15 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting midi{"idlewake_midi", true, {.label = "Rest the MIDI output thread"}};
+const Setting meters{"idlewake_meters", true, {.label = "Rest the level meters' timers"}};
+const Setting envelope{"idlewake_envelope", true, {.label = "Rest the envelope followers on silence"}};
+const Setting check{"idlewake_check", false, {.label = "Check the skipped envelope followers", .debug = true}};
+const Setting log{"idlewake_log", false, {.label = "Log what was left out every 10 seconds", .debug = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 static volatile bool g_midi = true, g_meters = true, g_envelope = true, g_check = false;  // read in the tick
 
@@ -171,10 +180,10 @@ static int envProcess(void* array, void* buffer, int start, int n) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 static void tick() {  // main thread, every 0.1 s
-    g_midi = cfgInt("idlewake_midi", 1);
-    g_meters = cfgInt("idlewake_meters", 1);
-    g_envelope = cfgInt("idlewake_envelope", 1);
-    g_check = cfgInt("idlewake_check", 0);
+    g_midi = opt::midi.integer();
+    g_meters = opt::meters.integer();
+    g_envelope = opt::envelope.integer();
+    g_check = opt::check.integer();
     static int ticks;
     if (++ticks % 100) return;  // every 10 s, with idlewake_log=1 or the check on
     static int64_t same, changed;
@@ -182,7 +191,7 @@ static void tick() {  // main thread, every 0.1 s
     if (g_check && (s != same || c != changed))
         logf("idlewake: check: of the audio blocks that would be skipped, %lld left the envelopes as they were, %lld changed them (since launch)", (long long)s, (long long)c);
     same = s, changed = c;
-    if (cfgInt("idlewake_log", 0))
+    if (opt::log.integer())
         logf("idlewake: in 10 s: MIDI thread woke %d times idle, %d with messages queued; %d meter timer restarts left out; envelope blocks %lld run, %lld skipped",
              g_midiIdle.exchange(0), g_midiBusy.exchange(0), g_meterSkipped.exchange(0), (long long)g_envRun.exchange(0), (long long)g_envSkipped.exchange(0));
 }
@@ -191,4 +200,7 @@ RBM_MOD({.name = "idlewake", .init = [] {
              void** slot = (void**)(at<char*>(A_envVtable) + 0x10 + V_envProcess);
              g_envOrig = (int (*)(void*, void*, int, int))*slot;
              if (!patchSlot(slot, (void*)&envProcess)) logf("idlewake: the envelope followers' vtable could not be changed, they run as before");
-         }, .tick = tick, .enabled = &g_on});
+         }, .tick = tick, .enabled = &g_on,
+         .title = "Idle work",
+         .about = "Less work while nothing plays.",
+         .area = "speed", .order = 60});

@@ -37,6 +37,15 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting keepTempo{"flx4_keep_tempo", true, {.label = "A deck you switch to keeps its tempo", .help = "Off: it takes the tempo rekordbox remembers its fader at."}};
+const Setting mixer{"flx4_mixer", "", {.label = "Mixer channels", .choices = {{"", "Follow the decks"}, {"fixed", "Stay on decks 1 and 2"}}}};
+const Setting device{"flx4_device", "DDJ-FLX4", {.label = "MIDI device", .help = "For another device that uses the same mapping.", .advanced = true}};
+const Setting log{"flx4_log", false, {.label = "Log every MIDI message", .debug = true}};
+const Setting meterlog{"flx4_meterlog", false, {.label = "Log the level meters", .debug = true}};
+}  // namespace opt
+
 namespace {
 
 // A juce::String passed BY VALUE to a rekordbox function. Itanium (mac): the caller destroys it. MSVC (Windows): the
@@ -862,9 +871,10 @@ static void setFourDeckLayout(bool four) {
     // subtracts: "sub x0, x0, #imm"), which also moves the browser and updates the layout indicator.
 #ifdef _WIN32
     // MSVC has no thunk: MainComponent's ApplicationCommandTarget subobject is at +568 (verified in perform, 0x141824840),
-    // and perform is slot 4 of its vtable: checked before use, else the layout alone.
+    // and perform is slot 4 of its vtable: checked before use, else the layout alone. (The prefs mod may have swapped
+    // that slot for its "prefs.perform", which hands every other command to perform.)
     void** actVt = *(void***)(main + 568);
-    bool viaTarget = actVt && actVt[4] == (void*)(A_performThunk + g_slide);
+    bool viaTarget = actVt && actVt[4] && (actVt[4] == (void*)(A_performThunk + g_slide) || actVt[4] == provided("prefs.perform"));
     size_t targetOffset = 568;
 #elif defined(__x86_64__)
     // Intel Macs: the thunk is "push rbp; mov rbp, rsp; add rdi, -imm" (48 81 C7 imm32, or 48 83 C7 imm8):
@@ -945,9 +955,9 @@ static void switchDeck(void* dev, int side) {
         void* player = at<void* (*)(int)>(A_getUiPlayer)(to);
         if (g_log) logf("flx4: deck %d's state to the controller (player %p)", to + 1, player);
         if (player) {
-            JStr name(cfgStr("flx4_device", "DDJ-FLX4").c_str());
+            JStr name(opt::device.text().c_str());
             at<void (*)(void*, JStr*)>(A_initializeDevice)((char*)player + thisDelta(A_initializeDevice), &name);  // (Windows: a base's subobject)
-            if (cfgInt("flx4_keep_tempo", 1)) keepTempo(player, to);
+            if (opt::keepTempo.integer()) keepTempo(player, to);
             sendOut(0x90 | side, g_padModeButton[to], 0x7F);  // (the pad mode again, in case that reset it)
         }
         if (to >= 2) setFourDeckLayout(true);
@@ -1352,10 +1362,10 @@ static void updateTempo() {
 }
 
 static void tick() {
-    g_log = cfgInt("flx4_log", 0) != 0;
-    g_mixerFollows = cfgStr("flx4_mixer") != "fixed";
+    g_log = opt::log.integer() != 0;
+    g_mixerFollows = opt::mixer.text() != "fixed";
     g_stemsOn = at<bool (*)(void*)>(A_stemsEnabled)(nullptr);
-    std::string want = cfgStr("flx4_device", "DDJ-FLX4");
+    std::string want = opt::device.text();
     void* found = nullptr;
     char* dm = (char*)at<void* (*)(uintptr_t)>(A_deviceManagerGet)(A_deviceManager + g_slide);
     static bool once;
@@ -1399,7 +1409,7 @@ static void tick() {
     }
     devTools();
     static int n;
-    if (cfgInt("flx4_meterlog", 0) && ++n % 5 == 0) {  // development: levels, rekordbox's meters and the mod's, TRIM
+    if (opt::meterlog.integer() && ++n % 5 == 0) {  // development: levels, rekordbox's meters and the mod's, TRIM
         char line[256] = "";
         for (int ch = 0; ch < 4; ch++) {
             size_t len = strlen(line);
@@ -1410,4 +1420,12 @@ static void tick() {
     }
 }
 
-RBM_MOD({.name = "flx4", .tick = tick, .enabled = &g_on});
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"controller", "Hardware",
+    "The DDJ-FLX4 and other MIDI controllers.",
+    "<rect x=\"2\" y=\"3\" width=\"12\" height=\"10\" rx=\"1.5\"/><path d=\"M5.5 5.5v5M10.5 5.5v5M4.3 8.6h2.4M9.3 6.8h2.4\"/>", 60}; }
+
+RBM_MOD({.name = "flx4", .tick = tick, .enabled = &g_on,
+         .title = "DDJ-FLX4",
+         .about = "Four decks and stems on a DDJ-FLX4, on SHIFT combinations the controller doesn't use itself.",
+         .area = "controller", .order = 10});

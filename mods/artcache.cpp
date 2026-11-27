@@ -13,6 +13,11 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting mb{"artcache_mb", 256, {.label = "Memory for cover art", .unit = "MB", .min = 16, .max = 4096, .step = 16}};
+}  // namespace opt
+
 static const char* kAdd = "__ZN12ArtworkCache5Pimpl15addImageToCacheERKN4juce5ImageERKNS1_6StringE";
 static const Offset O_items{0x3c8, kAdd, "add x19", 1};   // ArtworkCache::Pimpl: OwnedArray<Item> (oldest first)
 static const Offset O_total{0x3d8, kAdd, "ldr x19", 0};   // ArtworkCache::Pimpl: bytes held (int)
@@ -25,7 +30,7 @@ extern "C" void rbm_hook_art_evict(void* array, int start, int n, bool deleteObj
     char* pimpl = (char*)array - O_items;
     void** items = *(void***)array;
     int used = *(int*)((char*)array + 12);
-    int64_t limit = (int64_t)cfgNum("artcache_mb", 256) << 20;
+    int64_t limit = (int64_t)opt::mb.number() << 20;
     int64_t removed = 0;
     for (int i = start; i < start + n && i < used; i++) removed += *(int*)((char*)items[i] + O_itemSize);
     int* total = (int*)(pimpl + O_total);
@@ -57,4 +62,7 @@ extern "C" StreamPtr rbm_hook_art_stream(void* url, bool post, void* progress, v
     return RBM_ORIG(art_stream, CreateStream)(url, post, progress, context, headers, timeout, responseHeaders, status, redirects, a, b, c);
 }
 
-RBM_MOD({.name = "artcache", .enabled = &g_on});
+RBM_MOD({.name = "artcache", .enabled = &g_on,
+         .title = "Cover art",
+         .about = "Remembers far more cover art, so scrolling and loading decks don't download it again.",
+         .area = "spotify", .order = 40});

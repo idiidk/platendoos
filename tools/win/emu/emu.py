@@ -47,6 +47,8 @@ class F64(float):
 PAGE = 0x1000
 STUB_BASE, STUB_SIZE = 0x7F000000, 0x100000      # import stubs and Python functions (int3 bytes)
 SENTINEL = STUB_BASE + STUB_SIZE - 0x10            # return address of emu.call
+THREAD_END = SENTINEL - 0xF8                       # where an emulated thread's run stops (it yielded or ended)
+THREAD_STACK = 0x100000
 STACK_BASE, STACK_SIZE = 0x10000000, 0x1000000     # 16 MB
 TEB_BASE = 0x30000000                              # TEB, PEB, TLS slots, process parameters
 HEAP_BASE, HEAP_CHUNK = 0x200000000, 0x4000000     # bump heap, mapped 64 MB at a time
@@ -212,6 +214,10 @@ class Emu:
         self.window_classes = {}   # class name -> window procedure (RegisterClassW)
         self._exc = None
         self._depth = 0
+        self.threads = {}          # handle -> Thread (enable_threads)
+        self.current = None        # the Thread running now (None: the main thread)
+        self.events = {}           # handle -> {"manual": bool, "set": bool} (CreateEventW, with enable_threads)
+        self.next_tid = 2
         self.uc.mem_map(STUB_BASE, STUB_SIZE, UC_PROT_ALL)
         self.uc.mem_write(STUB_BASE, b"\xCC" * STUB_SIZE)
         self.uc.mem_map(STACK_BASE, STACK_SIZE, UC_PROT_ALL)
@@ -335,7 +341,17 @@ class Emu:
 
     def _dispatch(self, name, handler):
         try:
-            self._return(self._run_py(name, handler))
+            v = self._run_py(name, handler)
+            if v is _YIELD:     # an emulated thread waits: it continues after this call when it is resumed
+                self._return(None)
+                th = self.current
+                th.ctx = self.uc.context_save()
+                th.yielded = True
+                self.uc.reg_write(X.UC_X86_REG_RIP, THREAD_END)
+            elif v is _EXIT:    # ExitThread
+                self.uc.reg_write(X.UC_X86_REG_RIP, THREAD_END)
+            else:
+                self._return(v)
         except BaseException as e:   # (unicorn can't carry Python exceptions through emulation: stop and re-raise)
             if self._exc is None:
                 self._exc = e
@@ -547,6 +563,143 @@ class Emu:
     def trace(self, addr, size):
         """with emu.trace(obj, 0x400) as t: ... -> t.reads / t.writes: the offsets the code touched."""
         return self._Trace(self, addr, addr + size)
+
+    # -- threads (opt-in: enable_threads) --
+    #
+    # Cooperative: a thread runs only when the main thread lets it, on its own stack and TLS slots, until it waits
+    # for something not yet signalled (WaitForSingleObject / WaitForMultipleObjects: it yields there) or ends. The
+    # main thread's own waits run the threads until what they wait for is signalled; run_threads() runs them at a
+    # point the test chooses. A wait's timeout never elapses by itself: run_threads(timeouts=True) lets blocked
+    # threads' finite waits time out once.
+
+    def enable_threads(self):
+        for n, fn in _THREAD_API.items():
+            self.set_api(n, fn)
+
+    def _signalled(self, h):
+        if h in self.events:
+            return self.events[h]["set"]
+        th = self.threads.get(h)
+        return th is not None and th.state == "done"
+
+    def _consume(self, h):
+        ev = self.events.get(h)
+        if ev and not ev["manual"]:
+            ev["set"] = False
+
+    def _wait_result(self, handles, wait_all):
+        """WAIT_OBJECT_0 + i when the wait is satisfied now (consuming auto-reset events), else None."""
+        if wait_all:
+            if all(self._signalled(h) for h in handles):
+                for h in handles:
+                    self._consume(h)
+                return 0
+            return None
+        for i, h in enumerate(handles):
+            if self._signalled(h):
+                self._consume(h)
+                return i
+        return None
+
+    def _wait(self, handles, wait_all, timeout):
+        r = self._wait_result(handles, wait_all)
+        if r is not None:
+            return r
+        if timeout == 0:
+            return 0x102                                     # WAIT_TIMEOUT
+        if self.current is not None:                         # a thread: it waits (yields) here
+            self.current.wait = (handles, wait_all, timeout)
+            return _YIELD
+        for _ in range(10000):                               # the main thread: the others run meanwhile
+            if not self._step_threads():
+                break
+            r = self._wait_result(handles, wait_all)
+            if r is not None:
+                return r
+        if timeout == 0xFFFFFFFF:
+            raise EmuError(f"the main thread waits forever for {[hex(h) for h in handles]}: no thread will signal it")
+        return 0x102
+
+    def _run_thread(self, th, rax=None):
+        """Runs th until it yields or ends (from the main thread, at any depth)."""
+        outer = self.uc.context_save()
+        prev, prev_tls = self.current, self.tls
+        self.current, self.tls = th, th.tls
+        self.w64(self.teb + 0x48, th.tid)
+        self.w64(self.teb + 0x08, th.stack + THREAD_STACK)
+        self.w64(self.teb + 0x10, th.stack)
+        th.yielded = False
+        if th.ctx is None:
+            rsp = ((th.stack + THREAD_STACK - 0x100) & ~0xF) - 8
+            self.w64(rsp, THREAD_END)
+            self.uc.reg_write(X.UC_X86_REG_RSP, rsp)
+            self.uc.reg_write(X.UC_X86_REG_RCX, th.param)
+            begin = th.start
+        else:
+            self.uc.context_restore(th.ctx)
+            if rax is not None:
+                self.uc.reg_write(X.UC_X86_REG_RAX, rax)
+            begin = self.uc.reg_read(X.UC_X86_REG_RIP)
+        top = self._depth == 0
+        self._depth += 1
+        try:
+            self.uc.emu_start(begin, THREAD_END, timeout=int(120e6) if top else 0)
+        except UcError as e:
+            rip = self.uc.reg_read(X.UC_X86_REG_RIP)
+            exc, self._exc = self._exc, None
+            th.state = "done"
+            raise exc or EmuError(f"{e} at {self.where(rip)} (thread {th.tid})")
+        finally:
+            self._depth -= 1
+            self.current, self.tls = prev, prev_tls
+            self.w64(self.teb + 0x48, prev.tid if prev else 1)
+            self.w64(self.teb + 0x08, STACK_BASE + STACK_SIZE)
+            self.w64(self.teb + 0x10, STACK_BASE)
+        if self._exc:
+            exc, self._exc = self._exc, None
+            th.state = "done"
+            raise exc
+        if self.uc.reg_read(X.UC_X86_REG_RIP) != THREAD_END:
+            th.state = "done"
+            raise EmuError(f"thread {th.tid} did not yield or end (timeout?) at {self.where(self.uc.reg_read(X.UC_X86_REG_RIP))}")
+        if th.yielded:
+            th.state = "blocked"
+        else:
+            th.state = "done"
+            if th.exit_code is None:
+                th.exit_code = self.uc.reg_read(X.UC_X86_REG_RAX) & 0xFFFFFFFF
+        self.uc.context_restore(outer)
+
+    def _step_threads(self, timeouts=False):
+        """Gives every thread that can go on one turn; True if any ran."""
+        ran = False
+        for th in list(self.threads.values()):
+            if th.state == "ready":
+                th.state = "running"
+                self._run_thread(th)
+                ran = True
+            elif th.state == "blocked":
+                handles, wait_all, timeout = th.wait
+                r = self._wait_result(handles, wait_all)
+                if r is None and timeouts and timeout != 0xFFFFFFFF:
+                    r = 0x102
+                if r is not None:
+                    th.state, th.wait = "running", None
+                    self._run_thread(th, r)
+                    ran = True
+        return ran
+
+    def run_threads(self, timeouts=False, limit=1000):
+        """Runs the threads until none can go on (each blocked or ended). timeouts: blocked finite waits time out
+        once each (as if their time had passed). Returns how many turns ran."""
+        n = 0
+        while n < limit and self._step_threads(timeouts):
+            n += 1
+            timeouts = False
+        return n
+
+    def set_event(self, h):
+        self.events[h]["set"] = True
 
     # -- diagnostics --
 
@@ -1066,3 +1219,126 @@ def _destroy(e):
 @api("CreateRoundRectRgn")
 def _crr(e):
     return _new_handle(e)
+
+
+# -- threads and events (Emu.enable_threads) --
+
+class Thread:
+    def __init__(self, emu, start, param, suspended):
+        self.tid = emu.next_tid
+        emu.next_tid += 1
+        self.handle = _new_handle(emu)
+        self.start, self.param = start, param
+        self.stack = emu.alloc(THREAD_STACK, PAGE)
+        self.tls = {}                  # its own TLS / FLS slot values
+        self.ctx, self.wait, self.yielded = None, None, False
+        self.state = "suspended" if suspended else "ready"
+        self.exit_code = None
+
+
+class _Marker:
+    def __init__(self, name):
+        self.name = name
+
+
+_YIELD, _EXIT = _Marker("yield"), _Marker("exit")
+_THREAD_API = {}
+
+
+def _tapi(*names):
+    def deco(fn):
+        for n in names:
+            _THREAD_API[n] = fn
+        return fn
+    return deco
+
+
+@_tapi("CreateThread")
+def _create_thread(e):
+    th = Thread(e, e.arg(2), e.arg(3), bool(e.arg(4) & 4))   # (CREATE_SUSPENDED)
+    e.threads[th.handle] = th
+    if e.arg(5):
+        e.w32(e.arg(5), th.tid)
+    return th.handle
+
+
+@_tapi("ResumeThread")
+def _resume_thread(e):
+    th = e.threads.get(e.arg(0))
+    if not th:
+        return 0xFFFFFFFF
+    if th.state == "suspended":
+        th.state = "ready"
+        return 1
+    return 0
+
+
+@_tapi("ExitThread", "FreeLibraryAndExitThread")
+def _exit_thread(e):
+    if e.current is None:
+        raise EmuError("ExitThread on the main thread")
+    e.current.exit_code = e.arg(0 if e.calls[-1][0] == "ExitThread" else 1) & 0xFFFFFFFF
+    return _EXIT
+
+
+@_tapi("GetExitCodeThread")
+def _exit_code(e):
+    th = e.threads.get(e.arg(0))
+    if not th:
+        return 0
+    e.w32(e.arg(1), th.exit_code if th.state == "done" else 259)   # (STILL_ACTIVE)
+    return 1
+
+
+@_tapi("GetCurrentThreadId")
+def _tid(e):
+    return e.current.tid if e.current else 1
+
+
+@_tapi("GetThreadId")
+def _thread_id(e):
+    th = e.threads.get(e.arg(0))
+    return th.tid if th else 0
+
+
+@_tapi("CreateEventW", "CreateEventA")
+def _create_event(e):
+    h = _new_handle(e)
+    e.events[h] = {"manual": bool(e.arg(1) & 0xFF), "set": bool(e.arg(2) & 0xFF)}
+    return h
+
+
+@_tapi("CreateEventExW", "CreateEventExA")
+def _create_event_ex(e):
+    h = _new_handle(e)
+    e.events[h] = {"manual": bool(e.arg(2) & 1), "set": bool(e.arg(2) & 2)}
+    return h
+
+
+@_tapi("SetEvent")
+def _set_event(e):
+    ev = e.events.get(e.arg(0))
+    if ev is None:
+        return 0
+    ev["set"] = True
+    return 1
+
+
+@_tapi("ResetEvent")
+def _reset_event(e):
+    ev = e.events.get(e.arg(0))
+    if ev is None:
+        return 0
+    ev["set"] = False
+    return 1
+
+
+@_tapi("WaitForSingleObject", "WaitForSingleObjectEx")
+def _wait_one(e):
+    return e._wait([e.arg(0)], False, e.arg(1) & 0xFFFFFFFF)
+
+
+@_tapi("WaitForMultipleObjects", "WaitForMultipleObjectsEx")
+def _wait_many(e):
+    n, arr = e.arg(0) & 0xFFFFFFFF, e.arg(1)
+    return e._wait([e.r64(arr + 8 * i) for i in range(n)], bool(e.arg(2) & 0xFF), e.arg(3) & 0xFFFFFFFF)

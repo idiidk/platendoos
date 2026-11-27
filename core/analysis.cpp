@@ -21,6 +21,11 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting betterkeyPasscheck{"betterkey_passcheck", false, {.label = "Check the audio taken from the analysis pass", .help = "Compares it with a fresh read of the file and logs the difference.", .debug = true, .page = "betterkey"}};
+}  // namespace opt
+
 static const Addr A_pcmReaderCtor{"__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EEC1ERKN4juce6StringEiNS3_6Thread8PriorityEiiPKNS_18AudioReaderFactoryE", intptr_t(0), "analysis"};  // rbxfrm::PcmReaderTemplate<Float2>(String const&, int, Thread::Priority, int, int, AudioReaderFactory const*)
 static const Addr A_pcmGetStreamAt{"__ZN6rbxfrm17PcmReaderTemplateINS_6Float2EE11getStreamAtEiPfS3_i", intptr_t(0), "analysis"};  // PcmReaderTemplate<Float2>::getStreamAt(int start, float* L, float* R, int count)
 static const Addr A_readerChannels{"__ZNK6rbxfrm15ReaderOwnerTmplINS_6Float2EE13getChannelNumEv", intptr_t(0), "analysis"};  // ReaderOwnerTmpl<Float2>::getChannelNum() const
@@ -305,7 +310,7 @@ static void audioFromPass(const std::string& uri) {
     const void* reader;
     const int16_t *L, *R;
     size_t n;
-    bool check = cfgInt("betterkey_passcheck", 0) != 0;
+    bool check = opt::betterkeyPasscheck.integer() != 0;
     if (!pass(&reader, &L, &R, &n)) {
         if (check) logf("analysis: no pass audio for %s", uri.c_str());
         return;

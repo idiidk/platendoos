@@ -61,6 +61,7 @@ patcher); a restart of rekordbox applies that. Mods marked <span class="pd-tag">
 | Mod | What it does |
 |---|---|
 | [flx4](./flx4) | Makes a Pioneer DDJ-FLX4 a four-deck controller with stems, on SHIFT combinations the FLX4 doesn't use itself. |
+| [linein](./linein) | A turntable or any other audio input played through a deck, with the mixer's EQ, filter, faders and cue on it, on any controller. |
 
 ## Quieter in the background
 
@@ -71,6 +72,7 @@ on your battery.
 |---|---|
 | [framerate](./framerate) | Full frame rate while a deck plays or you're using the computer, 30 fps the rest of the time. |
 | [badge](./badge) | The PLATENDOOS chip and its window. |
+| [prefs](./prefs) | rekordbox's own preferences in the Preferences window: cards, rows and one search instead of tabs and long pages. |
 | [screeninfo](./screeninfo) <span class="pd-tag">mac</span> | Stops rekordbox from asking macOS about your screen on every single redraw. |
 | [midipoll](./midipoll) <span class="pd-tag">mac</span> | Checks for newly plugged-in MIDI controllers every 2 seconds instead of every 0.3 seconds. |
 | [idlewake](./idlewake) <span class="pd-tag">mac</span> | The MIDI thread, the level meters and the loudness measurement of silent channels rest while nothing plays. |

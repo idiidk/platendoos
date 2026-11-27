@@ -62,6 +62,10 @@ void openPath(const std::string& utf8);       // opens a file or folder as if do
 void revealPath(const std::string& utf8);     // shows it selected in Finder / Explorer
 void openTextFile(const std::string& utf8);   // opens a text file (one without an extension too) in TextEdit / Notepad
 std::string appVersion();                     // rekordbox's version ("7.2.19")
+// Quits rekordbox the way its own Quit does and starts it again once it is gone (a small helper process waits for
+// that: up to a minute, rekordbox may ask something first; when the quit is cancelled nothing is started). Main
+// thread. False when the helper could not be started: rekordbox then keeps running.
+bool restartApp();
 // Unicode NFC (precomposed): how rekordbox and the file system spell names with accents.
 std::string nfc(const std::string& utf8);
 // A GET request (any thread; blocks up to timeout seconds). The HTTP status (0 if there was no answer); body gets the

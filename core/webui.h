@@ -19,6 +19,10 @@ Window* open(const char* id, const char* page, const char* title, int width, int
 // The page gets json (a JSON value) in window.rbm.onState(value); queued until the page has loaded.
 void post(Window* w, const std::string& json);
 bool visible(Window* w);
+// A tool window stays above rekordbox's own windows while rekordbox is the active app (macOS: the floating level;
+// Windows: owned by rekordbox's main window). floats=false makes it an ordinary window that rekordbox's main window
+// can cover, as a big window someone works in for a while should be (the Preferences window). Any time after open().
+void setFloating(Window* w, bool floats);
 // Open and actually seen: not minimised or fully covered/on another desktop. For periodic refreshes, which
 // can skip the work meanwhile (the next tick after it is seen again sends the current state).
 bool onScreen(Window* w);
@@ -76,6 +80,49 @@ inline std::string jsonStr(const std::string& s) {
     for (size_t p; (p = o.find("\xE2\x80\xA9")) != std::string::npos;) o.replace(p, 3, "\\u2029");
     return o + "\"";
 }
+
+// Writing JSON for a page: an object or an array whose members are added in order, with the escaping done here.
+//     Json o; o.add("title", "Stems").add("on", true).add("n", 3).raw("settings", other.text());
+//     Json a = Json::array(); a.item(o).item(std::string("x"));
+// A number that isn't finite is written as null. text() is the JSON so far, closed.
+class Json {
+public:
+    Json() : s_("{"), close_('}') {}
+    static Json array() { Json j; j.s_ = "["; j.close_ = ']'; return j; }
+    Json& add(const char* key, const std::string& v) { return raw(key, jsonStr(v)); }
+    Json& add(const char* key, const char* v) { return raw(key, jsonStr(v ? v : "")); }
+    Json& add(const char* key, bool v) { return raw(key, v ? "true" : "false"); }
+    Json& add(const char* key, int v) { return raw(key, std::to_string(v)); }
+    Json& add(const char* key, double v) { return raw(key, number(v)); }
+    Json& add(const char* key, const Json& v) { return raw(key, v.text()); }
+    Json& raw(const char* key, const std::string& json) {  // a value that is JSON already
+        comma();
+        s_ += jsonStr(key) + ":" + json;
+        return *this;
+    }
+    // (arrays)
+    Json& item(const Json& v) { return itemRaw(v.text()); }
+    Json& item(const std::string& v) { return itemRaw(jsonStr(v)); }
+    Json& item(const char* v) { return itemRaw(jsonStr(v ? v : "")); }
+    Json& itemRaw(const std::string& json) {
+        comma();
+        s_ += json;
+        return *this;
+    }
+    bool empty() const { return s_.size() == 1; }
+    std::string text() const { return s_ + close_; }
+    static std::string number(double v) {
+        if (!(v == v) || v > 1e300 || v < -1e300) return "null";
+        char b[32];
+        snprintf(b, sizeof b, "%.10g", v);
+        return b;
+    }
+
+private:
+    void comma() { if (s_.size() > 1) s_ += ','; }
+    std::string s_;
+    char close_;
+};
 
 // The value of a top-level-ish key in a flat JSON object the page sent: strings unescaped, numbers and
 // true/false as their text. "" if absent.

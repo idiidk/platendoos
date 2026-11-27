@@ -1,6 +1,5 @@
 // platendoos patcher: the window's state and commands, shared by macOS and Windows (see patcher.h).
 #include "patcher.h"
-#include "../core/defaultoff.h"
 #include "../core/webui.h"
 #include "patcher_gen.h"
 #include <stdio.h>
@@ -11,6 +10,19 @@
 namespace web = rbm::webui;
 
 namespace patcher {
+
+// Off unless the config asks for it (<mod>=1): the mod says it hasn't run on this system yet (RBM_MOD .untested).
+static bool offUnlessAsked(const char* mod) {
+    for (const gen::Mod& m : gen::kMods)
+        if (!strcmp(m.name, mod)) {
+#ifdef _WIN32
+            return m.untestedWin;
+#else
+            return m.untestedMac;
+#endif
+        }
+    return false;
+}
 
 std::string humanSize(double bytes) {
     char b[32];
@@ -54,8 +66,8 @@ std::vector<Check> modChecks(const std::vector<bool>& found, bool mac) {
                 c.detail = std::string(mac ? "may not work fully" : "will be off") + ": this rekordbox lacks " + list(miss);
             }
         }
-        if (c.state == "ok" && rbm::offUnlessAsked(m.name))
-            c.detail += " (off by default: not yet tested on Windows; tick it to try)";
+        if (c.state == "ok" && offUnlessAsked(m.name))
+            c.detail += " (off by default: not yet tested on this system; tick it to try)";
         out.push_back(c);
     }
     return out;
@@ -99,11 +111,11 @@ std::string keyOf(const std::string& line) {
     if (!k.empty()) k.erase(k.find_last_not_of(" \t") + 1);
     return k;
 }
-// (Mods that are off unless asked for, core/defaultoff.h, count as off until the config says <mod>=1.)
+// (Mods that are off unless asked for, RBM_MOD's .untested for this platform, count as off until the config says <mod>=1.)
 std::set<std::string> modsOff() {
     std::set<std::string> off;
     for (auto& m : gen::kMods)
-        if (rbm::offUnlessAsked(m.name)) off.insert(m.name);
+        if (offUnlessAsked(m.name)) off.insert(m.name);
     for (auto& l : readConfig()) {
         std::string k = keyOf(l);
         for (auto& m : gen::kMods)
@@ -124,9 +136,9 @@ bool saveChoices(const Options& o) {
             if (k == m.name) l = k + (off.count(k) ? "=0" : "=1"), done.insert(k);
     }
     for (auto& k : off)
-        if (!done.count(k) && !rbm::offUnlessAsked(k.c_str())) lines.push_back(k + "=0");  // (off anyway without a line)
+        if (!done.count(k) && !offUnlessAsked(k.c_str())) lines.push_back(k + "=0");  // (off anyway without a line)
     for (auto& m : gen::kMods)
-        if (rbm::offUnlessAsked(m.name) && !off.count(m.name) && !done.count(m.name)) lines.push_back(std::string(m.name) + "=1");
+        if (offUnlessAsked(m.name) && !off.count(m.name) && !done.count(m.name)) lines.push_back(std::string(m.name) + "=1");
     std::string path = configFile();
     std::error_code ec;
     std::filesystem::create_directories(std::filesystem::u8path(path).parent_path(), ec);

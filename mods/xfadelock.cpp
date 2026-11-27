@@ -325,4 +325,7 @@ static void init() {
     logf("xfadelock: ready: the lock button is right of the on-screen crossfader (starts unlocked)");
 }
 
-RBM_MOD({.name = "xfadelock", .init = init, .tick = tick, .enabled = &g_on});
+RBM_MOD({.name = "xfadelock", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Crossfader lock",
+         .about = "A small lock next to the on-screen crossfader holds it exactly in the middle.",
+         .area = "decks", .order = 40, .rekordboxPage = "Controller/Mixer"});

@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Preferences</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  /* The Preferences window: the search and the areas on the left, each area's features as cards, each option a row
+     with one control. What there is to show comes from the mods (core/settings.h). Narrow windows: the areas become
+     tabs, rows stack. Under the areas: rekordbox's own preferences, in the same cards and rows. (The chip's own small
+     window is ui/about.html.) */
+  #app { display: flex; flex-direction: column; height: 100%; }
+  input[type=text], input[type=search], input[type=number], select { font: inherit; color: var(--fg); background: #2a2a2c; border: 1px solid #4a4a4d;
+    border-radius: 6px; padding: 4px 8px; outline: none; }
+  input:focus, select:focus { border-color: var(--accent); }
+  #body { flex: 1; min-height: 0; display: flex; }
+  #side { width: 200px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #1b1b1c; }
+  #search { margin: 12px 10px 6px; flex: none; padding: 5px 9px; }
+  #nav { flex: 1; min-height: 0; overflow: auto; padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 1px; }
+  #foot { flex: none; padding: 8px 10px 10px; border-top: 1px solid var(--line); }
+  #foot button { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: none; border-color: #3e3e41; color: var(--fg2); font-size: 11.5px; padding: 5px 8px; }
+  #foot button:hover { color: var(--fg); border-color: #58585c; }
+  #page { max-width: 720px; margin: 0 auto; }
+  .phead button.rbopen { font-size: 11px; padding: 3px 10px; color: var(--fg2); background: none; border-color: #444447; margin-bottom: 2px; }
+  .phead button.rbopen:hover { color: var(--fg); border-color: #5a5a5e; }
+  .area { display: flex; align-items: center; gap: 9px; height: 28px; padding: 0 10px; border-radius: 6px; color: var(--fg); flex: none; }
+  .area svg { width: 16px; height: 16px; flex: none; stroke: var(--fg2); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .area .t { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .area .n { color: var(--orange); font-size: 9px; }
+  .area:hover:not(.sel) { background: rgba(255,255,255,.06); }
+  .area.sel { background: var(--accent); color: #fff; }
+  .area.sel svg { stroke: #fff; } .area.sel .n { color: rgba(255,255,255,.75); }
+
+  #main { flex: 1; min-width: 0; overflow: auto; padding: 0 22px 26px; }
+  #restart { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; margin: 0 -22px; padding: 8px 22px;
+    background: #3a2c12; border-bottom: 1px solid rgba(255,159,10,.45); color: var(--orange); }
+  #restart.hidden { display: none; }
+  #restartText { flex: 1; min-width: 0; }
+  h1 { margin: 18px 0 2px; font-size: 19px; font-weight: 650; }
+  .lead { color: var(--fg2); margin: 0 0 14px; max-width: 640px; }
+  .card { background: var(--bg2); border: 1px solid #333336; border-radius: 10px; margin: 0 0 12px; }
+  .card.off .rows, .card.off .more, .card.off .acts { opacity: .5; }
+  .chead { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px 11px; }
+  .chead .txt { flex: 1; min-width: 0; }
+  .chead .title { font-size: 14px; font-weight: 600; display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .tag { font: 10.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--fg3); font-weight: 400; opacity: 0; transition: opacity .15s; user-select: text; -webkit-user-select: text; }
+  .chead:hover .tag, .row:hover .tag { opacity: 1; }  /* (the name in the config file: for who edits it by hand) */
+  .note { font-size: 11px; font-weight: 400; color: var(--fg2); }
+  .note.wait { color: var(--orange); }
+  .chead .blurb { color: var(--fg2); margin-top: 3px; max-width: 600px; }
+  .rows { border-top: 1px solid #333336; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 9px 14px; border-top: 1px solid rgba(255,255,255,.05); min-height: 40px; }
+  .rows > .row:first-child { border-top: 0; }
+  .row .what { flex: 1; min-width: 0; }
+  .row .label { color: var(--fg); }
+  .row .help { color: var(--fg2); font-size: 11px; margin-top: 2px; max-width: 480px; }
+  .row .ctl { flex: none; display: flex; align-items: center; gap: 8px; max-width: 62%; }
+  .row .reset { color: var(--fg3); font-size: 11px; text-decoration: underline; white-space: nowrap; }
+  .row .reset:hover { color: var(--fg); }
+  .chg { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin: 0 0 1px 7px; }
+  .rs { font-size: 11px; color: var(--fg3); margin-left: 8px; white-space: nowrap; }
+  .rs.wait { color: var(--orange); }
+  .unit { color: var(--fg2); font-size: 11px; min-width: 16px; }
+  input[type=number] { width: 78px; text-align: right; }
+  input[type=text].v { width: 190px; } input[type=text].wide { width: 280px; }
+  select { max-width: 300px; }
+  input[type=range] { width: 170px; accent-color: var(--accent); }
+  .rangeval { min-width: 52px; text-align: right; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .sw { position: relative; width: 36px; height: 21px; border-radius: 11px; background: #48484b; flex: none; transition: background .12s; }
+  .sw::after { content: ''; position: absolute; left: 2px; top: 2px; width: 17px; height: 17px; border-radius: 50%; background: #e6e6e6; transition: left .12s; }
+  .sw.on { background: var(--accent); } .sw.on::after { left: 17px; }
+  .sw.dis { opacity: .35; }
+  .seg button { padding: 4px 12px; white-space: nowrap; } .seg button.on { background: var(--accent); color: #fff; }
+  .more { border-top: 1px solid #333336; }
+  .fold { display: flex; align-items: center; gap: 6px; padding: 8px 14px; color: var(--fg2); font-size: 11px; }
+  .fold::before { content: '\25B8'; } .fold.open::before { content: '\25BE'; }
+  .fold:hover { color: var(--fg); }
+  .acts { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid #333336; }
+  .acts button { white-space: nowrap; flex: none; }
+  .acts .help { color: var(--fg2); font-size: 11px; flex: 1; }
+  h2 { font-size: 11px; font-weight: 600; color: var(--fg3); text-transform: uppercase; letter-spacing: .6px; margin: 20px 0 8px; }
+  .slim .row { min-height: 44px; }
+  .slim .label { font-weight: 600; }
+  /* settings that share lines (a line per deck): a table */
+  .decks { display: grid; gap: 8px 10px; align-items: center; padding: 10px 14px 12px; }
+  .decks .h { color: var(--fg3); font-size: 11px; }
+  .decks .d { font-weight: 600; white-space: nowrap; }
+  .decks select { width: 100%; max-width: none; }
+  .decks input[type=text] { width: 74px; } .decks input[type=number] { width: 64px; }
+  .decks .g { display: flex; align-items: center; gap: 4px; }
+  .decks .idle { opacity: .4; }
+  .row.idle > .what .label, .row.idle > .what .help:not(.why), .row.idle > .ctl { opacity: .45; }  /* a setting whose "needs" isn't met */
+  .row .help.why { color: var(--fg3); font-style: italic; }  /* a line whose first choice is "None": the rest of it does nothing yet */
+  .decks + .row { border-top: 1px solid rgba(255,255,255,.05); }
+  .empty { color: var(--fg3); padding: 30px 0; }
+  .about { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; padding: 12px 14px; }
+  .about .k { color: var(--fg2); }
+  .about .v { user-select: text; -webkit-user-select: text; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; border-top: 1px solid #333336; }
+  /* rekordbox's own preferences */
+  #nav .grp { flex: none; padding: 6px 10px 4px; color: var(--fg3); font-size: 10px; font-weight: 600; letter-spacing: .7px; text-transform: uppercase; }
+  #nav .grp.second { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .area.openc { background: rgba(255,255,255,.07); }
+  .area.pg { height: 24px; padding-left: 35px; color: var(--fg2); font-size: 11.5px; }
+  .area.pg.sel { color: #fff; }
+  #sub { display: none; }
+  a[data-rbopen], a[data-goto] { color: var(--fg3); font-size: 11px; text-decoration: underline; text-underline-offset: 2px; }
+  a[data-rbopen]:hover, a[data-goto]:hover { color: var(--fg); }
+  .phead { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 14px; }
+  .phead .t { flex: 1; min-width: 0; }
+  .phead .kicker { color: var(--fg3); font-size: 11px; margin-top: 16px; }
+  .phead h1 { margin: 1px 0 0; }
+  .phead a { margin-bottom: 3px; }
+  .rb .chead { align-items: center; padding: 10px 14px; min-height: 42px; }
+  .rb .chead .ctl { flex: none; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; max-width: 62%; }
+  .rb .chead .blurb { font-size: 11px; }
+  .rb .chead .title { gap: 0; }
+  .rb .rows { border-top: 0; }
+  .rb .chead + .rows, .crumbs + .rows { border-top: 1px solid #333336; }
+  .rb .rows > .row.brk { margin-top: 7px; border-top: 1px solid #333336; }
+  .rb .row { padding-top: 7px; padding-bottom: 7px; }
+  .rb .row > .what { overflow-wrap: break-word; }
+  .rb .row .help { line-height: 1.4; }
+  .rb .row .ctl { flex: 0 1 auto; min-width: 0; max-width: 64%; flex-wrap: wrap; justify-content: flex-end; }
+  .rb .row.bare > .ctl { flex: 1; max-width: 100%; }
+  .rb .row.wrap { flex-wrap: wrap; }
+  .rb .row.dis > .what, .rb .row.dis .inl, .rb .chead.dis .txt { opacity: .45; }
+  .rb .row.lv1 { padding-left: 36px; } .rb .row.lv2 { padding-left: 58px; }
+  .rb .under { flex-basis: 100%; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .rb select { min-width: 150px; max-width: 100%; text-overflow: ellipsis; }
+  .rb select:disabled { opacity: .45; }
+  .rb .seg button { padding: 4px 12px; }
+  .rb .row .inl { color: var(--fg2); font-size: 11px; }
+  .rb .pair { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+  .rb .row.pairs select { min-width: 0; width: 140px; }
+  .rb .row.path > .ctl { flex-wrap: nowrap; }
+  .rb .row.path select { min-width: 0; flex: 0 1 auto; }
+  .rb .row.path button { flex: none; }
+  .rb .row.bare.links > .ctl { justify-content: flex-start; }
+  .rb .row.bare.links button.lnk { text-align: left; }
+  .rb .row.pairs .pair + .pair { margin-left: 4px; }
+  .rb button.lnk { background: none; border: 0; padding: 2px 0; min-width: 0; color: #5aa9ff; text-align: right; }
+  .rb button.lnk:hover:not(:disabled) { background: none; text-decoration: underline; }
+  .rb button.step { min-width: 24px; width: 24px; padding: 2px 0; }
+  .rb .sl { display: flex; flex-direction: column; }
+  .rb .sl input { width: 190px; margin: 0; }
+  .rb .ends { display: flex; justify-content: space-between; gap: 8px; color: var(--fg3); font-size: 10px; margin-top: 1px; }
+  .rb .rangeval { min-width: 44px; white-space: nowrap; }
+  .rad { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid #77777c; flex: none; }
+  .rad.on { border: 4.5px solid var(--accent); background: #fff; }
+  .rad.dis { opacity: .35; }
+  .rb .row.opt { gap: 10px; }
+  .subh { padding: 11px 14px 3px; color: var(--fg2); font-size: 11px; font-weight: 600; border-top: 1px solid #333336; }
+  .rows > .subh:first-child { border-top: 0; }
+  .subh + .row, .subh + .rcols { border-top: 0 !important; }
+  .subh .help { font-weight: 400; margin-top: 2px; }
+  .rows > .notel { padding: 7px 14px; color: var(--fg2); font-size: 11px; line-height: 1.4; border-top: 1px solid rgba(255,255,255,.05); }
+  .rows > .notel:first-child { border-top: 0; }
+  p.rnote { color: var(--fg2); font-size: 11px; margin: 16px 2px 8px; }
+  .rcols { display: flex; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,.05); }
+  .rows > .rcols:first-child { border-top: 0; }
+  .rcols > div { flex: 1 1 264px; min-width: 0; }
+  .rcols > div + div { box-shadow: -1px 0 0 rgba(255,255,255,.07); }
+  .rcols .row { gap: 8px; min-height: 36px; padding-top: 5px; padding-bottom: 5px; border-top: 0; }
+  .rcols .row + .row { border-top: 1px solid rgba(255,255,255,.05); }
+  .rcols .row > .what { flex-basis: 0; }
+  .rcols .row .ctl { flex: none; max-width: 75%; flex-wrap: nowrap; }
+  .rcols select { min-width: 0; width: 124px; }
+  .rcols .sl input { width: 110px; }
+  .colh { display: flex; justify-content: space-between; gap: 8px; padding: 6px 14px 2px; color: var(--fg3); font-size: 10.5px; }
+  .q { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; margin-left: 6px; border-radius: 50%; border: 1px solid #66666b;
+    color: var(--fg2); font-size: 9.5px; font-weight: 600; line-height: 1; vertical-align: 1px; flex: none; }
+  .q:hover, .q.open { border-color: var(--accent); color: #fff; }
+  .q.open { background: var(--accent); }
+  .tiptext { color: var(--fg2); font-size: 11px; font-weight: 400; line-height: 1.45; margin-top: 4px; max-width: 520px; white-space: pre-line; user-select: text; -webkit-user-select: text; }
+  .plan { display: inline-block; margin-left: 7px; padding: 0 5px; border: 1px solid rgba(255,214,10,.4); border-radius: 4px; color: var(--yellow); font-size: 9.5px; font-weight: 600; line-height: 14px; vertical-align: 1px; }
+  .rb .row.out .help { margin-top: 1px; }
+  .crumbs { display: flex; justify-content: flex-end; padding: 7px 14px; }
+  .rb .chead a[data-goto] { white-space: nowrap; }
+  @media (max-width: 700px) {
+    #foot { display: none; }
+    #body { flex-direction: column; }
+    #side { width: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    #search { margin: 10px 10px 4px; }
+    #nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 4px 8px 6px; }
+    .area { height: 28px; }
+    .area .n { display: none; }
+    #main { padding: 0 12px 20px; }
+    #restart { margin: 0 -12px; padding: 8px 12px; flex-wrap: wrap; }
+    .row:not(.tog) { flex-wrap: wrap; }
+    .row:not(.tog) .what { flex-basis: 100%; }
+    .row .ctl { max-width: 100%; flex-wrap: wrap; }
+    input[type=text].wide { width: 100%; }
+    .decks { grid-template-columns: minmax(100px, 1fr) auto auto auto !important; }
+    .decks .h { display: none; }
+    .decks .d { grid-column: 1 / -1; margin-top: 6px; }
+    #nav .grp, .area.pg { display: none; }
+    #nav .grp.second { display: block; width: 1px; height: 18px; margin: 5px 4px 0; padding: 0; overflow: hidden; background: var(--line); }
+    #sub:not(:empty) { display: flex; flex: none; gap: 2px; overflow-x: auto; padding: 5px 8px; border-bottom: 1px solid var(--line); background: #232324; }
+    #sub .area.pg { display: flex; padding: 0 10px; height: 24px; }
+    .rb .chead { flex-wrap: wrap; }
+    .rb .chead .txt { flex-basis: 140px; }
+    .rb .chead .ctl { max-width: 100%; }
+    .rb .row.bare > .ctl, .rb .row.opt > .ctl { justify-content: flex-start; }
+    .rb .row:not(.tog) .ctl { justify-content: flex-start; flex-basis: 100%; }
+    .rb .row.opt:not(.tog) > .what { flex-basis: 0; }
+    .rb .row.opt:not(.tog) > .ctl { padding-left: 25px; }
+    .rb .under { justify-content: flex-start; }
+    .rb button.lnk { text-align: left; }
+    .rcols .row:not(.tog) > .what { flex-basis: 0; }
+    .rcols .row .ctl, .rcols .row:not(.tog) .ctl { flex-basis: auto; }
+  }
+</style></head>
+<body>
+<div id="app">
+  <div id="body">
+    <div id="side"><input id="search" type="search" placeholder="Search"><div id="nav"></div>
+      <div id="foot"><button id="rbdialog" title="rekordbox's own Preferences dialog, as rekordbox shows it">Open rekordbox's dialog…</button></div></div>
+    <div id="sub"></div>
+    <div id="main">
+      <div id="restart" class="hidden"><span id="restartText"></span><button id="restartNow" class="primary">Restart rekordbox</button></div>
+      <div id="page"></div>
+    </div>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+  // Everything shown comes from the mods' own declarations, as the badge mod sends them (core/settings.h): the areas,
+  // a page per mod with its settings, the lists drop-downs choose from. This page only knows how to draw a setting.
+  var $ = function (id) { return document.getElementById(id); }, esc = rbm.esc;
+  var state = null, area = null, filter = '', open = {}, lastHtml = '', lastSide = '';
+  var ICONS = {
+    decks: '<circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.6"/>',
+    stems: '<path d="M3 13V8M6.3 13V3M9.7 13V6M13 13V10"/>',
+    analysis: '<path d="M1.5 8h2l1.5-4 2.5 9 2-7 1.5 4h3.5"/>',
+    spotify: '<path d="M3 5.5c3.5-1.3 7-1 10 .8M3.8 8.3c2.9-1 5.8-.7 8.2.7M4.8 11c2.1-.6 4.1-.4 5.9.5"/>',
+    lists: '<path d="M2.5 4h11M2.5 8h11M2.5 12h7"/>',
+    controller: '<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M5.5 5.5v5M10.5 5.5v5M4.3 8.6h2.4M9.3 6.8h2.4"/>',
+    speed: '<path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z"/>',
+    more: '<circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/>',
+    about: '<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/>'
+  };
+  var RB_ICONS = {  // rekordbox's categories, by its own ids
+    Plan: '<rect x="1.8" y="3.5" width="12.4" height="9" rx="1.5"/><path d="M1.8 6.5h12.4M4.3 10h2.5"/>',
+    Cloud: '<path d="M4.5 12.5a3 3 0 0 1-.3-6 4 4 0 0 1 7.7.8 2.6 2.6 0 0 1-.4 5.2z"/>',
+    View: '<path d="M1.5 8s2.3-4.2 6.5-4.2S14.5 8 14.5 8 12.2 12.2 8 12.2 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.8"/>',
+    Audio: '<path d="M2.5 6h2.3L8 3.2v9.6L4.8 10H2.5zM10.5 5.8a3.2 3.2 0 0 1 0 4.4M12.4 4a5.8 5.8 0 0 1 0 8"/>',
+    Analysis: '<circle cx="7" cy="7" r="4.7"/><path d="m10.5 10.5 3.5 3.5M4.8 7h1l1-2 1 4 .7-2h.9"/>',
+    Controller: '<circle cx="8" cy="8" r="6"/><path d="M8 8 11 5M8 12.5v.1"/>',
+    Keyboard: '<rect x="1.5" y="4" width="13" height="8.5" rx="1.5"/><path d="M4 6.8h.1M6.7 6.8h.1M9.4 6.8h.1M12 6.8h.1M5 9.8h6"/>',
+    Detail: '<path d="M2 5h6.5M11.8 5H14M2 11h2.2M7.5 11H14"/><circle cx="10.2" cy="5" r="1.6"/><circle cx="5.8" cy="11" r="1.6"/>',
+    DVS: '<circle cx="7" cy="9" r="5.2"/><circle cx="7" cy="9" r="1.2"/><path d="M14 2v5l-2.8 3"/>',
+    Extensions: '<rect x="2" y="2.5" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="8.8" y="9" width="5" height="5" rx="1"/><path d="M11.3 2.5v5M8.8 5h5"/>'
+  };
+
+  // ---- what there is --------------------------------------------------------------------------------------------
+  // The areas with their pages (mods); a mod that names no area, or one this window doesn't know: "More". Last:
+  // General (the area "about": settings of no one mod, the chip, the log and the config file).
+  function areas() {
+    var known = {}, list = state.areas.map(function (a) {
+      known[a.id] = 1;
+      return { id: a.id, title: a.title, blurb: a.blurb, icon: a.icon, pages: state.pages.filter(function (p) { return p.area === a.id; }) };
+    }).filter(function (a) { return a.pages.length; });
+    var rest = state.pages.filter(function (p) { return !known[p.area] && p.area !== 'about'; });
+    if (rest.length) list.push({ id: 'more', title: 'More', blurb: 'Mods that name no area.', pages: rest });
+    list.push({ id: 'about', title: 'General', blurb: '', pages: [] });
+    return list;
+  }
+  function matches(p, o) {
+    if (!filter) return true;
+    var t = (p.title + ' ' + p.about + ' ' + p.mod).toLowerCase();
+    if (!o) return t.indexOf(filter) >= 0 || p.settings.some(function (x) { return matches(p, x); });
+    return (o.label + ' ' + o.help + ' ' + o.key + ' ' + (o.line || '')).toLowerCase().indexOf(filter) >= 0 || t.indexOf(filter) >= 0;
+  }
+
+  // ---- rekordbox's own preferences (state.rb) --------------------------------------------------------------------
+  // The native side sends each section of a Preferences page as its controls, flat, placed in rekordbox's own pixels.
+  // The rules here read captions, groups and nesting from those positions; none of them knows a setting by name.
+  var rbCat = '', rbPage = '', shownKey = '';
+  function rbCats() { return (state.rb && state.rb.categories) || []; }
+  function rbFind(cat, page) {
+    var found = null;
+    rbCats().forEach(function (c) { if (c.id === cat) c.pages.forEach(function (p) { if (p.id === page || (!found && page === null)) found = { cat: c, page: p }; }); });
+    return found;
+  }
+  function catTitle(c) { return c.title.length > 3 && c.title === c.title.toUpperCase() ? c.title.charAt(0) + c.title.slice(1).toLowerCase() : c.title; }
+  function pageTitle(f) { return f.page.title || catTitle(f.cat); }
+  function crumbText(f) { return 'rekordbox · ' + catTitle(f.cat) + (f.page.title ? ' · ' + f.page.title : ''); }
+
+  function one(t) { return tidy(String(t == null ? '' : t).replace(/\s+/g, ' ').trim()); }
+  // rekordbox writes some words in capitals ("CROSSFADER Curve", a lone "RESET"): in a text that has small letters
+  // too, a capitalised word of five letters or more is written as a word; a text of one such word alone too. Short
+  // ones (EQ, BPM, MIDI) and names in capitals throughout ("MIX POINT LINK") stay as they are.
+  function tidy(t) {
+    var word = function (w) { return w.charAt(0) + w.slice(1).toLowerCase(); };
+    if (/^[A-Z]{4,}$/.test(t)) return word(t);
+    if (!/[a-z]/.test(t)) return t;
+    return t.replace(/\b[A-Z]{5,}\b/g, word);
+  }
+  function lines1(t) { return String(t == null ? '' : t).replace(/[ \t]+/g, ' ').trim(); }
+  var VALUE = /^[-+]?\d+(\.\d+)?\s*[a-z%]*(\s*\(.*\))?$/i;  // a label that shows a slider's value: "-38dB", "128 samples (2.9 ms)"
+  function isLong(t) { return t.length > 50 || (t.length > 30 && /[.)]$/.test(t)); }
+  function stateWord(t) { return t === '' || t === 'Enable' || t === 'Disable'; }  // a checkbox text that names no setting
+  function cy(i) { return i.y + i.h / 2; }
+  function sameLine(a, b) { return Math.abs(cy(a) - cy(b)) <= 9; }
+  function byPlace(a, b) { return cy(a) - cy(b) || a.x - b.x; }
+  function parentPath(p) { return p.slice(0, p.lastIndexOf('/')); }
+  function isKnob(i) { return i.k === 'slider' && i.w < 80; }
+  function toLines(items) {
+    var out = [], at = -100;
+    items.slice().sort(byPlace).forEach(function (i) {
+      if (cy(i) - at > 9) out.push([]), at = cy(i);
+      out[out.length - 1].push(i);
+    });
+    out.forEach(function (l) { l.sort(function (a, b) { return a.x - b.x; }); });
+    return out;
+  }
+
+  // One section -> { title, tips, off, blurb[], head (a row whose control sits in the card's header), entries[] } or
+  // { heading } (a section that is only a title) or { out } (not mirrored). Entries: row, sub, note, cols.
+  function parseSection(r) {
+    var sec = { title: '', tips: [], off: false, blurb: [], head: null, entries: [], key: r.c + ':' + r.i };
+    if (!r.h) return null;
+    var all = r.items.filter(function (i) { return i.w > 0 && i.h > 0; }).sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+    var title = null;
+    all.some(function (i) { if (i.k === 'label' && i.y <= 26 && i.x <= 24) return !!(title = i); return false; });
+    if (title) sec.title = one(title.t), sec.off = !!title.off;
+    var body = all.filter(function (i) { return i !== title && i.k !== 'tip' && i.k !== 'lock'; });
+    var tips = {}, plan = {};
+    all.forEach(function (i) {
+      var best = null;
+      if (i.k === 'tip') {  // belongs to what is left of it on its line
+        if (!lines1(i.t)) return;
+        (title ? [title].concat(body) : body).forEach(function (b) { if (Math.abs(cy(b) - cy(i)) <= 10 && b.x < i.x && (!best || b.x > best.x)) best = b; });
+        if (!best || best === title) sec.tips.push(lines1(i.t));
+        else (tips[best.p] = tips[best.p] || []).push(lines1(i.t));
+      } else if (i.k === 'lock') {  // marks what is right of it
+        body.forEach(function (b) { if (Math.abs(cy(b) - cy(i)) <= 10 && b.x > i.x && (!best || b.x < best.x)) best = b; });
+        if (best) plan[best.p] = true;
+      }
+    });
+    if (body.some(function (i) { return i.k === 'other'; })) { sec.out = true; return sec; }
+    if (!body.length) {  // only a title: a heading over what follows; a tall one has nothing to show now (no controller connected)
+      if (!title || r.h > 45) return null;
+      sec.heading = true;
+      return sec;
+    }
+
+    var lines = toLines(body);
+    for (var m = lines.length - 1; m > 0; m--) {  // a text that runs over two labels
+      var a = lines[m - 1], b = lines[m];
+      if (a.length === 1 && b.length === 1 && a[0].k === 'label' && b[0].k === 'label' && a[0].x === b[0].x && b[0].y - (a[0].y + a[0].h) <= 2) {
+        a[0] = { k: 'label', t: a[0].t + ' ' + b[0].t, x: a[0].x, y: a[0].y, w: a[0].w, h: b[0].y + b[0].h - a[0].y, p: a[0].p };
+        lines.splice(m, 1);
+      }
+    }
+    var groups = {};
+    body.forEach(function (i) { if (i.k === 'toggle' && i.r) (groups[i.r + '|' + parentPath(i.p)] = groups[i.r + '|' + parentPath(i.p)] || []).push(i); });
+
+    var E = sec.entries, used = {}, done = {}, pend = null, stack = [], caps = null;
+    function tipsOf(i) { return (i && tips[i.p]) || []; }
+    function newPend(i) {
+      var t = one(i.t);
+      return { item: i, text: t.replace(/:$/, ''), long: isLong(t), help: [], tips: tipsOf(i), value: '', x: i.x, bottom: i.y + i.h, off: !!i.off, plan: !!plan[i.p] };
+    }
+    function flush() {  // a label that captions no control: a sub-heading, or a note
+      if (!pend) return;
+      stack = [];
+      if (pend.long || (!pend.text && pend.value)) E.push({ t: 'note', text: pend.text || pend.value, tips: pend.tips });
+      else E.push({ t: 'sub', text: pend.text, tips: pend.tips, help: pend.help, off: pend.off, plan: pend.plan, key: pend.item.p, x: pend.x });
+      pend = null;
+    }
+    function near(i, gap) { return !!pend && i.y - pend.bottom <= (gap || 20); }
+    function ctlOf(i) { return { k: i.k === 'label' ? 'text' : i.k, it: i, x: i.x }; }
+    function makeRow(label, ctls, extra) {
+      var row = { t: 'row', label: label, help: [], tips: [], plan: false, ctls: ctls, under: [], level: 0, key: '' };
+      ctls.forEach(function (c) {
+        if (c.k === 'text') return;
+        var its = c.k === 'group' ? c.opts : [c.it];
+        its.forEach(function (i) {
+          if (!row.key) row.key = i.p;
+          if (c.k !== 'group') { row.tips = row.tips.concat(tipsOf(i)); if (plan[i.p]) row.plan = true; }
+        });
+      });
+      for (var k in extra) row[k] = extra[k];
+      return row;
+    }
+    function allOff(ctls) {
+      var real = ctls.filter(function (c) { return c.k !== 'text'; });
+      return real.length > 0 && real.every(function (c) { return c.k === 'group' ? c.opts.every(function (o) { return o.off; }) : c.it.off; });
+    }
+    function nest(row, x, parent) {  // indented under a checkbox or radio button that starts further left
+      row.level = Math.min(2, stack.filter(function (s) { return s < x - 16; }).length);
+      if (parent) stack = stack.filter(function (s) { return s < x - 16; }).concat([x]);
+    }
+
+    function radioGroup(key) {
+      var mem = groups[key].slice().sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+      var extras = mem.map(function () { return []; }), any = false, first = mem[0], last = mem[mem.length - 1];
+      done[key] = true;
+      mem.forEach(function (i) { used[i.p] = true; });
+      body.slice().sort(byPlace).forEach(function (i) {
+        if (used[i.p] || (i.k === 'toggle')) return;
+        var owner = -1;
+        mem.forEach(function (o, n) { if (sameLine(o, i)) owner = n; });
+        if (owner < 0 && i.k !== 'label' && !body.some(function (l) { return l.k === 'label' && sameLine(l, i); }) && i.x >= first.x - 12) {
+          mem.forEach(function (o, n) {  // right under an option, or between two of them
+            var gap = i.y - (o.y + o.h);
+            if (gap >= 0 && (gap < 12 || (i.y > first.y && i.y < last.y))) owner = n;
+          });
+        }
+        if (owner >= 0) extras[owner].push(ctlOf(i)), used[i.p] = true, any = true;
+      });
+      var cap = pend && pend.x < first.x && near(first) ? pend : null;
+      var list = any || mem.some(function (i) { return tips[i.p] || plan[i.p]; });
+      if (!list) {
+        var texts = mem.map(function (i) { return one(i.t); });
+        var seg = mem.length <= 3 && texts.every(function (t) { return t.length <= 24; }) && texts.join('').length <= 48;
+        if (!cap) flush();
+        var row = makeRow(cap && !cap.long ? cap.text : '', [{ k: 'group', opts: mem, seg: seg, x: first.x }]);
+        if (cap) {
+          row.help = cap.long ? [cap.text] : cap.help.slice();
+          row.tips = cap.tips; row.plan = cap.plan; pend = null; stack = [];
+        }
+        row.off = allOff(row.ctls);
+        nest(row, first.x, false);
+        E.push(row);
+        return;
+      }
+      flush();
+      mem.forEach(function (i, n) {
+        var row = makeRow(one(i.t), extras[n], { radio: i, key: i.p, off: !!i.off, tips: tipsOf(i), plan: !!plan[i.p] });
+        extras[n].forEach(function (c) { if (c.k !== 'text') row.tips = row.tips.concat(tipsOf(c.it)); });
+        nest(row, i.x, true);
+        E.push(row);
+      });
+    }
+
+    // a line's controls with the text that belongs to each
+    function segments(items) {
+      var segs = [], cur = null, value = '';
+      items.forEach(function (i, n) {
+        if (i.k === 'label') {
+          if (cur && !cur.label && cur.ctls.length && (isKnob(cur.ctls[0].it) || (cur.ctls[0].it.k === 'toggle' && !cur.ctls[0].it.t))) cur.label = i;  // text on the right
+          else if (VALUE.test(one(i.t)) && items[n + 1] && items[n + 1].k === 'slider') value = one(i.t);
+          else segs.push(cur = { label: i, ctls: [] });
+          return;
+        }
+        var own = i.k === 'toggle' && !stateWord(i.t);
+        if (!cur || isKnob(i) || (own && cur.ctls.length)) segs.push(cur = { label: null, ctls: [] });
+        var c = ctlOf(i);
+        if (i.k === 'slider') c.value = value, value = '';
+        cur.ctls.push(c);
+      });
+      return segs;
+    }
+    function sliderExtras(seg, n) {
+      var slider = null;
+      seg.ctls.forEach(function (c) { if (c.k === 'slider') slider = c; });
+      if (!slider) return;
+      var next = lines[n + 1];
+      if (next && next.length === 2 && next[0].k === 'label' && next[1].k === 'label' && next[0].y - (slider.it.y + slider.it.h) <= 50) {
+        slider.ends = [one(next[0].t), one(next[1].t)];
+        used[next[0].p] = used[next[1].p] = true;
+      }
+      seg.ctls.forEach(function (c) { if (c.k === 'button' && /^[-+−]$/.test(c.it.t)) c.step = true; });  // - slider +
+      if (!slider.value && pend && pend.value && near(slider.it)) {
+        slider.value = pend.value;
+        pend.value = '';
+        if (!pend.text) pend = null;
+      }
+    }
+    function primary(seg) { return seg.ctls.length ? seg.ctls[0].it.k : ''; }
+
+    lines.forEach(function (line, n) {
+      var rest = line.filter(function (i) { return !used[i.p]; });
+      if (!rest.length) return;
+      if (rest.every(function (i) { return i.k === 'label'; })) {
+        var next = (lines[n + 1] || []).filter(function (i) { return !used[i.p]; });
+        if (rest.length > 1) {
+          flush();
+          if (next.length && next.every(function (i) { return i.k !== 'label' && rest.some(function (l) { return Math.abs(l.x - i.x) < 60; }); })) caps = rest;  // captions above their controls
+          else E.push({ t: 'cols', heads: [[rest.filter(function (i) { return i.x < 300; })], [rest.filter(function (i) { return i.x >= 300; })]], cells: [[], []] });
+          return;
+        }
+        var i = rest[0], t = one(i.t);
+        if (VALUE.test(t) && next.some(function (x) { return x.k === 'slider'; })) {
+          if (!pend) pend = newPend(i), pend.text = '';
+          pend.value = t; pend.bottom = i.y + i.h;
+        } else if (pend && !pend.long && isLong(t) && near(i)) {
+          pend.help.push(t); pend.bottom = i.y + i.h;
+        } else {
+          flush();
+          pend = newPend(i);
+        }
+        return;
+      }
+      var radios = rest.filter(function (i) { return i.k === 'toggle' && i.r; });
+      if (radios.length) radios.forEach(function (i) { var key = i.r + '|' + parentPath(i.p); if (!done[key]) radioGroup(key); });
+      rest = line.filter(function (i) { return !used[i.p]; });
+      if (!rest.length) return;
+
+      if (caps) {
+        rest.forEach(function (i) {
+          var cap = null;
+          caps.forEach(function (l) { if (Math.abs(l.x - i.x) < 60) cap = l; });
+          var row = makeRow(one(cap.t), [ctlOf(i)]);
+          row.tips = tipsOf(cap).concat(row.tips); row.off = !!i.off;
+          nest(row, cap.x, false);
+          E.push(row);
+        });
+        caps = null;
+        return;
+      }
+
+      var segs = segments(rest);
+      segs.forEach(function (s) { sliderExtras(s, n); });
+      var side = segs.length > 1 && segs.some(function (s) { return (s.label || s.ctls[0].it).x >= 250; }) &&
+        (segs.every(function (s) { return s.label && s.ctls.length; }) || segs.every(function (s) { return !s.label && primary(s) === 'toggle'; }));
+      var grid = E.length && E[E.length - 1].t === 'cols' && !pend ? E[E.length - 1] : null;
+      var joins = grid && segs.length === 1 && segs[0].ctls.length && (segs[0].label || segs[0].ctls[0].it).x < 250 &&
+        grid.cells[0].length && grid.cells[0][0].kind === primary(segs[0]) && !!grid.cells[0][0].labelled === !!segs[0].label;
+      if (side || joins) {
+        if (!grid) flush(), E.push(grid = { t: 'cols', heads: [[], []], cells: [[], []] }), stack = [];
+        segs.forEach(function (s) {
+          var row = makeRow(s.label ? one(s.label.t) : one(s.ctls[0].it.t), s.ctls, { kind: primary(s), labelled: !!s.label });
+          if (s.label) row.tips = tipsOf(s.label).concat(row.tips), row.plan = row.plan || !!plan[s.label.p];
+          row.off = allOff(s.ctls);
+          grid.cells[(s.label || s.ctls[0].it).x < 250 ? 0 : 1].push(row);
+        });
+        return;
+      }
+
+      segs.forEach(function (s) {
+        if (!s.ctls.length) { flush(); pend = newPend(s.label); return; }
+        var first = s.ctls[0].it, label = s.label ? one(s.label.t).replace(/:$/, '') : '';
+        var self = first.k === 'toggle' && !stateWord(first.t), buttons = s.ctls.every(function (c) { return c.k === 'button'; });
+        var row = makeRow(label, s.ctls), took = false;
+        if (s.label) row.tips = tipsOf(s.label).concat(row.tips), row.plan = row.plan || !!plan[s.label.p];
+        if (!label && self) row.label = one(first.t);
+        else if (!label && pend && (buttons || near(first))) {
+          if (pend.long) row.help = [pend.text];
+          else row.label = pend.text, row.help = pend.help.slice();
+          row.tips = pend.tips.concat(row.tips); row.plan = row.plan || pend.plan;
+          // (this setting has its own heading: it no longer belongs to the sub-heading above)
+          if (self === false && first.k === 'toggle') row.brk = E.some(function (e) { return e.t === 'sub' && e.x >= pend.x; });
+          pend = null; took = true; stack = [];
+        }
+        flush();
+        row.off = allOff(s.ctls);
+        row.bottom = Math.max.apply(null, s.ctls.map(function (c) { return c.it.y + c.it.h; }));
+        var prev = E[E.length - 1];
+        // a path or list without a caption, right under a checkbox: part of that checkbox
+        if (!row.label && !took && prev && prev.t === 'row' && prev.isToggle && first.k !== 'toggle' && first.y - prev.bottom >= 0 && first.y - prev.bottom < 12) {
+          prev.under = prev.under.concat(s.ctls);
+          prev.bottom = row.bottom;
+          return;
+        }
+        if (!row.label && buttons && !row.help.length && prev && prev.t === 'row' && prev.buttons) { prev.ctls = prev.ctls.concat(s.ctls); return; }
+        row.isToggle = first.k === 'toggle';
+        row.buttons = buttons && !row.label;
+        nest(row, s.label ? s.label.x : first.x, row.isToggle && !s.label && !took);
+        E.push(row);
+      });
+    });
+    flush();
+    while (E.length && E[0].t === 'note') sec.blurb.push(E.shift().text);
+    sec.entries = shortRows(E);
+    return sec;
+  }
+
+  // A sub-heading over lines that only say "L", "R": one row, the heading as its label.
+  function shortRows(E) {
+    var out = [];
+    for (var n = 0; n < E.length; n++) {
+      var e = E[n], run = [];
+      if (e.t === 'sub' && !e.tips.length && !e.help.length)
+        while (E[n + 1 + run.length] && E[n + 1 + run.length].t === 'row' && E[n + 1 + run.length].label.length <= 2 && E[n + 1 + run.length].label && !E[n + 1 + run.length].radio) run.push(E[n + 1 + run.length]);
+      if (run.length < 2) { out.push(e); continue; }
+      var ctls = [];
+      run.forEach(function (r) { ctls.push({ k: 'text', it: { t: r.label } }); ctls = ctls.concat(r.ctls); });
+      out.push({ t: 'row', label: e.text, help: [], tips: [], plan: e.plan, off: run.every(function (r) { return r.off; }), ctls: ctls, under: [], level: 0, key: run[0].key, pairs: true });
+      n += run.length;
+    }
+    return out;
+  }
+
+  // A section with a title and one control becomes one row; a first control without a caption goes into the card's header.
+  function finishSection(sec) {
+    if (!sec || sec.heading || sec.out) return sec;
+    var rows = sec.entries.filter(function (e) { return e.t !== 'note' && !(sec.title && e.t === 'sub'); });
+    if (rows.length === 1 && rows[0].t === 'row' && !rows[0].radio) {
+      var row = rows[0], sub = row.label;
+      if (sec.title) {
+        var first = row.ctls[0], word = first && first.k === 'toggle' && stateWord(first.it.t);
+        row.label = sec.title;
+        row.help = (sub && !(word && !sub) && sub.toLowerCase() !== sec.title.toLowerCase() ? [sub] : []).concat(row.help);
+        row.tips = sec.tips.concat(row.tips);
+      }
+      var subs = [];
+      sec.entries.forEach(function (e) {
+        if (e.t === 'note') row.help.push(e.text);
+        if (e.t === 'sub') subs = subs.concat(e.text, e.help), row.tips = row.tips.concat(e.tips), row.plan = row.plan || e.plan;
+      });
+      row.help = subs.concat(row.help);
+      row.help = sec.blurb.concat(row.help);
+      row.level = 0;
+      if (!row.label) stateLabel(row);
+      sec.single = row;
+      return sec;
+    }
+    var top = sec.entries[0];
+    if (sec.title && sec.entries.length > 1 && top && top.t === 'row' && !top.radio && !top.label && !top.under.length) sec.head = sec.entries.shift();
+    sec.entries.forEach(function (e) { if (e.t === 'row' && !e.label) stateLabel(e); });
+    return sec;
+  }
+  function stateLabel(row) { var c = row.ctls[0]; if (c && c.k === 'toggle') row.label = one(c.it.t); }
+  function pageModel(f) {
+    return f.page.rows.map(function (r) { return finishSection(parseSection(r)); }).filter(Boolean);
+  }
+
+  // ---- drawing them ------------------------------------------------------------------------------------------------
+  function pageKey(f) { return f.cat.id + '/' + f.page.id; }
+  function hostAttr(f) { return ' data-cat="' + esc(f.cat.id) + '" data-page="' + esc(f.page.id) + '"'; }
+  function itemAttr(op, i) { return ' data-rb="' + op + '" data-p="' + esc(i.p) + '" data-t="' + esc(i.t || '') + '"'; }
+  function fmt(i, v) {
+    if (!i.step && i.max - i.min <= 1) return Math.round((v - i.min) / (i.max - i.min) * 100) + '%';
+    return String(i.step && i.step >= 1 ? Math.round(v) : Math.round(v * 100) / 100);
+  }
+  function rbControl(c) {
+    var i = c.it, dis = i && i.off ? ' disabled' : '';
+    if (c.k === 'text') return '<span class="inl">' + esc(one(i.t)) + '</span>';
+    if (c.k === 'toggle') return '<div class="sw' + (i.on ? ' on' : '') + (i.off ? ' dis' : '') + '"' + itemAttr('toggle', i) + '></div>';
+    if (c.k === 'group') {
+      // (a narrow window has no room for three long words side by side: a drop-down there)
+      var chars = c.opts.reduce(function (n, o) { return n + one(o.t).length; }, 0);
+      if (c.seg && !(narrow() && chars > 26)) return '<span class="seg">' + c.opts.map(function (o) {
+        return '<button' + (o.on ? ' class="on"' : '') + (o.off ? ' disabled' : '') + itemAttr('radio', o) + '>' + esc(one(o.t)) + '</button>';
+      }).join('') + '</span>';
+      var none = !c.opts.some(function (o) { return o.on; });
+      return '<select data-rb="pick"' + (c.opts.every(function (o) { return o.off; }) ? ' disabled' : '') + '>' + (none ? '<option selected disabled></option>' : '') + c.opts.map(function (o) {
+        return '<option value="' + esc(o.p) + '" data-t="' + esc(o.t) + '"' + (o.on ? ' selected' : '') + (o.off ? ' disabled' : '') + '>' + esc(one(o.t)) + '</option>';
+      }).join('') + '</select>';
+    }
+    if (c.k === 'combo') {
+      var opts = i.o || [], has = opts.some(function (o) { return o[0] === i.v; });
+      if (!has) opts = [[i.v, i.t || (opts.length ? '' : '—')]].concat(opts);
+      return '<select' + itemAttr('combo', i) + ' title="' + esc(one(i.t)) + '"' + (i.off || !(i.o || []).length ? ' disabled' : '') + '>' + opts.map(function (o) {
+        return '<option value="' + esc(o[0]) + '"' + (o[0] === i.v ? ' selected' : '') + '>' + esc(one(o[1])) + '</option>';
+      }).join('') + '</select>';
+    }
+    if (c.k === 'slider') {
+      return '<span class="sl"><input type="range"' + itemAttr('slider', i) + ' min="' + esc(i.min) + '" max="' + esc(i.max) + '" step="' + esc(i.step || 'any') + '" value="' + esc(i.v) + '"' + dis + '>' +
+        (c.ends ? '<span class="ends"><span>' + esc(c.ends[0]) + '</span><span>' + esc(c.ends[1]) + '</span></span>' : '') + '</span>';
+    }
+    var cls = c.step ? 'step' : i.link ? 'lnk' : '';
+    return '<button' + (cls ? ' class="' + cls + '"' : '') + itemAttr('click', i) + dis + '>' + esc(one(i.t)) + '</button>';
+  }
+  function rbControls(ctls) {
+    var h = '', value = '', word = '';  // a word before a control ("L", "upper limit") stays with it
+    ctls.forEach(function (c) {
+      if (c.k === 'text') { h += word; word = rbControl(c); return; }
+      h += word ? '<span class="pair">' + word + rbControl(c) + '</span>' : rbControl(c);
+      word = '';
+      // (a slider with words at its ends, "Small" ... "Large", needs no number beside it unless rekordbox gives one)
+      if (c.k === 'slider' && (c.value || !c.ends)) value = '<span class="rangeval"' + (c.value ? ' data-fixed="1"' : '') + '>' + esc(c.value || fmt(c.it, c.it.v)) + '</span>';
+    });
+    return h + word + value;  // (the value after everything, so a "+" stays next to its slider)
+  }
+  function marks(f, key, tips, plan) {  // the "?" of a help text (hover, or click to unfold it) and the paid-plan tag
+    var h = '', id = pageKey(f) + '/' + key;
+    if (tips.length) h += '<span class="q' + (open[id] ? ' open' : '') + '" data-tip="' + esc(id) + '" title="' + esc(tips.join('\n\n')) + '">?</span>';
+    if (plan) h += '<span class="plan" title="Needs a paid rekordbox plan">plan</span>';
+    return h;
+  }
+  function tipText(f, key, tips) { return tips.length && open[pageKey(f) + '/' + key] ? '<div class="tiptext">' + esc(tips.join('\n\n')) + '</div>' : ''; }
+  function helps(list) { return list.map(function (t) { return '<div class="help">' + esc(t) + '</div>'; }).join(''); }
+  function rbRow(f, row) {
+    var lone = row.ctls.length === 1 && row.ctls[0].k === 'toggle';
+    var cls = 'row' + (lone ? ' tog' : '') + (row.off ? ' dis' : '') + (row.level ? ' lv' + row.level : '') + (row.radio ? ' opt' : '') + (row.under.length ? ' wrap' : '') + (row.brk ? ' brk' : '') + (row.pairs ? ' pairs' : '');
+    var kinds = row.ctls.map(function (c) { return c.k; }).join(' ');
+    if (/^combo( button)+$/.test(kinds)) cls += ' path';
+    // (links, and buttons without a caption such as a section's "Reset": at the start of the line, under what they act on)
+    if (row.ctls.length && row.ctls.every(function (c) { return c.k === 'button' && (c.it.link || (!row.label && !c.step)); })) cls += ' links';
+    var what = '';
+    if (row.label || row.help.length || row.tips.length || row.plan) {
+      var pick = row.radio ? itemAttr('radio', row.radio) + (row.radio.off ? ' data-off="1"' : '') : '';
+      what = '<div class="what"><div class="label"><span' + pick + '>' + esc(row.label) + '</span>' + marks(f, row.key, row.tips, row.plan) + '</div>' + helps(row.help) + tipText(f, row.key, row.tips) + '</div>';
+    } else cls += ' bare';
+    var mark = row.radio ? '<span class="rad' + (row.radio.on ? ' on' : '') + (row.radio.off ? ' dis' : '') + '"' + itemAttr('radio', row.radio) + (row.radio.off ? ' data-off="1"' : '') + '></span>' : '';
+    return '<div class="' + cls + '">' + mark + what + (row.ctls.length ? '<div class="ctl">' + rbControls(row.ctls) + '</div>' : '') +
+      (row.under.length ? '<div class="under">' + rbControls(row.under) + '</div>' : '') + '</div>';
+  }
+  function rbEntry(f, e) {
+    if (e.t === 'row') return rbRow(f, e);
+    if (e.t === 'note') return '<div class="notel">' + esc(e.text) + '</div>';
+    if (e.t === 'sub') return '<div class="subh">' + esc(e.text) + marks(f, e.key, e.tips, e.plan) + helps(e.help) + tipText(f, e.key, e.tips) + '</div>';
+    return '<div class="rcols">' + [0, 1].map(function (n) {
+      var head = e.heads[n];
+      return '<div>' + head.map(function (line) { return '<div class="colh">' + line.map(function (l) { return '<span>' + esc(one(l.t)) + '</span>'; }).join('') + '</div>'; }).join('') +
+        e.cells[n].map(function (r) { return rbRow(f, r); }).join('') + '</div>';
+    }).join('') + '</div>';
+  }
+  // Columns that follow their own header lines are one table.
+  function joinCols(entries) {
+    var out = [];
+    entries.forEach(function (e) {
+      var prev = out[out.length - 1];
+      if (e.t === 'cols' && prev && prev.t === 'cols' && !prev.cells[0].length && !prev.cells[1].length) {
+        out[out.length - 1] = { t: 'cols', heads: prev.heads.map(function (h, n) { return h.concat(e.heads[n]); }), cells: e.cells };
+      } else out.push(e);
+    });
+    return out;
+  }
+  function openLink(f, text) { return '<a data-rbopen' + hostAttr(f) + '>' + esc(text) + '</a>'; }
+  function outRow(f, title, help) {
+    return '<div class="row out"><div class="what"><div class="label">' + esc(title) + '</div>' + (help ? '<div class="help">' + esc(help) + '</div>' : '') +
+      '<div class="help">Set in rekordbox\'s own Preferences</div></div><div class="ctl"><button data-rbopen>Open in rekordbox</button></div></div>';
+  }
+  function rbCard(f, sec, entries, hideTitle, crumb) {
+    var head = '';
+    if ((sec.title && !hideTitle) || sec.head || sec.blurb.length || crumb) {
+      var id = sec.key + ':title';
+      head = '<div class="chead' + (sec.off ? ' dis' : '') + '"><div class="txt">' +
+        (sec.title && !hideTitle ? '<div class="title">' + esc(sec.title) + marks(f, id, sec.tips, false) + '</div>' : marks(f, id, sec.tips, false)) +
+        sec.blurb.map(function (t) { return '<div class="blurb">' + esc(t) + '</div>'; }).join('') + tipText(f, id, sec.tips) + '</div>' +
+        (sec.head ? '<div class="ctl">' + rbControls(sec.head.ctls) + '</div>' : '') + crumb + '</div>';
+    }
+    return '<div class="card rb"' + hostAttr(f) + '>' + head + (entries.length ? '<div class="rows">' + joinCols(entries).map(function (e) { return rbEntry(f, e); }).join('') + '</div>' : '') + '</div>';
+  }
+  function rbPageHtml(f) {
+    var here = function (x) { var home = rbHome(x); return home && pageKey(home) === pageKey(f); };
+    var h = state.pages.filter(here).map(function (p) { return card(p); }).join('');
+    state.pages.forEach(function (p) {  // single settings that ask for this page (SettingAbout::rekordboxPage), with their mod's card head
+      var some = here(p) ? [] : p.settings.filter(here);
+      if (some.length) h += card(p, some);
+    });
+    return rbOwnHtml(f) + (h ? '<h2>platendoos</h2>' + h : '');
+  }
+  function rbOwnHtml(f) {
+    var secs = pageModel(f), title = pageTitle(f), h = '', group = '';
+    var flush = function () { if (group) h += '<div class="card rb"' + hostAttr(f) + '><div class="rows">' + group + '</div></div>'; group = ''; };
+    var head = '<div class="phead"' + hostAttr(f) + '><div class="t"><div class="kicker">rekordbox' + (f.page.title ? ' · ' + esc(catTitle(f.cat)) : '') + '</div><h1>' + esc(title) + '</h1></div>' +
+      '<button class="rbopen" data-rbopen' + hostAttr(f) + ' title="Opens rekordbox\'s own Preferences dialog at this page">Open in rekordbox</button></div>';
+    if (!secs.length) return head + '<div class="empty">Nothing here yet.</div>';
+    if (secs.every(function (s) { return s.out; })) {  // nothing on the page can be shown here: one card says so
+      var names = secs.map(function (s) { return s.title; }).filter(function (n) { return n && n.toLowerCase() !== title.toLowerCase(); });
+      return head + '<div class="card rb"' + hostAttr(f) + '><div class="rows">' + outRow(f, title, names.join(', ')) + '</div></div>';
+    }
+    secs.forEach(function (s, n) {
+      var same = s.title.toLowerCase() === title.toLowerCase();
+      if (s.heading) {
+        flush();
+        if (!(n === 0 && same)) h += isLong(s.title) ? '<p class="rnote">' + esc(s.title) + '</p>' : '<h2>' + esc(s.title) + '</h2>';
+      } else if (s.out) group += outRow(f, s.title || title, '');
+      else if (s.single) group += rbRow(f, s.single);
+      else { flush(); h += rbCard(f, s, s.entries, n === 0 && same && !s.head, ''); }
+    });
+    flush();
+    return head + h;
+  }
+
+  // ---- search in them: the rows that mention the words, under their section and page ------------------------------
+  function has(list) { return list.join(' \u0001 ').replace(/\s+/g, ' ').toLowerCase().indexOf(filter) >= 0; }
+  function ctlTexts(ctls) {
+    var out = [];
+    ctls.forEach(function (c) {
+      if (c.k === 'group') c.opts.forEach(function (o) { out.push(o.t); });
+      else if (c.k === 'combo') (c.it.o || []).forEach(function (o) { out.push(o[1]); });
+      else if (c.k === 'slider') out = out.concat(c.ends || [], c.value || '');
+      else if (c.k !== 'toggle' || !stateWord(c.it.t)) out.push(c.it.t);
+    });
+    return out;
+  }
+  function rowHit(row) { return has([row.label].concat(row.help, row.tips, ctlTexts(row.ctls), ctlTexts(row.under))); }
+  function hitEntries(entries) {
+    var out = [], sub = null, subHit = false, subIn = false, groupHit = {};
+    entries.forEach(function (e) { if (e.t === 'row' && e.radio && rowHit(e)) groupHit[parentPath(e.radio.p) + e.radio.r] = true; });
+    var take = function (e) { if (sub && !subIn) out.push(sub), subIn = true; out.push(e); };
+    entries.forEach(function (e) {
+      if (e.t === 'sub') {
+        sub = e; subIn = false;
+        subHit = has([e.text].concat(e.help, e.tips));
+      } else if (e.t === 'row') {
+        if (subHit || (e.radio ? groupHit[parentPath(e.radio.p) + e.radio.r] : rowHit(e))) take(e);
+      } else if (e.t === 'note') {
+        if (subHit || has([e.text])) take(e);
+      } else {
+        var all = subHit || has([].concat.apply([], e.heads[0].concat(e.heads[1])).map(function (l) { return l.t; }));
+        var cells = e.cells.map(function (c) { return all ? c : c.filter(rowHit); });
+        if (cells[0].length || cells[1].length) take({ t: 'cols', heads: all ? e.heads : [[], []], cells: cells });
+      }
+    });
+    return out;
+  }
+  function rbSearchHtml() {
+    var h = '';
+    rbCats().forEach(function (c) {
+      c.pages.forEach(function (p) {
+        var f = { cat: c, page: p }, group = '';
+        var crumb = '<a data-goto="' + esc(c.id) + '" data-page="' + esc(p.id) + '" title="Go to this page">' + esc(crumbText(f)) + '</a>';
+        var flush = function () { if (group) h += '<div class="card rb"' + hostAttr(f) + '><div class="crumbs">' + crumb + '</div><div class="rows">' + group + '</div></div>'; group = ''; };
+        pageModel(f).forEach(function (s) {
+          var titleHit = has([s.title].concat(s.tips, s.blurb));
+          if (s.heading) return;
+          if (s.out) { if (s.title && titleHit) group += outRow(f, s.title, ''); return; }
+          if (s.single) { if (titleHit || rowHit(s.single)) group += rbRow(f, s.single); return; }
+          var entries = titleHit || (s.head && rowHit(s.head)) ? s.entries : hitEntries(s.entries);
+          if (!entries.length && !titleHit) return;
+          flush();
+          h += rbCard(f, s, entries, false, crumb);
+        });
+        flush();
+      });
+    });
+    return h;
+  }
+
+  // ---- operating them ----------------------------------------------------------------------------------------------
+  function rbShow(cat, page) {
+    if (shownKey === cat + '/' + page) return;
+    shownKey = cat + '/' + page;
+    rbm.send({ cmd: 'rb', op: 'show', cat: cat, page: page });
+  }
+  function rbItems(cat, page) {
+    var f = rbFind(cat, page), out = [];
+    if (f) f.page.rows.forEach(function (r) { out = out.concat(r.items); });
+    return out;
+  }
+  // Send what was operated and show it at once; the native side answers with the real state.
+  function rbOperate(el, op, p, rest) {
+    var host = el.closest('[data-cat]');
+    if (!host) return;
+    var cat = host.dataset.cat, page = host.dataset.page, msg = { cmd: 'rb', op: op, cat: cat, page: page, p: p };
+    for (var k in rest) msg[k] = rest[k];
+    rbShow(cat, page);  // (operated from the search results: its page first)
+    rbm.send(msg);
+    var items = rbItems(cat, page), it = null;
+    items.forEach(function (i) { if (i.p === p) it = i; });
+    if (!it) return;
+    if (op === 'combo') { it.v = rest.id; (it.o || []).forEach(function (o) { if (o[0] === rest.id) it.t = o[1]; }); }
+    if (op === 'slider') it.v = rest.v;
+    if (op === 'toggle') {
+      if (it.r) items.forEach(function (i) { if (i.k === 'toggle' && i.r === it.r && parentPath(i.p) === parentPath(p)) i.on = i === it ? 1 : 0; });
+      else {
+        it.on = rest.on ? 1 : 0;
+        if (it.t === 'Enable' || it.t === 'Disable') it.t = rest.on ? 'Enable' : 'Disable';  // rekordbox words these by their state
+      }
+    }
+    render();
+  }
+  function rbClick(e) {
+    var el = e.target.closest('[data-tip],[data-goto],[data-rbopen],[data-rb]');
+    if (!el) return false;
+    var d = el.dataset;
+    if (d.tip !== undefined) { open[d.tip] = !open[d.tip]; render(true); return true; }
+    if (d.goto !== undefined) { rbGo(d.goto, d.page); return true; }
+    if (d.rbopen !== undefined) {
+      var host = el.closest('[data-cat]');
+      rbm.send({ cmd: 'rb', op: 'open', cat: host.dataset.cat, page: host.dataset.page });
+      return true;
+    }
+    if (el.disabled || el.classList.contains('dis') || d.off || el.tagName === 'SELECT' || el.tagName === 'INPUT') return true;
+    if (d.rb === 'toggle') rbOperate(el, 'toggle', d.p, { t: d.t, on: !el.classList.contains('on') });
+    if (d.rb === 'radio') {
+      var chosen = rbItems(el.closest('[data-cat]').dataset.cat, el.closest('[data-cat]').dataset.page).some(function (i) { return i.p === d.p && i.on; });
+      if (!chosen) rbOperate(el, 'toggle', d.p, { t: d.t, on: true });
+    }
+    if (d.rb === 'click') rbOperate(el, 'click', d.p, { t: d.t });
+    return true;
+  }
+  function rbChange(t) {
+    var kind = t.dataset.rb;
+    if (kind === 'slider') { t.blur(); rbOperate(t, 'slider', t.dataset.p, { v: +t.value }); return; }
+    var option = t.options[t.selectedIndex];
+    t.blur();
+    if (kind === 'pick') rbOperate(t, 'toggle', t.value, { t: option.dataset.t, on: true });
+    else rbOperate(t, 'combo', t.dataset.p, { id: +t.value });
+  }
+  function rbGo(cat, page) {
+    var f = rbFind(cat, page);
+    if (!f) return;
+    area = 'rb'; autoArea = false; rbCat = f.cat.id; rbPage = f.page.id; filter = ''; $('search').value = '';
+    render(true); $('main').scrollTop = 0;
+  }
+
+  // ---- one setting's control ----------------------------------------------------------------------------------
+  function control(o, compact) {
+    var k = ' data-k="' + esc(o.key) + '"', tip = compact && o.help ? ' title="' + esc(o.help) + '"' : '';
+    if (o.kind === 'list') {
+      var items = (state.lists && state.lists[o.list]) || [], list = [''].concat(items);
+      if (list.indexOf(o.value) < 0) list.push(o.value);
+      return '<select' + k + tip + '>' + list.map(function (c) {
+        return '<option value="' + esc(c) + '"' + (c === o.value ? ' selected' : '') + '>' + esc(c === '' ? 'None' : c + (items.indexOf(c) < 0 ? ' (not connected)' : '')) + '</option>';
+      }).join('') + '</select>';
+    }
+    if (o.kind === 'switch') return '<div class="sw' + (o.value !== '0' && o.value !== '' ? ' on' : '') + '"' + k + tip + '></div>';
+    if (o.kind === 'choice') {
+      var vals = o.choices.slice();
+      if (!vals.some(function (c) { return c[0] === o.value; })) vals.push([o.value, o.value]);  // (a value typed into the file that isn't one of them)
+      var len = vals.reduce(function (n, c) { return n + c[1].length; }, 0);
+      if (!compact && vals.length <= 3 && len <= 30)
+        return '<span class="seg"' + k + '>' + vals.map(function (c) { return '<button data-v="' + esc(c[0]) + '"' + (c[0] === o.value ? ' class="on"' : '') + '>' + esc(c[1]) + '</button>'; }).join('') + '</span>';
+      return '<select' + k + tip + '>' + vals.map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === o.value ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select>';
+    }
+    if (o.kind === 'number' && o.slider && o.min !== undefined)
+      return '<input type="range"' + k + ' min="' + o.min + '" max="' + o.max + '" step="' + (o.step || 1) + '" value="' + esc(o.value) + '">' +
+        '<span class="rangeval">' + esc(o.value) + (o.unit ? ' ' + esc(o.unit) : '') + '</span>';
+    if (o.kind === 'number') {
+      var num = '<input type="number"' + k + tip + ' value="' + esc(o.value) + '"' + (o.min !== undefined ? ' min="' + o.min + '" max="' + o.max + '"' : '') + ' step="' + (o.step || 'any') + '">';
+      return o.unit ? (compact ? '<span class="g">' + num + '<span class="unit">' + esc(o.unit) + '</span></span>' : num + '<span class="unit">' + esc(o.unit) + '</span>') : num;
+    }
+    return '<input type="text" spellcheck="false" class="' + (o.wide ? 'wide' : 'v') + '"' + k + tip + ' value="' + esc(o.value) + '" placeholder="' + esc(o.def) + '">';
+  }
+  // What a setting needs (SettingAbout::needs: "key", "!key", "key=value", "key!=value"): null when that is so now,
+  // else the sentence that says what it waits for.
+  function unmet(o) {
+    if (!o.needs) return null;
+    var m = /^(!?)([^!=]+)(?:(!?=)(.*))?$/.exec(o.needs), other = m && option(m[2]);
+    if (!other) return null;
+    var name = '“' + other.label + '”', v = other.value;
+    if (!m[3]) {
+      var on = v !== '0' && v !== '';
+      return (m[1] ? !on : on) ? null : 'Only matters with ' + name + (m[1] ? ' off' : ' on') + '.';
+    }
+    var word = m[4];
+    (other.choices || []).forEach(function (c) { if (c[0] === m[4]) word = c[1]; });
+    if (m[3] === '=') return v === m[4] ? null : 'Only matters when ' + name + ' is “' + word + '”.';
+    return v !== m[4] ? null : 'Does nothing while ' + name + ' is “' + word + '”.';
+  }
+  function row(o) {
+    var why = unmet(o);
+    return '<div class="row' + (o.kind === 'switch' ? ' tog' : '') + (why ? ' idle' : '') + '" title="' + esc(o.key) + ' in the config file">' +
+      '<div class="what"><div class="label">' + esc(o.label) + (o.changed ? '<span class="chg" title="Changed from its default (' + esc(o.def === '' ? 'empty' : o.def) + ')"></span>' : '') +
+      (o.restart ? '<span class="rs' + (o.pending ? ' wait' : '') + '">' + (o.pending ? 'restart rekordbox to apply' : 'after a restart') + '</span>' : '') + '</div>' +
+      (o.help ? '<div class="help">' + esc(o.help) + '</div>' : '') + (why ? '<div class="help why">' + esc(why) + '</div>' : '') + '</div>' +
+      '<div class="ctl">' + (o.changed ? '<span class="reset" data-reset="' + esc(o.key) + '">reset</span>' : '') + control(o) + '</div></div>';
+  }
+  // Settings that share lines (line / column): a table, a line per "line", a column per "column".
+  function table(opts) {
+    var lines = [], cols = [];
+    opts.forEach(function (o) { if (lines.indexOf(o.line) < 0) lines.push(o.line); if (cols.indexOf(o.column) < 0) cols.push(o.column); });
+    var h = '<div class="decks" style="grid-template-columns: auto ' + cols.map(function (c, i) { return i ? 'auto' : 'minmax(120px, 1fr)'; }).join(' ') + '"><span class="h"></span>' +
+      cols.map(function (c) { return '<span class="h">' + esc(c) + '</span>'; }).join('');
+    lines.forEach(function (l) {
+      var mine = opts.filter(function (x) { return x.line === l; }), lead = null;
+      cols.forEach(function (c) { mine.forEach(function (x) { if (!lead && x.column === c) lead = x; }); });
+      var idle = lead && lead.kind === 'list' && lead.value === '';  // (no input chosen: the rest of the line does nothing yet)
+      h += '<span class="d">' + esc(l) + '</span>';
+      cols.forEach(function (c) {
+        var o = null;
+        opts.forEach(function (x) { if (x.line === l && x.column === c) o = x; });
+        h += o ? (idle && o !== lead ? '<span class="idle">' + control(o, true) + '</span>' : control(o, true)) : '<span></span>';
+      });
+    });
+    return h + '</div>';
+  }
+
+  // ---- a mod: a card, or one line when it has nothing to set ---------------------------------------------------
+  function modSwitch(p) { return '<div class="sw' + (p.on ? ' on' : '') + (p.available ? '' : ' dis') + '" data-mod="' + esc(p.mod) + '" title="Switch it on or off (after a restart of rekordbox)"></div>'; }
+  function stateNote(p) { return p.state === 'on' ? '' : '<span class="note' + (p.state === 'pending' || p.state === 'unavailable' ? ' wait' : '') + '">' + esc(p.text) + '</span>'; }
+  function card(p, only) {  // (only: the settings to show, a card on one of rekordbox's pages)
+    var shown = only || p.settings.filter(function (o) { return matches(p, o) && (filter || !rbHome(o)); });
+    var grid = shown.filter(function (o) { return o.line; }), plain = shown.filter(function (o) { return !o.line; });
+    var main = plain.filter(function (o) { return !o.advanced && !o.debug; });
+    var adv = plain.filter(function (o) { return o.advanced && !o.debug; }), dbg = plain.filter(function (o) { return o.debug; });
+    var fold = function (id, title, list) {
+      if (!list.length) return '';
+      var isOpen = open[p.mod + id] !== undefined ? open[p.mod + id] : !!filter || list.some(function (o) { return o.changed; });
+      return '<div class="more"><div class="fold' + (isOpen ? ' open' : '') + '" data-fold="' + esc(p.mod + id) + '">' + title + ' (' + list.length + ')</div>' +
+        (isOpen ? '<div class="rows">' + list.map(row).join('') + '</div>' : '') + '</div>';
+    };
+    var lives = (only ? [] : p.live || []).map(function (l) {  // switches whose state lives in the mod (settings::liveSwitch)
+      return '<div class="row tog' + (l.why ? ' idle' : '') + '"><div class="what"><div class="label">' + esc(l.label) + '</div>' +
+        (l.help ? '<div class="help">' + esc(l.help) + '</div>' : '') + (l.why ? '<div class="help why">' + esc(l.why) + '</div>' : '') + '</div>' +
+        '<div class="ctl"><div class="sw' + (l.on ? ' on' : '') + (l.why ? ' dis' : '') + '" data-live="' + esc(l.id) + '"></div></div></div>';
+    }).join('');
+    var acts = (only ? [] : p.actions).map(function (a) {
+      return '<div class="acts"><button data-act="' + esc(a.id) + '">' + esc(a.label) + '</button><span class="help">' + esc(a.help || '') + '</span></div>';
+    }).join('');
+    return '<div class="card' + (p.on ? '' : ' off') + '"><div class="chead"><div class="txt"><div class="title">' + esc(p.title) +
+      stateNote(p) + '<span class="tag">' + esc(p.mod) + '</span></div><div class="blurb">' + esc(p.about) + '</div></div>' + modSwitch(p) + '</div>' +
+      (grid.length || main.length || lives ? '<div class="rows">' + (grid.length ? table(grid) : '') + main.map(row).join('') + lives + '</div>' : '') + acts +
+      fold(':adv', 'More options', adv) + fold(':dbg', 'Fault-finding', dbg) + '</div>';
+  }
+  function slim(p) {
+    return '<div class="row tog"><div class="what"><div class="label">' + esc(p.title) + ' ' + stateNote(p) + ' <span class="tag">' + esc(p.mod) + '</span></div>' +
+      '<div class="help">' + esc(p.about) + '</div></div><div class="ctl">' + modSwitch(p) + '</div></div>';
+  }
+  // A mod that belongs with one of rekordbox's pages (Mod::rekordboxPage, "Audio/Configuration"): its card is shown
+  // there, under rekordbox's own settings, and its area has a line that leads to it. Without that page here (prefs
+  // off): in its area as any other.
+  function rbHome(p) {
+    if (!p.rb) return null;
+    var cut = p.rb.indexOf('/'), cat = cut < 0 ? p.rb : p.rb.slice(0, cut), page = cut < 0 ? null : p.rb.slice(cut + 1);
+    return rbFind(cat, page) || (page !== null ? rbFind(cat, null) : null);
+  }
+  function homeLine(p, f) {
+    return '<div class="row"><div class="what"><div class="label">' + esc(p.title) + ' ' + stateNote(p) + ' <span class="tag">' + esc(p.mod) + '</span></div>' +
+      '<div class="help">' + esc(p.about) + '</div></div><div class="ctl"><a data-goto="' + esc(f.cat.id) + '" data-page="' + esc(f.page.id) + '">' +
+      esc('In ' + crumbText(f).replace(/^rekordbox · /, 'rekordbox › ').replace(/ · /g, ' › ')) + '</a></div></div>';
+  }
+  function areaHtml(a) {
+    var away = filter ? [] : a.pages.filter(function (p) { return rbHome(p); });
+    var pages = a.pages.filter(function (p) { return matches(p) && away.indexOf(p) < 0; });
+    var withOpts = pages.filter(function (p) { return p.settings.length || p.actions.length; });
+    var without = pages.filter(function (p) { return withOpts.indexOf(p) < 0; });
+    return withOpts.map(function (p) { return card(p); }).join('') +  // (not map(card): card's second argument)
+      (without.length ? (withOpts.length && !filter ? '<h2>Nothing to set: just on or off</h2>' : '') + '<div class="card slim"><div class="rows">' + without.map(slim).join('') + '</div></div>' : '') +
+      (away.length ? '<h2>With rekordbox\'s own settings</h2><div class="card slim"><div class="rows">' + away.map(function (p) { return homeLine(p, rbHome(p)); }).join('') + '</div></div>' : '');
+  }
+  function aboutHtml() {
+    var own = state.pages.filter(function (p) { return p.area === 'about'; });
+    return '<h1>General</h1><p class="lead">What belongs to no one feature. Everything in this window is saved as you change it: ' +
+      'settings apply within a few seconds; a feature\'s own switch, and settings that say so, after a restart of rekordbox.</p>' +
+      (state.about.length || own.length ? '<div class="card"><div class="rows">' + state.about.map(row).join('') + own.map(slim).join('') + '</div></div>' : '') +
+      '<div class="card"><div class="about"><span class="k">Versions</span><span class="v">' + esc(state.versions) + '</span>' +
+      '<span class="k">Mods</span><span class="v">' + esc(state.summary) + '</span></div>' +
+      '<div class="btns"><button data-cmd="log">Open log</button><button data-cmd="config">Open config file</button><button data-cmd="restart">Restart rekordbox</button></div></div>';
+  }
+  function pageHtml() {
+    var list = areas();
+    if (filter) {
+      var hits = list.map(function (a) { return a.id === 'about' ? '' : areaHtml(a); }).join('');
+      var about = state.about.filter(function (o) { return matches({ title: 'About', about: '', mod: '', settings: [] }, o); });
+      var own = hits + (about.length ? '<div class="card"><div class="rows">' + about.map(row).join('') + '</div></div>' : ''), theirs = rbSearchHtml();
+      return '<h1>Search</h1><p class="lead">Everything that mentions “' + esc(filter) + '”.</p>' +
+        (own + theirs ? own + (theirs ? '<h2>rekordbox\'s preferences</h2>' + theirs : '') : '<div class="empty">Nothing found.</div>');
+    }
+    if (area === 'rb') {
+      var f = rbFind(rbCat, rbPage) || rbFind(rbCat, null);
+      if (f) { rbPage = f.page.id; return rbPageHtml(f); }
+      area = null;  // (no longer there)
+    }
+    var cur = null;
+    if (!area) { firstPage(); if (area === 'rb') return pageHtml(); }
+    list.forEach(function (a) { if (a.id === area) cur = a; });
+    if (!cur) cur = list[0], area = cur.id;
+    if (cur.id === 'about') return aboutHtml();
+    return '<h1>' + esc(cur.title) + '</h1><p class="lead">' + esc(cur.blurb) + '</p>' + areaHtml(cur);
+  }
+  function navHtml(cls, attrs, icon, title, tail) {
+    return '<div class="area' + cls + '"' + attrs + '>' + (icon ? '<svg viewBox="0 0 16 16">' + icon + '</svg>' : '') + '<span class="t">' + esc(title) + '</span>' + (tail || '') + '</div>';
+  }
+  function rbNav(c, p, cls) {
+    var sel = !filter && area === 'rb' && rbCat === c.id && rbPage === p.id;
+    return navHtml(' pg' + (sel ? ' sel' : '') + (cls || ''), ' data-nav="' + esc(c.id) + '" data-page="' + esc(p.id) + '"', '', p.title);
+  }
+  // Where the window opens: rekordbox's first category with settings of its own to show (not Plan, which is
+  // rekordbox's dialog only), else the first area of the mods.
+  var autoArea = false;
+  function firstPage() {
+    try {  // (where this window was last: a convenience of this computer's)
+      var was = JSON.parse(localStorage.getItem('prefs.at') || 'null');
+      if (was && was.area === 'rb' && rbFind(was.cat, was.page)) { area = 'rb'; rbCat = was.cat; rbPage = was.page; return; }
+      if (was && was.area && was.area !== 'rb' && areas().some(function (a) { return a.id === was.area; })) { area = was.area; return; }
+    } catch (e) {}
+    var shows = function (c) { return c.pages.some(function (p) { return p.rows.some(function (r) { return r.items.some(function (i) { return /toggle|combo|slider/.test(i.k); }); }); }); };
+    var c = rbCats().filter(shows)[0];
+    autoArea = !c;  // (rekordbox's pages may come a moment later: then they are where it opens)
+    if (c) { area = 'rb'; rbCat = c.id; rbPage = c.pages[0].id; } else area = areas()[0].id;
+  }
+  function sideHtml() {
+    var list = areas(), cats = rbCats();
+    if (!area) firstPage();
+    var own = list.map(function (a) {  // (an orange dot: something here waits for a restart)
+      var wait = false, sets = a.id === 'about' ? state.about : [];
+      if (a.id === 'about') state.pages.forEach(function (p) { if (p.area === 'about') a.pages = a.pages.concat(p); });
+      a.pages.forEach(function (p) { if (p.state === 'pending') wait = true; sets = sets.concat(p.settings); });
+      sets.forEach(function (o) { if (o.pending) wait = true; });
+      return navHtml(!filter && a.id === area ? ' sel' : '', ' data-area="' + esc(a.id) + '"', a.icon || ICONS[a.id] || ICONS.more, a.title,
+        wait ? '<span class="n" title="Something here waits for a restart">●</span>' : '');
+    });
+    var theirs = cats.map(function (c) {
+      var here = !filter && area === 'rb' && rbCat === c.id, many = c.pages.length > 1;
+      return navHtml(here ? (many ? ' openc' : ' sel') : '', ' data-nav="' + esc(c.id) + '"', RB_ICONS[c.id] || ICONS.more, catTitle(c)) +
+        (here && many ? c.pages.map(function (p) { return rbNav(c, p); }).join('') : '');
+    }).join('');
+    // rekordbox's own first: what most people come for; then the mods'
+    return (cats.length ? '<div class="grp">rekordbox</div>' + theirs + '<div class="grp second">platendoos</div>' : '') + own.join('');
+  }
+  function subHtml() {  // narrow windows: the chosen category's pages, a second strip
+    var h = '';
+    rbCats().forEach(function (c) { if (!filter && area === 'rb' && c.id === rbCat && c.pages.length > 1) h = c.pages.map(function (p) { return rbNav(c, p); }).join(''); });
+    return h;
+  }
+  // Keep the chosen category and page of the sidebar (or strip) in sight.
+  function reveal(box) {
+    [box.querySelector('.area.openc'), box.querySelector('.area.sel')].forEach(function (el) {
+      if (!el || !el.offsetWidth) return;  // (a strip hides what is shown elsewhere)
+      var a = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+      if (a.right > b.right) box.scrollLeft += a.right - b.right + 8; else if (a.left < b.left) box.scrollLeft -= b.left - a.left + 8;
+      if (a.bottom > b.bottom) box.scrollTop += a.bottom - b.bottom + 8; else if (a.top < b.top) box.scrollTop -= b.top - a.top + 8;
+    });
+  }
+  function render(force) {
+    if (!state) return;
+    if (area === 'rb' && !rbFind(rbCat, rbPage) && !rbFind(rbCat, null)) area = null;
+    var side = sideHtml(), sub = subHtml();
+    if (side + sub !== lastSide) $('nav').innerHTML = side, $('sub').innerHTML = sub, lastSide = side + sub, reveal($('nav')), reveal($('sub'));
+    // A rekordbox page that comes into view: the native side reads its values afresh.
+    if (area === 'rb' && !filter) { var f = rbFind(rbCat, rbPage) || rbFind(rbCat, null); rbShow(f.cat.id, f.page.id); }
+    // While a field has the focus the page is left alone: a refresh must not take what is being typed or dragged.
+    var f = document.activeElement, busy = f && $('page').contains(f) && /INPUT|SELECT/.test(f.tagName);
+    var html = pageHtml();
+    try { localStorage.setItem('prefs.at', JSON.stringify({ area: area, cat: rbCat, page: rbPage })); } catch (e) {}
+    if (html === lastHtml || (busy && !force)) return;
+    $('page').innerHTML = html, lastHtml = html;
+  }
+  function narrow() { return window.innerWidth <= 700; }
+  var wasNarrow = narrow();
+  window.addEventListener('resize', function () {
+    reveal($('nav')); reveal($('sub'));
+    if (narrow() !== wasNarrow) wasNarrow = narrow(), render();  // (the choices that depend on the room)
+  });
+  rbm.onState = function (s) {
+    state = s;
+    $('restartText').textContent = s.restart || '';
+    $('restart').classList.toggle('hidden', !s.restart);
+    if (!s.restart || !s.playing) armed = false;
+    restartLabel();
+    $('foot').style.display = rbCats().length ? '' : 'none';  // (rekordbox's pages aren't here: prefs off)
+    if (autoArea && rbCats().length) firstPage();
+    render();
+    // rekordbox's Preferences command opened the window (prefs): its category, once rekordbox's part is there
+    if (s.go && s.go.n !== wentGo && s.rb) {
+      wentGo = s.go.n;
+      rbGo(s.go.cat, rbFind(s.go.cat, s.go.page) ? s.go.page : null);
+      rbm.send({ cmd: 'went', n: s.go.n });
+    }
+  };
+  var wentGo = 0;
+
+  // ---- what the page sends ------------------------------------------------------------------------------------
+  function option(key) {
+    var found = null;
+    state.about.forEach(function (o) { if (o.key === key) found = o; });
+    state.pages.forEach(function (p) { p.settings.forEach(function (o) { if (o.key === key) found = o; }); });
+    return found;
+  }
+  function setValue(key, value) { rbm.send({ cmd: 'set', key: key, value: String(value).trim() }); }
+  var armed = false, restarting = false;
+  function restartLabel() {
+    $('restartNow').textContent = restarting ? 'Restarting…' : armed ? 'A deck is playing: restart anyway' : 'Restart rekordbox';
+    $('restartNow').disabled = restarting;
+  }
+  function restart() {  // while a deck plays it asks once more first: the music stops
+    if (state && state.playing && !armed) { armed = true; restartLabel(); $('restart').classList.remove('hidden'); $('restartText').textContent = $('restartText').textContent || 'A deck is playing.'; return; }
+    restarting = true; restartLabel();
+    rbm.send({ cmd: 'restart' });
+    setTimeout(function () { restarting = false; armed = false; restartLabel(); }, 15000);  // (rekordbox asked something, or didn't quit)
+  }
+  $('restartNow').onclick = restart;
+  $('rbdialog').onclick = function () {  // at the rekordbox page shown last (or the first one)
+    var f = rbFind(rbCat, rbPage) || rbFind(rbCat, null) || (rbCats()[0] && rbFind(rbCats()[0].id, null));
+    if (f) rbm.send({ cmd: 'rb', op: 'open', cat: f.cat.id, page: f.page.id });
+  };
+  $('nav').onclick = $('sub').onclick = function (e) {
+    var a = e.target.closest('.area');
+    if (!a) return;
+    if (a.dataset.nav !== undefined) { rbGo(a.dataset.nav, a.dataset.page === undefined ? null : a.dataset.page); return; }
+    area = a.dataset.area; filter = ''; $('search').value = ''; autoArea = false;
+    render(true); $('main').scrollTop = 0;
+  };
+  $('page').addEventListener('click', function (e) {
+    var t = e.target, b;
+    if (rbClick(e)) return;
+    if (t.dataset.fold) { open[t.dataset.fold] = !t.classList.contains('open'); render(true); return; }
+    if (t.dataset.reset) { if (document.activeElement) document.activeElement.blur(); rbm.send({ cmd: 'unset', key: t.dataset.reset }); return; }
+    if (t.dataset.mod) { if (!t.classList.contains('dis')) rbm.send({ cmd: 'mod', key: t.dataset.mod, value: !t.classList.contains('on') }); return; }
+    if (t.dataset.act) { rbm.send({ cmd: 'action', id: t.dataset.act }); return; }
+    if (t.dataset.live) { if (!t.classList.contains('dis')) t.classList.toggle('on'), rbm.send({ cmd: 'live', id: t.dataset.live, on: t.classList.contains('on') }); return; }
+    if (t.dataset.cmd) { if (t.dataset.cmd === 'restart') restart(); else rbm.send({ cmd: t.dataset.cmd }); return; }
+    if (t.classList.contains('sw') && t.dataset.k) { setValue(t.dataset.k, t.classList.contains('on') ? '0' : '1'); return; }
+    if ((b = t.closest('.seg button'))) setValue(b.parentNode.dataset.k, b.dataset.v);
+  });
+  $('page').addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.dataset.rb) {  // (a value rekordbox words itself, "128 samples", changes once it has answered)
+      var out = t.closest('.ctl, .under').querySelector('.rangeval');
+      if (out && !out.dataset.fixed) rbItems(t.closest('[data-cat]').dataset.cat, t.closest('[data-cat]').dataset.page).forEach(function (i) { if (i.p === t.dataset.p) out.textContent = fmt(i, +t.value); });
+      return;
+    }
+    if (t.type === 'range') { var o = option(t.dataset.k) || {}; t.nextElementSibling.textContent = t.value + (o.unit ? ' ' + o.unit : ''); }
+  });
+  $('page').addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.dataset && t.dataset.rb) { rbChange(t); return; }
+    if (!t.dataset || !t.dataset.k) return;
+    var v = t.value;
+    if (t.type === 'number') {
+      if (v === '' || isNaN(+v)) { render(true); return; }
+      if (t.min !== '' && +v < +t.min) v = t.min;
+      if (t.max !== '' && +v > +t.max) v = t.max;
+    }
+    setValue(t.dataset.k, v);
+    if (t.tagName === 'SELECT' || t.type === 'range') t.blur();
+  });
+  $('page').addEventListener('pointerdown', function (e) { if (e.target.dataset.rb === 'slider') e.target.focus(); });  // (no refresh while dragging)
+  $('page').addEventListener('pointerup', function (e) { var t = e.target; if (t.dataset.rb === 'slider') setTimeout(function () { t.blur(); }, 50); });  // (released where it was: no change event)
+  $('page').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur();
+    if (e.key === 'Escape' && /INPUT|SELECT/.test(e.target.tagName)) { e.stopPropagation(); e.target.blur(); render(true); }
+  });
+  $('page').addEventListener('focusout', function () { setTimeout(render, 0); });
+  $('search').addEventListener('input', function () { filter = this.value.trim().toLowerCase(); render(true); $('main').scrollTop = 0; });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if ($('search').value) { $('search').value = ''; filter = ''; render(true); } else rbm.send({ cmd: 'close' });
+  });
+  rbm.ready();
+</script>
+</body></html>

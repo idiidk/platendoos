@@ -1,16 +1,13 @@
-# Writes the "Every option" tables of docs/guides/settings.md from core/config_template.h, the commented-out
-# config.txt the mods carry (made by tools/build/config_gen.py).
-#
-# The template holds both editions (docs/editions.md): the public one under #ifdef RBM_PUBLIC, the full one in the
-# #else, each with a macOS and a Windows variant. The page gets the public tables; the full edition's tables go to
+# Writes the "Every option" tables of docs/guides/settings.md from the mods' own settings declarations (core/settings.h,
+# read from the sources by tools/build/settings_parse.py: the same list the config file gets and the settings window
+# shows), per edition (docs/editions.md) and platform. The page gets the public tables; the full edition's tables go to
 # private/website/slots/settings-options.md, which the full edition of the site shows in their place. In a tree
-# without private/ the template has only the public edition, and only the page is written.
+# without private/ only the page is written.
 #   npm run settings        (from website/)
 import os, re, sys
 
 here = os.path.dirname(os.path.abspath(__file__))
 repo = os.path.normpath(os.path.join(here, '..', '..'))
-template = os.path.join(repo, 'core', 'config_template.h')
 page = os.path.join(here, '..', 'docs', 'guides', 'settings.md')
 slot = os.path.join(repo, 'private', 'website', 'slots', 'settings-options.md')
 mod_pages = os.path.join(here, '..', 'docs', 'mods')
@@ -32,30 +29,12 @@ PUBLIC_SUMMARY = {
 BEGIN, END = '<!--@public settings-options-->', '<!--@/public-->'
 
 
-def variants(text):
-    """{(edition, platform): template text}"""
-    out, stack = {}, []
-    lines = text.split('\n')
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        if line.startswith('#ifdef '):
-            stack.append([line[7:].strip(), True]); i += 1; continue
-        if line.startswith('#else'):
-            stack[-1][1] = False; i += 1; continue
-        if line.startswith('#endif'):
-            stack.pop(); i += 1; continue
-        if 'R"__(' in line:
-            body = [line.split('R"__(', 1)[1]]
-            i += 1
-            while not lines[i].startswith(')__"'):
-                body.append(lines[i]); i += 1
-            conds = {name: on for name, on in stack}
-            edition = 'public' if conds.get('RBM_PUBLIC', True) else 'full'
-            platform = 'win' if conds.get('_WIN32', False) else 'mac'
-            out[(edition, platform)] = '\n'.join(body)
-        i += 1
-    return out
+def variants():
+    """{(edition, platform): the config file's list, as the mods' declarations give it}"""
+    sys.path.insert(0, os.path.join(repo, 'tools', 'build'))
+    from settings_parse import config_list
+    editions = ('public', 'full') if os.path.isdir(os.path.join(repo, 'private', 'mods')) else ('public',)
+    return {(e, p): config_list(repo, p, e) for e in editions for p in ('mac', 'win')}
 
 
 def parse(text):
@@ -103,7 +82,12 @@ def tables(edition, var):
         keys = sorted(set(mo) | set(wo), key=lambda k: (k != name, k))
         for k in keys:
             if k == name:
-                out.append(f'| `{k}` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |')
+                dm, dw = mo.get(k), wo.get(k)
+                default = '`1`'
+                if dm and dw and dm[0] != dw[0]: default = f'`{dm[0]}` (macOS), `{dw[0]}` (Windows)'
+                elif (dm or dw)[0] != '1': default = f'`{(dm or dw)[0]}`'
+                note = ' Off on Windows until it has been run on more PCs: `1` there to try it.' if dw and dw[0] == '0' else ''
+                out.append(f'| `{k}` | {default} | `0` switches the mod off, `1` on. Applies after a restart of rekordbox.{note} |')
                 continue
             dm, dw = mo.get(k), wo.get(k)
             fmt = lambda d: f'`{d}`' if d != '' else '*(empty)*'
@@ -126,7 +110,7 @@ def tables(edition, var):
 
 
 def main():
-    var = variants(open(template, encoding='utf-8').read())
+    var = variants()
     text = open(page, encoding='utf-8').read()
     head = text[:text.index('### ', text.index('## Every option'))] if BEGIN not in text else text[:text.index(BEGIN)]
     public = tables('public', var)

@@ -14,6 +14,11 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting phrase{"streamio_phrase", true, {.label = "Reuse the audio for phrase analysis", .advanced = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 
 #define YIELD_HOOK(name) \
@@ -68,7 +73,7 @@ static void keep(void* reader, size_t pos, const float* l, const float* r, size_
     Samples& s = t_samples;
     if (pos == 0) {
         s.reader = reader;
-        s.ok = cfgInt("streamio_phrase", 1) != 0;
+        s.ok = opt::phrase.integer() != 0;
         s.l.clear(), s.r.clear();
     }
     if (!s.ok || reader != s.reader || pos != s.l.size() || pos + n > kMaxFrames) {
@@ -128,4 +133,7 @@ static bool passAudio(const void** reader, const int16_t** l, const int16_t** r,
 }
 RBM_PROVIDE("streamio", "streamio.passAudio", passAudio, &g_on);
 
-RBM_MOD({.name = "streamio", .enabled = &g_on});
+RBM_MOD({.name = "streamio", .enabled = &g_on,
+         .title = "Faster reading",
+         .about = "Reads a track's audio faster during analysis.",
+         .area = "analysis", .order = 90});

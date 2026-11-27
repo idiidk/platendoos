@@ -40,6 +40,13 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting hidden{"relayout_hidden", true, {.label = "Skip panels that aren't showing"}};
+const Setting check{"relayout_check", false, {.label = "Check every button image that was kept", .debug = true}};
+const Setting log{"relayout_log", false, {.label = "Log each layout pass", .debug = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 
 static const Addr A_mainComponent{"__ZN13MainComponent11getInstanceEv"};
@@ -151,7 +158,7 @@ extern "C" void rbm_hook_ctb_position(void* button, const void* drawable, const 
         auto it = g_made.find(button);
         if (it != g_made.end() && it->second == stateOf(button)) {
             g_kept++;
-            if (!cfgInt("relayout_check", 0)) return;
+            if (!opt::check.integer()) return;
             std::vector<uint8_t> was[2] = {pixelsOf(it->second.image[0]), pixelsOf(it->second.image[1])};
             RBM_ORIG(ctb_position, void (*)(void*, const void*, const void*))(button, drawable, drawableOn);
             Made now = stateOf(button);
@@ -373,11 +380,11 @@ static void catchUpShowing() {
 }
 
 static void tick() {  // main thread, every 0.1 s
-    g_deferHidden = cfgInt("relayout_hidden", 1) != 0;
+    g_deferHidden = opt::hidden.integer() != 0;
     catchUpShowing();
     static int ticks, kept, rendered;
     if (++ticks % 10) return;
-    bool log = cfgInt("relayout_log", 0);
+    bool log = opt::log.integer();
     static int deferred[kLazyClasses], caught[kLazyClasses];
     std::string line;
     for (int c = 0; c < kLazyClasses; c++) {
@@ -390,11 +397,16 @@ static void tick() {  // main thread, every 0.1 s
     }
     if (log && !line.empty()) logf("relayout: hidden panels: %s", line.c_str());
     if (kept == g_kept && rendered == g_rendered) return;
-    if (cfgInt("relayout_check", 0)) logf("relayout: check: %d buttons rendered again came out the same, %d different (since launch)", g_same, g_differ);
+    if (opt::check.integer()) logf("relayout: check: %d buttons rendered again came out the same, %d different (since launch)", g_same, g_differ);
     else if (log) logf("relayout: %d buttons kept their images, %d rendered", g_kept - kept, g_rendered - rendered);
     else if (!kept && g_kept) logf("relayout: buttons that didn't change keep their images in a layout pass");
     kept = g_kept, rendered = g_rendered;
 }
+
+// The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
+namespace { const rbm::settings::Area kArea{"speed", "Speed",
+    "A quicker window and less work in the background.",
+    "<path d=\"M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z\"/>", 70}; }
 
 RBM_MOD({.name = "relayout", .init = [] {
              Method m = class_getInstanceMethod(objc_getClass("NSWindowListener"), @selector(windowDidChangeScreen:));
@@ -403,4 +415,7 @@ RBM_MOD({.name = "relayout", .init = [] {
              for (NSNotificationName name in @[NSApplicationDidChangeScreenParametersNotification, NSWindowDidChangeBackingPropertiesNotification])
                  [[NSNotificationCenter defaultCenter] addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification*) { g_screens++; }];
              if (!installAllLazy(std::make_integer_sequence<int, kLazyClasses>{})) logf("relayout: a hidden panel's methods could not be replaced");
-         }, .tick = tick, .enabled = &g_on});
+         }, .tick = tick, .enabled = &g_on,
+         .title = "Lighter layout",
+         .about = "Menus and Preferences open sooner and resizing is smoother: rekordbox no longer lays out what isn't showing.",
+         .area = "speed", .order = 30});

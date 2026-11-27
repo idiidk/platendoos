@@ -3,6 +3,84 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
+## 0.7.3 (2026-11-27)
+
+- **A turntable through a deck** (new mod **linein**; macOS and Windows). Any audio input your computer sees (a USB turntable, an
+  audio interface with a turntable or CDJ on it) can be played through a deck, so the deck's channel on the mixer
+  works on it: trim, EQ, filter, faders, crossfader, headphone cue and the FX, with any controller, a DDJ-FLX4
+  included. It uses rekordbox's own INPUT THROUGH mode of a deck: the deck's display says so and rekordbox reads the
+  tempo from what comes in. Pick a device per deck in the Preferences window (two of the same name show as `#2`). A deck plays its input while no track is loaded on it; load a track and it plays the track. The
+  input is resampled continuously to follow the engine's clock, about 12 ms behind. Tested with a loopback device,
+  not yet with a turntable: reports are welcome.
+- **rekordbox's own preferences in the Preferences window** (new mod **prefs**; macOS and Windows). rekordbox's Preferences
+  dialog is ten categories with tabs and pages that scroll a long way. The Preferences window now has a second group in its sidebar, *rekordbox*, with those categories and their pages one click away. A page
+  shows what rekordbox's page has, tidied: a list of radio buttons is one choice, a checkbox a switch, a section
+  with a single setting one line, rekordbox's "?" help a small mark next to the setting. The search box finds
+  rekordbox's settings and the mods' at once and you can set them from the results. Nothing is copied: the pages
+  are read from rekordbox's own Preferences page, kept in the background, in rekordbox's language, and a change
+  operates rekordbox's own control, so rekordbox applies and saves it itself. What can't be shown this way (lists,
+  text fields, the keyboard shortcuts, your account, DVS) is a line with a button that opens rekordbox's own
+  dialog on that page.
+- **A small window for the chip, and a Preferences window** (**badge**). Clicking the PLATENDOOS chip opens a small
+  window: the versions, how many mods are on, what waits for a restart, the log and config file, and a
+  *Preferences…* button. That opens the Preferences window, with every setting: platendoos's and rekordbox's own.
+  It is rebuilt around what you want to set instead of around the mods' names: the search at the top of the
+  sidebar, areas below it (Decks & sound, Stems, Grids, keys & cues, Spotify, Track list, Hardware, Speed, General), each feature a
+  card with a plain title, and each option a line in plain words with the control that fits it: a switch, a choice,
+  a number with its unit, a slider, a list of devices. Rarely needed options are folded under *More options*,
+  logging under *Fault-finding*. Search finds any setting; a narrow window gets tabs and stacked lines. Works the
+  same on Windows, where it shows the features that exist there. A mod's name in `config.txt` shows when you hover
+  its title, and a deck's line in *Turntables and other inputs* is greyed out until it has an input.
+- **rekordbox's Preferences open the Preferences window** (**prefs**): ⌘, the menu item and the gear open it at the
+  category rekordbox's dialog showed last; Plan, Keyboard and DVS still open rekordbox's own dialog. A setting that
+  only matters with another one (*Fine-tune* with *Line up speakers and headphones*, the Claude Code model with
+  *Claude Code* chosen) is greyed out, with a line that says what it waits for. rekordbox's words in capitals read as
+  words (*Crossfader Curve*, *Reset*), and its sliders with *Small* and *Large* at the ends lost their bare number.
+  The areas *Analysis* and *Controller* are now *Grids, keys & cues* and *Hardware*, apart from rekordbox's own.
+  *Speakers and headphones* (**outputsync**) is now on rekordbox's Audio page in the window, under rekordbox's own
+  audio settings; *Decks & sound* has a line that leads there. The same for *Turntables and other inputs*
+  (Audio > Input/Output), *Mixer effects* (Controller > Effect, its EQ switch on Mixer) and *Crossfader lock*
+  (Controller > Mixer). The Preferences window is an ordinary window now: rekordbox's main window can cover it.
+- **The metronome for lining up speakers and headphones is in the Preferences window too** (**outputsync**): a switch
+  under *Fine-tune*, so you can tune by ear without rekordbox's own dialog. It stops when the window closes.
+- **The Preferences window opens on rekordbox's settings**, which come first in its sidebar, and where you left it
+  last time. A button at the bottom of the sidebar (and *Open in rekordbox* on each page) opens rekordbox's own
+  Preferences dialog. Clicking some platendoos areas (Speed, Hardware and others after the first) did nothing: fixed.
+- **Settings SDK** (internal): the sidebar's areas are declared by the mods (`settings::Area`), a mod says itself
+  which platform it is untested on (`.untested`, replacing `core/defaultoff.h`), settings can say what they need
+  (`.needs`), the window's JSON is written by `webui::Json`, and the build checks every declaration can be read for
+  the docs and the patcher (`settings_parse.py --check`).
+- **Settings are declared by the mods themselves** (internal). Each mod now declares its options in its own source
+  file, with their labels, units, ranges and choices (`core/settings.h`); the window, the commented list in
+  `config.txt` and the option tables on the website are all made from those declarations. A new `config.txt` also
+  lists the two general options (`gpu`, Windows' `worker_priority`), and a config file saved with a byte-order
+  mark (Notepad) no longer gets the list twice.
+- **Speakers and headphones in Preferences > Audio looks like one of rekordbox's own sections** (macOS,
+  **outputsync**): a card with a heading, marked *platendoos · outputsync*. It no longer shows up at the bottom of
+  every other Preferences page. The metronome's every fourth click is higher, so you know which click you are
+  lining up; while rekordbox plays to one device, where there is nothing to line up, the slider and the metronome
+  are greyed out and a line says why.
+- **Refresh audio devices** (macOS, **outputsync**). A button in that section and in the Preferences window: rekordbox
+  looks for audio devices again and opens the device you have selected anew, for a device that was plugged in or
+  changed and doesn't show up or stays silent, without a restart.
+- **A Restart rekordbox button in the Preferences window** (**badge**). When something you changed needs a restart, the
+  orange bar that says what is waiting now has a button: rekordbox quits the way its own Quit does and opens again
+  by itself a few seconds later. While a deck is playing it asks once more first. macOS and Windows.
+- **The window knows which options need a restart.** A few options are read once, when rekordbox starts (the parts
+  of betterfx and audiomem, `gpu`, `spotifyapi_slots`). They now say *applies after a restart* next to their name,
+  and a change to one of them counts in *Restart rekordbox to apply*, like a mod's own switch.
+- **Column titles change as you set them.** `keycol_title`, `bettergrid_title` and `betterkey_title` used to show
+  only in lists built after the change (in practice: after a restart), without a word about it. The headers that
+  are there now get the new title within a second.
+- **autocue's layout options are followed live** (`autocue_pads`, `autocue_memory`, `autocue_build_bars`,
+  `autocue_intro`, `autocue_outro_bars`, `autocue_stems`): set in the Preferences window or the config file, they now
+  do what the same change in the Auto cues window does. They were read once at startup.
+- **Stems on demand and "keep only what I separate" now run on a Windows PC too**: they were released in 0.7.0 after
+  an emulator test only. Both behave there as on a Mac.
+- **linein and prefs ran on a Windows PC** and are on there by default, like on a Mac: rekordbox's pages and
+  changes in the Preferences window, and an input heard through a deck (a loopback test input; a turntable on Windows
+  is still untested). The Recording page shows on Windows too.
+
 ## 0.7.2 (2026-11-26)
 
 - **Grids on the kick when something else is on the beat** (**bettergrid**). Some tracks have a percussion layer

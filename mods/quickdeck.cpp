@@ -76,6 +76,15 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting stream{"quickdeck_stream", true, {.label = "The overview waveform grows while the track is read"}};
+const Setting gridonly{"quickdeck_gridonly", true, {.label = "A new grid redraws only the grid", .help = "Off: the deck's waveforms are built again, as rekordbox does."}};
+const Setting merge{"quickdeck_merge", 0.25, {.label = "Wait for rekordbox's own grid", .help = "Windows: so one redraw of the deck shows both.", .unit = "s", .min = 0, .max = 5, .step = 0.05, .advanced = true}};
+const Setting progressive{"quickdeck_progressive", false, {.label = "Start analysing while a Spotify track downloads", .help = "An unfinished experiment.", .debug = true}};
+const Setting log{"quickdeck_log", false, {.label = "Log each partial overview", .debug = true}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 
 static const Addr A_getUiPlayer{"__ZN6browse14PlayerAccessor11getUiPlayerEN6djplay9ePlayerIDE"};
@@ -191,7 +200,7 @@ extern "C" void rbm_hook_qd_apply(char* player, char* beat, char* song, WaveCoef
     for (int c = 0; c < deckCount() && c < 8 && ch < 0; c++)
         if ((char*)at<void* (*)(int)>(A_getUiPlayer)(c) == player) ch = c;
     bool only = false;
-    if (g_on && ch >= 0 && stage > 1 && beat && song && cfgInt("quickdeck_gridonly", 1) && !g_shown[ch].uri.empty() && g_shown[ch].uri == deckPath(ch)) {
+    if (g_on && ch >= 0 && stage > 1 && beat && song && opt::gridonly.integer() && !g_shown[ch].uri.empty() && g_shown[ch].uri == deckPath(ch)) {
         int colour = at<int (*)(void*, bool)>(A_waveColour)(at<void* (*)()>(A_settings)(), false);
         bool wavesThere = colour == 1 || colour == 3 || stage < 3 || g_shown[ch].stage >= 3;
         char* oldSong = *(char**)(player + O_playerSong);
@@ -265,7 +274,7 @@ static bool waveDue(const char** uri, const void** thread) {
     double t = now();
     if (t - t_partialAt < 0.25) return false;
     t_partialAt = t;
-    if (!cfgInt("quickdeck_stream", 1)) return false;
+    if (!opt::stream.integer()) return false;
     bool onDeck = false;
     for (int ch = 0; ch < deckCount(); ch++) onDeck |= deckPath(ch) == t_analysing;
     if (!onDeck) return false;
@@ -324,7 +333,7 @@ static Partial g_otherStyle;  // (g_lock) quickdeck_log=2: the last partial over
 static void checkOverview(int ch, const char* player, const std::string& uri) {
     Partial p = std::move(g_partial[ch]);
     g_partial[ch] = Partial();
-    if (p.uri != uri || !cfgInt("quickdeck_log", 0)) return;
+    if (p.uri != uri || !opt::log.integer()) return;
     logf("quickdeck: deck %d was given %d partial overviews", ch + 1, p.shown);
     compareOverview(ch, player, p, "shown");
     Partial other;
@@ -378,7 +387,7 @@ static void partialWave(const char* creator, const char* uri, const char* thread
     int filled = 0;
     auto out = overviewOf(creator, threeBands, &filled);
     if (!out) return;
-    int log = cfgInt("quickdeck_log", 0);
+    int log = opt::log.integer();
     if (log >= 2) {  // the other style's too, not shown: checked against the final one like the shown one
         auto other = overviewOf(creator, !threeBands, nullptr);
         std::lock_guard<std::mutex> l(g_lock);
@@ -469,7 +478,7 @@ static bool readerReady(char* reader, int pos, int frames) {
 // the reader is still opened early here, and analyze() waits as before.
 static bool g_progressive;  // the vtables are changed
 static bool readsEarly(const char* uri) {
-    if (!g_on || !g_progressive || !uri || strncmp(uri, "spotify:", 8) || !cfgInt("quickdeck_progressive", 0)) return false;
+    if (!g_on || !g_progressive || !uri || strncmp(uri, "spotify:", 8) || !opt::progressive.integer()) return false;
     for (int ch = 0; ch < deckCount(); ch++)
         if (deckPath(ch) == uri) return true;
     return false;
@@ -634,7 +643,7 @@ static void stage(const void* thread, const char* uri, const char* stage) {
     else if (strcmp(stage, "poll")) t_analysing.clear();  // (the audio pass is over at the beat job)
     if (!strcmp(stage, "beat job")) {
         earlyReaderDone((const char*)thread, uri);
-        if (cfgInt("quickdeck_log", 0))  // what the pass read, to compare a progressive analysis with one from the finished file
+        if (opt::log.integer())  // what the pass read, to compare a progressive analysis with one from the finished file
             if (auto pass = service<bool (*)(const void**, const int16_t**, const int16_t**, size_t*)>("streamio.passAudio")) {
                 const void* reader = nullptr;
                 const int16_t *l = nullptr, *r = nullptr;
@@ -681,7 +690,7 @@ static void stage(const void* thread, const char* uri, const char* stage) {
     // Beat This! still runs), and every reload keeps rekordbox's window busy for about 0.15 s: the two in a row were
     // one freeze of 0.25-0.4 s where plain rekordbox has one of 0.15 s. So the waveforms wait a moment
     // (quickdeck_merge seconds, 0: no wait) and are shown by the grid's reload when that comes first.
-    double wait = cfgNum("quickdeck_merge", 0.25);
+    double wait = opt::merge.number();
     if (!strcmp(stage, "beat job") && wait > 0) {
         {
             std::lock_guard<std::mutex> l(g_lock);
@@ -730,7 +739,13 @@ static void earlyGrid(const void* thread, const char* uri, const void* beats, co
 RBM_PROVIDE("quickdeck", "quickdeck.earlyGrid", earlyGrid, &g_on);
 
 #ifndef _WIN32
-RBM_MOD({.name = "quickdeck", .init = [] { installProgressive(); }, .enabled = &g_on});
+RBM_MOD({.name = "quickdeck", .init = [] { installProgressive(); }, .enabled = &g_on,
+         .title = "Decks show sooner",
+         .about = "A track that isn't analysed yet shows its waveforms and a beat grid on the deck as soon as there are any.",
+         .area = "analysis", .order = 60});
 #else
-RBM_MOD({.name = "quickdeck", .enabled = &g_on});
+RBM_MOD({.name = "quickdeck", .enabled = &g_on,
+         .title = "Decks show sooner",
+         .about = "A track that isn't analysed yet shows its waveforms and a beat grid on the deck as soon as there are any.",
+         .area = "analysis", .order = 60});
 #endif

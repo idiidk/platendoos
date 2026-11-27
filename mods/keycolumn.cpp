@@ -13,6 +13,11 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting title{"keycol_title", "Key @ Master", {.label = "Title of the column"}};
+}  // namespace opt
+
 static const int kColumnId = 55;  // unused by rekordbox
 
 static volatile bool g_on = true;
@@ -65,7 +70,7 @@ static int compare(const char* a, const char* b) {
     return ra - rb;
 }
 
-static std::string title() { return cfgStr("keycol_title", "Key @ Master"); }
+static std::string title() { return opt::title.text(); }
 
 // Follow the master deck: when its BPM moves, repaint the lists showing the column (at most every 0.25 s) and re-sort
 // those sorted by it (a whole sort on the main thread: at most once a second while it moves, and once when it settles).
@@ -106,4 +111,7 @@ static void init() {}
 #endif
 
 RBM_COLUMN({.id = kColumnId, .title = title, .text = text, .compare = compare, .enabled = &g_on});
-RBM_MOD({.name = "keycolumn", .init = init, .tick = tick, .enabled = &g_on});
+RBM_MOD({.name = "keycolumn", .init = init, .tick = tick, .enabled = &g_on,
+         .title = "Key at master tempo",
+         .about = "A column with each track's key as it would sound at the master deck's tempo.",
+         .area = "lists", .order = 10});

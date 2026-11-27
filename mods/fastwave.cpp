@@ -12,11 +12,16 @@
 
 using namespace rbm;
 
+// Its settings (core/settings.h): what the settings window and the config file's list show of them.
+namespace opt {
+const Setting ms{"fastwave_ms", 30, {.label = "Wait before redrawing", .help = "rekordbox's own wait is 500 ms.", .unit = "ms", .min = 1, .max = 500, .step = 1}};
+}  // namespace opt
+
 static volatile bool g_on = true;
 
 typedef void (*StartTimer)(void* multiTimer, int timerId, int ms);
 
-static int waitMs() { return std::max(1, std::min(cfgInt("fastwave_ms", 30), 500)); }
+static int waitMs() { return std::max(1, std::min(opt::ms.integer(), 500)); }
 
 // The first few changes of each kind, to see in the log that it works.
 #define logOnce(site, id, ms, now)                                                                     \
@@ -61,4 +66,7 @@ extern "C" void rbm_hook_fastwave_retry(void* t, int id, int ms) {
     RBM_ORIG(fastwave_retry, StartTimer)(t, id, use);
 }
 
-RBM_MOD({.name = "fastwave", .enabled = &g_on});
+RBM_MOD({.name = "fastwave", .enabled = &g_on,
+         .title = "Quick waveforms",
+         .about = "Deck waveforms come back sooner after a stem is muted or a track is loaded.",
+         .area = "decks", .order = 70});

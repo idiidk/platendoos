@@ -98,7 +98,13 @@ static void init() {
     logf("screeninfo: x86_64: rekordbox's deviceDescription calls come through %s", sel_getName(ours));
 }
 
-RBM_MOD({.name = "screeninfo", .init = init, .enabled = &g_on});
+RBM_MOD({.name = "screeninfo", .init = init, .enabled = &g_on,
+         .title = "Screen lookups",
+         .about = "Stops rekordbox from asking macOS about your screen on every redraw.",
+         .area = "speed", .order = 50});
 #else
-RBM_MOD({.name = "screeninfo", .enabled = &g_on});
+RBM_MOD({.name = "screeninfo", .enabled = &g_on,
+         .title = "Screen lookups",
+         .about = "Stops rekordbox from asking macOS about your screen on every redraw.",
+         .area = "speed", .order = 50});
 #endif

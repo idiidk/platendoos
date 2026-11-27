@@ -56,6 +56,7 @@ struct Window {
     std::vector<std::string> queue;  // posted before the page loaded
     double reloadedAt = -1e9;        // after its web content process went (seconds; the patcher links this file without core, so no rbm::now)
     bool stale = false;              // went again right after: reloaded by the next open()
+    bool floats = true;              // (setFloating)
 };
 
 namespace {
@@ -79,14 +80,14 @@ void load(Window* w) {
 }
 // The tool windows stay above rekordbox's own while rekordbox is the active app (floating level), and drop back
 // to the normal level when another app is: they shouldn't float over everything else on the Mac.
+NSWindowLevel levelOf(const Window* w) { return w->floats && NSApp.isActive ? NSFloatingWindowLevel : NSNormalWindowLevel; }
 void keepOnTop(NSPanel* p) {
     p.level = NSApp.isActive ? NSFloatingWindowLevel : NSNormalWindowLevel;
     static bool observing;
     if (observing) return;
     observing = true;
     auto relevel = ^(NSNotification*) {
-        NSWindowLevel level = NSApp.isActive ? NSFloatingWindowLevel : NSNormalWindowLevel;
-        for (auto& kv : windows()) kv.second->panel.level = level;
+        for (auto& kv : windows()) kv.second->panel.level = levelOf(kv.second);
     };
     NSNotificationCenter* nc = NSNotificationCenter.defaultCenter;
     [nc addObserverForName:NSApplicationDidBecomeActiveNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:relevel];
@@ -156,6 +157,11 @@ void post(Window* w, const std::string& json) {
 }
 
 bool visible(Window* w) { return w && w->panel.visible; }
+void setFloating(Window* w, bool floats) {
+    if (!w || w->floats == floats) return;
+    w->floats = floats;
+    w->panel.level = levelOf(w);
+}
 
 bool onScreen(Window* w) {
     return visible(w) && !w->panel.miniaturized && (w->panel.occlusionState & NSWindowOcclusionStateVisible);
