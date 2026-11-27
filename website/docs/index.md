@@ -51,7 +51,7 @@ features:
     linkText: Four decks on an FLX4
   - icon: 🔇
     title: Quieter, cooler, fewer clicks
-    details: rekordbox does a lot of work while you do nothing. The mods trim it, keep the audio's memory in RAM, and stop playback from clicking when the Mac runs short of memory. One tester's fanless MacBook Air stays around 55 °C with two decks, stems and FX, where plain rekordbox runs it at 80-90 °C.
+    details: rekordbox does a lot of work while you do nothing. The mods trim it, keep the audio's memory in RAM, and stop playback from clicking when the Mac runs short of memory. On one tester's fanless MacBook Air M3, with two decks, stems, some FX and browsing for 15 minutes each, plain rekordbox 7.2.20 used 570% CPU and reached 118 °C at its hottest sensor. platendoos used 67% CPU and reached 94 °C.
     link: /guides/performance
     linkText: Performance and dropouts
 ---

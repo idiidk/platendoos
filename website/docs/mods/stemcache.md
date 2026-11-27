@@ -91,8 +91,8 @@ rekordbox separates a track in parts of about 11 seconds, from the start, and a 
 the whole part is done. Two things make the stems follow you instead:
 
 - **The part you're at goes first.** The whole track is still separated in the background from the moment it is
-  on a deck, but the part under the playhead is always next, after every jump too, and the part after it just
-  before you get there. Usually the stems are there before you reach for a stem control.
+  on a deck, but the part under the playhead is always next, after every jump too, together with the next 30
+  seconds (on Windows: the part after it, just before you get there). Usually the stems are there before you reach for a stem control.
 - **A few seconds at the playhead, at once** (macOS, with [betterstems](./betterstems)). When you use a stem
   control at a place that has no stems yet, or jump to one with a control on, the seven seconds around the
   playhead are separated on their own, one run of the model, and handed to the deck straight away. The rest of

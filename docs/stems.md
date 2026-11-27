@@ -140,7 +140,13 @@ HTDemucs v4 ~9, RoFormer models ~10-12.
   There the stem controls are only followed with `stemcache_ondemand` on, so without it this doesn't apply.
   The tick looks every 0.1 s and asks at once when the playhead jumped (more than 1.5 s off where it should be),
   else twice a second; it asks for the playhead's chunk and, only in its last 5 s, the next one, because the
-  priority list is sorted and a chunk asked for before a backward jump would otherwise come first. Since
+  priority list is sorted and a chunk asked for at another playhead would otherwise come first. Since 0.7.5
+  (macOS) it asks for the next 30 s (`kAhead`): a tester's MacBook Air M3 went back to the track's start after
+  the playhead's chunk and the playhead sometimes passed the end of the stems. `keepFirstNearPlayheads`, after
+  every chunk on the separator's thread, moves chunks of the priority list (separator +0x240, a sorted
+  `juce::Array<int>`; the in-order list at +0x250, the lock at +0x260) that lie outside every deck's playhead
+  to 30 s on back into the in-order list. Live (M2 Pro): mute at 2:00, chunks 11, 12, 13, then 4, 5, 6, then 14
+  as the playhead moved on; a jump forward moved 4 chunks back and the new playhead's chunk came next. Since
   2026-11-27 for every deck with a track, stem control or not (with `stemcache_ondemand` only a track that was
   asked for), and of all four models. betterstems' wait for an analysis' beat stage (up to 8 s,
   `betterstems_grid_first`) ends while a deck's stems are needed now (service `stemcache.stemsNeeded`: a stem

@@ -5,6 +5,16 @@ What changed per release, for people using platendoos. Downloads are on the
 installed platendoos in place (see [Installation](./installation#after-a-rekordbox-update)).
 
 
+## 0.7.5 (2026-11-27)
+
+- **The stems stay ahead of the playhead** (**stemcache**; macOS). 0.7.4 separated the part under the playhead
+  first and then went back to the start of the track, asking for the next part only 5 seconds before the playhead
+  got there. On a slower Mac with two decks running that could be too late: the playhead passed the end of what
+  was separated and the full track played for half a second (a tester's MacBook Air M3). Now the part under the
+  playhead and the next 30 seconds go first, kept topped up while the track plays; only then the rest of the track
+  from its start. After a jump the parts asked for at the old place no longer come before the new one. Checked
+  live on an M2 Pro (which never fell behind); Windows still looks 5 seconds ahead.
+
 ## 0.7.4 (2026-11-27)
 
 - **Phrases for tracks from a USB stick** (new mod **usbphrases**; macOS and Windows). A track loaded on a deck straight from a

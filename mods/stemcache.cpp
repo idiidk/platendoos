@@ -796,8 +796,12 @@ static int deckOfControl(void* control) {
 // about the model (its run takes the priority list first, the chunks land in a SparseSet), so the same call is made
 // here, for every deck with a track, whether its stems are in use or not: then they are there when a stem control
 // is used. From the tick, at once after a jump of the playhead and else twice a second, and when a stem control is
-// used. Only the playhead's chunk and, in its last 5 s, the next one: the priority list is sorted, so a chunk asked
-// for at a playhead that has since jumped back would come first. Asked of all four models, whichever the track is
+// used. The playhead's chunk and those of the next kAhead seconds (a tester, 11-27: with only the playhead's chunk
+// and, in its last 5 s, the next one, the separator went back to the track's start in between, and on a MacBook Air
+// the playhead sometimes passed the end of what was separated: half a second of the full mix). The priority list is
+// sorted, so a chunk asked for at a playhead that has since jumped forward would come first: keepFirstNearPlayheads
+// puts those back after every chunk (macOS; on Windows the separator's fields have no table entries yet, so there
+// it stays at the next 5 s). Asked of all four models, whichever the track is
 // separated with: the others aren't found, a chunk that is done or not in a list is left alone, and a track whose
 // separation is over isn't looked at (the manager checks).
 // Windows: both verified for 7.2.19 in tools/win/verify/stems.out.json (requestSeparateAt is a static function there
@@ -809,12 +813,17 @@ static int playingMs(int d) {  // a deck's playhead, ms (0 if none)
     int ms = e && d >= 0 && d < 4 ? at<int (*)(void*, int)>(A_getPlayingTime)(e, d) : 0;
     return ms > 0 ? ms : 0;
 }
+#ifndef _WIN32
+static const double kAhead = 30;  // s
+#else
+static const double kAhead = 5;
+#endif
 // ms: where (-1 the playhead; the "separateat" test command gives one).
 RBM_NOINLINE static void separateAtPlayhead(int d, const std::string& uri, int ms = -1) {
     if (!engine() || uri.empty() || d < 0 || d >= 4) return;
     if (ms < 0) ms = playingMs(d);
     long long pos = (long long)ms * 441 / 10;  // the separator's samples (44.1 kHz)
-    const int span = 5 * 44100;                // (chunks are 11-12 s)
+    const int span = (int)(kAhead * 44100);    // (chunks are 11-12 s)
     JStr u(uri.c_str());
     for (int model = 0; model < 4; model++)
         at<void (*)(const JStr&, int, long long, int, bool)>(A_requestSeparateAt)(u, model, pos, span, true);
@@ -1097,6 +1106,72 @@ static const Offset V_streamWrite{0x28, RBM_SEP_OP, "ldr x8", 8};
 static char* separatorOf(void** handleAt) {
     char* sep = (char*)handleAt - O_sepHandle;
     return *(void**)sep == at<void*>(A_separatorVt) ? sep : nullptr;
+}
+
+// The separator's two lists of chunk numbers (juce::Array<int>: data, allocated, used), both under its lock:
+// the chunks asked for first (requestSeparateAt(.., true) moves them here, sorted), and the rest in order. run()
+// takes the first of the first list, else of the second, and takes a chunk it has done out of both.
+static const Offset O_sepFirst{0x240, "__ZN6rbxfrm9audiopart18AudioPartSeparator17requestSeparateAtExib", "add x20", 0};
+static const Offset O_sepRest{0x250, "__ZN6rbxfrm9audiopart18AudioPartSeparator17requestSeparateAtExib", "ldr x20", 3};
+static const Offset O_sepLock{0x260, "__ZN6rbxfrm9audiopart18AudioPartSeparator17requestSeparateAtExib", "add x0", 0};
+static const Addr A_csEnter{"__ZNK4juce15CriticalSection5enterEv"};
+static const Addr A_csExit{"__ZNK4juce15CriticalSection4exitEv"};
+namespace {
+struct IntArray {
+    int* data;
+    int allocated, used;
+};
+}  // namespace
+static int playingMs(int d);
+// Keeps the separator's first list to the chunks around the decks' playheads (separateAtPlayhead asks for kAhead
+// seconds on from each): one asked for at a playhead that has since jumped forward would come before the new
+// playhead's (the list is sorted), so it goes back to the in-order list. Left alone while no deck has the track (a
+// run, a collection separation). Separator thread, after a chunk: the next pick is made right after.
+static void keepFirstNearPlayheads(void* handle, long long chunkLen, double ahead) {
+    char* sep = nullptr;
+    std::string uri;
+    {
+        std::lock_guard<std::mutex> l(g_sepLock);
+        auto it = g_seps.find(handle);
+        if (it != g_seps.end()) sep = it->second.separator, uri = it->second.uri;
+    }
+    if (!sep || uri.empty() || chunkLen <= 0) return;
+    int lo[4], hi[4], n = 0;
+    for (int d = 0; d < 4; d++) {
+        {
+            std::lock_guard<std::mutex> l(g_wantLock);
+            if (g_deckUri[d] != uri) continue;
+        }
+        long long pos = (long long)playingMs(d) * 441 / 10;
+        lo[n] = (int)(pos / chunkLen), hi[n] = (int)((pos + (long long)(ahead * 44100)) / chunkLen), n++;
+    }
+    if (!n) return;
+    void* cs = sep + O_sepLock;
+    at<void (*)(void*)>(A_csEnter)(cs);
+    IntArray& first = *(IntArray*)(sep + O_sepFirst);
+    IntArray& rest = *(IntArray*)(sep + O_sepRest);
+    int moved = 0;
+    for (int i = 0; i < first.used;) {
+        int c = first.data[i];
+        bool near = false;
+        for (int k = 0; k < n && !near; k++) near = c >= lo[k] && c <= hi[k];
+        if (near) { i++; continue; }
+        memmove(first.data + i, first.data + i + 1, (size_t)(first.used - i - 1) * sizeof(int));
+        first.used--;
+        int to = 0;
+        while (to < rest.used && rest.data[to] < c) to++;
+        if (to < rest.used && rest.data[to] == c) continue;
+        if (rest.used == rest.allocated) {  // (grown as juce grows it; juce's arrays are malloc'ed)
+            int size = std::max(16, (rest.used + 1 + (rest.used + 1) / 2 + 8) & ~7);
+            int* p = (int*)realloc(rest.data, (size_t)size * sizeof(int));
+            if (!p) continue;  // (dropped: separated when it is asked for again)
+            rest.data = p, rest.allocated = size;
+        }
+        memmove(rest.data + to + 1, rest.data + to, (size_t)(rest.used - to) * sizeof(int));
+        rest.data[to] = c, rest.used++, moved++;
+    }
+    at<void (*)(void*)>(A_csExit)(cs);
+    if (moved && g_logChunks) logf("stemcache: [%.3f] %d chunk%s away from the playhead no longer first", wallClock(), moved, moved == 1 ? "" : "s");
 }
 
 // Hands rekordbox the stems of [a, b) of a window (separator thread): into the streams, into the separator's ranges,
@@ -1503,6 +1578,7 @@ static bool wideInput(void* handle, const Engine& e, int chunk, const float* inL
 }
 #else
 static char* separatorOf(void**) { return nullptr; }
+static void keepFirstNearPlayheads(void*, long long, double) {}
 static bool wideReady(void*) { return false; }
 static bool wideInput(void*, const Engine&, int, const float*, const float*, std::vector<float>&, std::vector<float>&, int*) { return false; }
 static void quickAtPlayhead() {}
@@ -1628,6 +1704,7 @@ static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0
         else if (cached) store(path, e.outSamples, out, n);
     }
     waitUntilWanted(handle);
+    keepFirstNearPlayheads(handle, e.outSamples, kAhead);  // (before the next pick)
     quickAtPlayhead();  // (before the next chunk, whichever that is; and at once when a separation that waited is asked for)
     return true;
 }
