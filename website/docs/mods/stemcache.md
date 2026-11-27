@@ -70,7 +70,8 @@ separate only when a stem control is used** in the stems window (`stemcache_onde
 - Any other track plays unseparated. The moment you **mute a stem**, turn a **PART ISOLATOR** knob away from its
   centre, or take the **FX off a stem**, on screen or on a controller, the separation starts, beginning with the
   part of the track that is playing. With [betterstems](./betterstems) on an M2 Pro the muted stem drops out about
-  a second after the press, anywhere in the track; the rest of the track follows in the background.
+  a third of a second after the press, anywhere in the track (see [Stems where you are](#stems-where-you-are));
+  the rest of the track follows in the background.
 - A control that is already on when a track loads (a mute you left on) asks for the new track's stems right away.
 
 Until the stems are there the deck plays the whole track, as rekordbox does during any separation. To be ready
@@ -83,6 +84,23 @@ the playhead.
 
 On Windows it is the same code; it was run on a Windows PC with rekordbox 7.2.19 (and checked against 7.2.20 in an
 emulator).
+
+## Stems where you are
+
+rekordbox separates a track in parts of about 11 seconds, from the start, and a deck gets a part's stems only when
+the whole part is done. Two things make the stems follow you instead:
+
+- **The part you're at goes first.** The whole track is still separated in the background from the moment it is
+  on a deck, but the part under the playhead is always next, after every jump too, and the part after it just
+  before you get there. Usually the stems are there before you reach for a stem control.
+- **A few seconds at the playhead, at once** (macOS, with [betterstems](./betterstems)). When you use a stem
+  control at a place that has no stems yet, or jump to one with a control on, the seven seconds around the
+  playhead are separated on their own, one run of the model, and handed to the deck straight away. The rest of
+  that part follows as before, and what you already heard of it stays exactly as it was.
+
+On an M2 Pro: a muted stem is gone about 0.3 s after the press, and 0.4 to 0.6 s after a jump into a part that
+wasn't separated yet (a model run that is under way is finished first). Where the stems are there already, a
+stem control takes under a tenth of a second. `stemcache_quick=0` turns the second part off.
 
 ## Quality and size
 
@@ -119,6 +137,8 @@ and the stems window's run waits. See [Caches and external drives](/guides/cache
 <!--@/public-->
 | `stemcache_keep` | `all` | Which tracks' stems are saved: `all`, `chosen` (only tracks separated with the stems window's *Separate stems* button) or `none`. See [Which stems are kept](#which-stems-are-kept). |
 | `stemcache_ondemand` | `0` | `1`: a deck's track is separated only once a stem control is used on it. See [Stems on demand](#stems-on-demand). |
+| `stemcache_quick` | `1` | `0`: no separate few seconds at the playhead when a stem control is used where there are no stems yet (macOS). See [Stems where you are](#stems-where-you-are). |
+| `stemcache_lazy_model` | `1` | With [betterstems](./betterstems) separating, rekordbox's own stem model (680 MB for the quality one) is loaded only when it is needed after all (applies after a restart). `0`: at startup, as rekordbox does it. |
 | `stemcache_quality` | `256` | How new chunks are stored: `lossless`, `256`, `192` or `128` (AAC kbps per stem). |
 | `stemcache_max_gb` | `10` | Delete the least recently used chunks above this size (`0` = no limit). |
 | `stemcache_min_free_gb` | `5` | Store nothing new while the disk has less free space than this. |

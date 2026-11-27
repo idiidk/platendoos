@@ -3,6 +3,39 @@
 What changed per release, for people using platendoos. The details of each mod are in the
 [README](README.md); how things work inside, in [docs/](docs/).
 
+## 0.7.4 (2026-11-27)
+
+- **Phrases for tracks from a USB stick** (new mod **usbphrases**; macOS and Windows). A track loaded on a deck straight from a
+  rekordbox USB export shows its phrase blocks under the waveform in Performance mode, as your own tracks do (rekordbox
+  showed none for them). They are read from the stick's export; nothing is imported into or written to your collection,
+  and editing a phrase on such a deck isn't saved. Works with rekordbox 7.2.19 and 7.2.20, tested with a real USB stick on
+  Windows. Turn on rekordbox's own phrase display (Preferences > View > Layout > Phrase): *full waveform* puts the
+  blocks under a deck's overview.
+- **Stems where you are, in about a third of a second** (**stemcache**, **betterstems**; macOS). rekordbox
+  separates a track in parts of 11 seconds and a deck only gets a part's stems when the whole part is done. Now,
+  when you use a stem control at a place that has no stems yet, or jump to one, the seven seconds around the playhead
+  are separated on their own first and handed to the deck at once; the rest of that part follows as before.
+  Measured on an M2 Pro with HTDemucs: a muted stem is gone 0.3 s after the press where it took a second, and 0.4
+  to 0.6 s after a jump into a part not yet separated, where it took 1.4 s; with the speed setting 0.8 to 1.4 s
+  where it took 2.2 s. `stemcache_quick=0` turns it off.
+- **The part you're at is always separated first** (**stemcache**). The separation still runs through the whole
+  track in the background from the moment it is on a deck, but the part under the playhead (and the next one, just
+  before you get there) now goes first, after every jump too, whether a stem control is on or not. So the stems
+  are usually there already when you reach for one: a mute then takes under a tenth of a second.
+- **Stems from the playhead with the quality setting** (**stemcache**). With *STEMS Analysis Process* set to
+  quality (rekordbox's Demucs model), rekordbox separated a track strictly from the start, so a stem muted two
+  minutes in waited until everything before it was done (5-8 s). That is what the two changes above replace. On
+  Windows the part under the playhead goes first as well (not yet tried on a Windows PC).
+- **About 900 MB less memory** (**stemcache**, **betterstems**; macOS and Windows). rekordbox loads its own
+  stem model when it starts, 680 MB for the quality one and more once it has run, and keeps it for the whole
+  session, although with betterstems every stem comes from HTDemucs or from the stored stems. That model now
+  stays out of memory until it is needed after all (HTDemucs switched off or failing; it then loads in about two
+  seconds). Idle after starting, platendoos took 2.8 GB before and 1.9 GB now on a Mac (quality setting), and
+  5.4 GB before and 4.5 GB now on a Windows PC (speed setting). Switching *STEMS Analysis Process* in
+  *Preferences* keeps the new model out of memory as well. `stemcache_lazy_model=0` loads it at startup as before.
+- **No more waiting for the beat analysis** (**betterstems**). While a stem control is on, HTDemucs no longer
+  holds back for a newly loaded track's beat analysis (up to 8 s).
+
 ## 0.7.3 (2026-11-27)
 
 - **A turntable through a deck** (new mod **linein**; macOS and Windows). Any audio input your computer sees (a USB turntable, an

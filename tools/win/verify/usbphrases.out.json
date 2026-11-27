@@ -1,0 +1,198 @@
+[
+ {
+  "item": "__ZN6browse14PlayerAccessor23getMovableItemBasicInfoEN6djplay9ePlayerIDE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141645940",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). Same shape as mac: MainComponent instance, its UiManager [+0x4c0] (mac 0x568), getPlayer(deck) (ecx->edx), then the UiPlayer's MovableItemBasicInfo* [player+0x4f8] (mac 0x508), 0 when either is missing. The matcher's names of the two callees are swapped (0x14182a9c0 = getInstance, 0x1425e82b0 = getPlayer)"
+ },
+ {
+  "item": "__ZN4juce15SingletonHolderIN6djplay21SongStructInfoManagerENS_15CriticalSectionELb0EE3getEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141909970",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). Holder global: instance [rip] at 0x145ffbb88, CriticalSection 0x145ffbb58, alreadyInside flag, operator new(0x28) then the manager ctor 0x14191a680 (mac new(0x28) + SongStructInfoManager()); MSVC get() takes no argument"
+ },
+ {
+  "item": "__ZN6djplay21SongStructInfoManager14getInformationEi",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14191a840",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). Leaf: deck > 3 -> 0, else [rcx+deck*8+8], identical to mac"
+ },
+ {
+  "item": "__ZN6djplay21SongStructInformation19clearSongStructInfoEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141919e20",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). Returns unless song id [rcx+0x38] != 0 and phrase count [rcx+0x54] > 0 (mac 0x48 / 0x64: the CriticalSection at +8 is 0x10 smaller on Windows), then under the lock resets +0x38..+0x44 as mac resets +0x48..+0x54, clears the phrase array (+0x48 data, +0x50, +0x54) and calls the listeners"
+ },
+ {
+  "item": "__ZN6djplay21SongStructInformation24loadSongStructInfoFromDbEj",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141919ef0",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). Builds an analyzer::SongStructInfo (its vtable), DatabaseIF::get, DatabaseIF::getSongStructInfo 0x141f355b0 (edx = song id), no phrases -> clearSongStructInfo, else under the lock stores the song id at +0x38 (esi) and the mood etc. at +0x3c..+0x44, and fills the phrase array with 0x30-byte entries as mac"
+ },
+ {
+  "item": "__ZNK6djplay21SongStructInformation20shouldLoadSongStructEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141919da0",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). ApplicationMode::isMode(4), then SettingIF getCurrentPhraseVisibility / getCurrentPhraseFullVisibility / getEnableLighting && getEnableLightingThumbnail, the same chain as mac"
+ },
+ {
+  "item": "__ZN2db10DatabaseIF15getRowDataTrackEjRNS_12RowDataTrackENS_12_browse_typeEl",
+  "kind": "sym",
+  "verdict": "wrong",
+  "win": "0x141f33610",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). The match 0x142a6d6d0 is a juce helper. The real one: \"mov rcx,[rcx]; test rcx,rcx; jne 0x141f4d250 (DatabaseMediator::getRowDataTrack); xor al,al; ret\", mac's DatabaseIF::getRowDataTrack exactly; called e.g. by CloudToDeckManager::isTemporaryFile 0x1418b39c0 with edx = item id [item+0x20], r8 = row, r9d = 1 (browse type), [rsp+0x20] = 0 (device, a 32-bit long on Windows)"
+ },
+ {
+  "item": "__ZN2db16DatabaseMediator17getSongStructInfoEjRN8analyzer14SongStructInfoE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x141f8bb60",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). DatabaseIF::getSongStructInfo 0x141f355b0 tail-jumps here. RowDataTrack() on the stack (rsp+0x20, 0x4e0 bytes before the cookie at +0x500), mainDBController() 0x142020260, call [vtable+0x40](ctl, id, row) (mac slot 0x48: MSVC one destructor slot), then type [row+0x50] == 1 or 6, test dword [row+0x400], 0x10000 (= mac's byte +0x402 bit 0), then CAnalyzerIF::getSongStructInfo(row+0x3f0, info) 0x14120bb70"
+ },
+ {
+  "item": "__ZN6djplay8DjplayDB12createObjectEPN2db20MovableItemBasicInfoE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x142548520",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). Deletes the old TrackInfo [rcx+8], then reads the item: kind [rbx+8] in {1,2,3,0x34} -> id [rbx+0x20], device [rbx+4] (r14d), browse type [rbx] (r15d), DatabaseIF::getTrackInfo(id, type, device): the item layout +0 / +4 / +0x20 is the same as mac"
+ },
+ {
+  "item": "__ZNK6djplay21SongStructInformation9getSongIdEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141918240",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). enter [rcx+8]; ebx = [rcx+0x38]; exit (mac +0x48)"
+ },
+ {
+  "item": "__ZNK6djplay21SongStructInformation22getTotalNumberOfPhraseEv",
+  "kind": "sym",
+  "verdict": "wrong",
+  "win": "0x1419182c0",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19). The match 0x141918300 takes an index (a phrase getter). The real one: enter [rcx+8]; ebx = [rcx+0x54]; exit (mac +0x64), next to getSongId 0x141918240"
+ },
+ {
+  "item": "__ZNK2db12RowDataTrack22getExtAnalysisFilePathEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141f3f800",
+  "confidence": "high",
+  "why": "usbphrases (7.2.19), named only as the field anchor of the analysis path: lea rsi,[rcx+0x3f0]; \"/PIONEER\" startsWith; \".EXT\"; upToLastOccurrenceOf, as mac"
+ },
+ {
+  "item": "V_ctlGetRow",
+  "kind": "offset",
+  "fn": "__ZN2db16DatabaseMediator17getSongStructInfoEjRN8analyzer14SongStructInfoE",
+  "kind_recipe": "ldr",
+  "nth": 1,
+  "verdict": "ok",
+  "win_fn": "0x141f8bb60",
+  "value": "0x40",
+  "confidence": "high",
+  "why": "The main controller's getRowDataTrack(unsigned, RowDataTrack&) slot: getSongStructInfo 0x141f8bb60 \"mov r9,[rcx+0x40]; call r9\" and setSongStructInfo 0x141f8b9b0 \"call [rax+0x40]\" on mainDBController(); rekordboxDBController's RTTI vtable slot 8 (0x40) = 0x1421685d0 = jmp getCashedData 0x142190ae0, mac's getRowDataTrack (mac slot 0x48: MSVC has one destructor slot)"
+ },
+ {
+  "item": "O_rowType",
+  "kind": "offset",
+  "fn": "__ZN2db16DatabaseMediator17getSongStructInfoEjRN8analyzer14SongStructInfoE",
+  "kind_recipe": "ldr",
+  "nth": 2,
+  "verdict": "ok",
+  "win_fn": "0x141fbfc10",
+  "value": "0x50",
+  "confidence": "high",
+  "why": "RowDataTrack's type (1 or 6: a local track): getSongStructInfo 0x141f8bb60 reads it from the stack row ([rsp+0x70], row at rsp+0x20); the leaf 0x1414fc050 (browse::Status helper, called by ListViewer::getStatusLeftIconFileName) \"mov eax,[rcx+0x50]; cmp eax,1 / 6; test dword [rcx+0x400],0x10000\" reads it through the row pointer; DatabaseMediator::overwrite_export 0x141fbfc10 reads it through registers too (\"mov eax,[r13+0x50]\", \"cmp dword [rdi+0x50],2\": every +0x50 read there is a row's type), the anchor for scanned tables"
+ },
+ {
+  "item": "usbphrases win:row flags dword",
+  "kind": "offset",
+  "fn": "__ZN2db16DatabaseMediator17getSongStructInfoEjRN8analyzer14SongStructInfoE",
+  "kind_recipe": "win:row flags dword",
+  "nth": 0,
+  "verdict": "ok",
+  "win_fn": "0x141fbfc10",
+  "value": "0x400",
+  "confidence": "high",
+  "why": "The \"analysed here\" flag mac reads as byte +0x402 bit 0: MSVC tests it as bit 16 of the dword at +0x400 everywhere (getSongStructInfo 0x141f8bb60 \"test dword [rsp+0x420],0x10000\" on the stack row; setSongStructInfo 0x141f8b9b0 the same and bts 0x10 before modTrackFlag; the leaf 0x1414fc050 \"test dword [rcx+0x400],0x10000\"); no instruction reads byte 0x402, so the mod sets bit 16 of this dword on Windows; DatabaseMediator::overwrite_export 0x141fbfc10 tests and copies the same dword through registers (\"test dword [r13+0x400],0x10000\", \"or dword [rdi+0x400],0x100\": every +0x400 access there is this flag word), the anchor for scanned tables"
+ },
+ {
+  "item": "O_rowAnalysis",
+  "kind": "offset",
+  "fn": "__ZN2db16DatabaseMediator17getSongStructInfoEjRN8analyzer14SongStructInfoE",
+  "kind_recipe": "add",
+  "nth": 5,
+  "verdict": "ok",
+  "win_fn": "0x141f3f800",
+  "value": "0x3f0",
+  "confidence": "high",
+  "why": "RowDataTrack's analysis file (juce::String, ANLZ0000.DAT): getSongStructInfo 0x141f8bb60 passes lea rdx,[rsp+0x410] (row at rsp+0x20) to CAnalyzerIF::getSongStructInfo; RowDataTrack::getExtAnalysisFilePath 0x141f3f800 \"lea rsi,[rcx+0x3f0]\""
+ },
+ {
+  "item": "O_itemId",
+  "kind": "offset",
+  "fn": "__ZN6djplay8DjplayDB12createObjectEPN2db20MovableItemBasicInfoE",
+  "kind_recipe": "ldr",
+  "nth": 2,
+  "verdict": "ok",
+  "win_fn": "0x142548520",
+  "value": "0x20",
+  "confidence": "high",
+  "why": "MovableItemBasicInfo's track id: createObject 0x142548520 \"mov ebp,[rbx+0x20]\" for kinds 1/2/3/0x34; the browse type [rbx] and device [rbx+4] are read there too (the mod's constants O_itemType 0 / O_itemDevice 4 hold on Windows)"
+ },
+ {
+  "item": "O_infoSong",
+  "kind": "offset",
+  "fn": "__ZNK6djplay21SongStructInformation9getSongIdEv",
+  "kind_recipe": "ldr",
+  "nth": 0,
+  "verdict": "ok",
+  "win_fn": "0x141918240",
+  "value": "0x38",
+  "confidence": "high",
+  "why": "SongStructInformation's song id: getSongId 0x141918240 \"mov ebx,[rbx+0x38]\" under the lock (mac 0x48); loadSongStructInfoFromDb 0x141919ef0 stores it there"
+ },
+ {
+  "item": "O_infoCount",
+  "kind": "offset",
+  "fn": "__ZNK6djplay21SongStructInformation22getTotalNumberOfPhraseEv",
+  "kind_recipe": "ldr",
+  "nth": 0,
+  "verdict": "ok",
+  "win_fn": "0x1419182c0",
+  "value": "0x54",
+  "confidence": "high",
+  "why": "SongStructInformation's phrase count (juce::Array numUsed): getTotalNumberOfPhrase 0x1419182c0 \"mov ebx,[rbx+0x54]\" under the lock (mac 0x64); clearSongStructInfo 0x141919e20 checks it the same way"
+ },
+ {
+  "item": "__ZN6djplay21SongStructInformation11setPhraseIdEii",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141918530",
+  "confidence": "high",
+  "why": "usbphrases test command 'edit' (7.2.19). Same shape as mac: lock +8, song id [+0x38] != 0, count [+0x54] > 0, 0 <= index < count, entry [+0x48][index] kind = arg, the phrase name from one of three tables by mood [+0x3c] (1/2/3: the same tables loadSongStructInfoFromDb copies from, 0x145ffb950/870/8e0), dirty [+0x58] = 1 (mac +0x68), unlock, writeSongStructInfoToDb 0x14191a350, then its listeners [+0x68]. 7.2.20: 0x14199fb10, the same 82 instructions"
+ },
+ {
+  "item": "__ZN6djplay21SongStructInformation26saveSongStructInfoIfNeededEv",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x141919760",
+  "confidence": "high",
+  "why": "usbphrases test command 'edit' (7.2.19). Lock +8, dirty byte [+0x58] (mac +0x68), unlock, then writeSongStructInfoToDb 0x14191a350 if it was set: mac's shape. The matcher had it. 7.2.20: 0x1419a0d40"
+ }
+]

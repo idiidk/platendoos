@@ -245,10 +245,13 @@ static bool segment(const float* l, const float* r, std::vector<float>& out, dou
     }
     // The beat grid first. A track loaded on a deck is analysed and separated at the same moment, and the model would
     // share the GPU (or the cores) with Beat This! and rekordbox's beat detection, which the DJ needs sooner than the
-    // stems: a segment waits while an analysis is at its beat stage, a few seconds at most.
+    // stems: a segment waits while an analysis is at its beat stage, a few seconds at most. Not while a deck's stems
+    // are needed now (a stem control on: stemcache's "stemcache.stemsNeeded"): then the DJ is waiting for the stems.
     if (opt::gridFirst.integer()) {
         double t0 = now();
-        while (analysisBeatStage() && now() - t0 < kGridFirst) std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        auto needed = service<bool (*)()>("stemcache.stemsNeeded");
+        while (analysisBeatStage() && !(needed && needed()) && now() - t0 < kGridFirst)
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         static std::atomic<int> said{0};
         if (now() - t0 >= 0.3 && said++ < 5) logf("betterstems: waited %.1f s for an analysis' beat stage", now() - t0);
     }
@@ -303,7 +306,12 @@ static bool separate(const float* inL, const float* inR, int n, float* const out
     std::vector<float> weight(kL);
     for (int j = 0; j < kL; j++) weight[j] = (float)std::min(j + 1, kL - j) / (kL / 2);
     std::vector<float> acc((size_t)8 * n, 0.f), sum(n, 0.f), l(kL), r(kL), res;
+    // Before each segment the caller gets a turn ("stemcache.betweenSegments", on this thread and outside the model's
+    // lock): stemcache separates a window at a deck's playhead there when the DJ is waiting for stems, which is one
+    // more call of this function, of one segment.
+    auto between = service<void (*)()>("stemcache.betweenSegments");
     for (int k = 0; k < count; k++) {
+        if (between) between();
         int start = count == 1 ? -(kL - n) / 2 : (int)llround((double)k * (n - kL) / (count - 1));
         for (int j = 0; j < kL; j++) {
             int i = start + j;
@@ -349,6 +357,12 @@ static void init() {
 RBM_PROVIDE("betterstems", "betterstems.active", active, &g_on);
 RBM_PROVIDE("betterstems", "betterstems.version", version, &g_on);
 RBM_PROVIDE("betterstems", "betterstems.separate", separate, &g_on);
+static int segmentLength() { return kL; }  // an input of this many samples is one run of the model
+RBM_PROVIDE("betterstems", "betterstems.segment", segmentLength, &g_on);
+// HTDemucs is what will separate, as far as can be told without loading it (on, its model there, not failed): then
+// stemcache doesn't let rekordbox load its own model until that one is needed after all.
+static bool expected() { return g_on && g_state >= 0 && betterstems_backend::installed(); }
+RBM_PROVIDE("betterstems", "betterstems.expected", expected, &g_on);
 
 // The window's sidebar area this mod is shown in (core/settings.h: the first declaration of an area counts).
 namespace { const rbm::settings::Area kArea{"stems", "Stems",

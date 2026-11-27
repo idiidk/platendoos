@@ -1030,7 +1030,7 @@ def _gst(e):
 
 @api("GetSystemInfo", "GetNativeSystemInfo")
 def _gsysi(e):
-    si = struct.pack("<HHIQQQII HH", 9, 0, PAGE, 0x10000, 0x7FFFFFFEFFFF, 1, 1, 586, 0x10000, 6)
+    si = struct.pack("<HHIQQQIIIHH", 9, 0, PAGE, 0x10000, 0x7FFFFFFEFFFF, 1, 1, 8664, 0x10000, 6, 0)
     e.mem_write(e.arg(0), si.ljust(48, b"\0"))
 
 

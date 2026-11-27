@@ -41,5 +41,29 @@
   "verdict": "ok",
   "confidence": "high",
   "why": "DjPlayerStreamingEventSender: the IDjPlayerControl it passes every call on to (mac +0x40). 0x142e124e0: mov rcx,[rcx+0x50]; mov rax,[rcx]; jmp [rax+0x290]; every forwarding slot of the vtable reads the same field"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart20AudioPartDataManager17requestSeparateAtERKN4juce6StringENS0_5MODELExib",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x142d07160",
+  "confidence": "high",
+  "why": "stemcache, the playhead's chunks first (7.2.19, 2026-11-27; disassembly). Static (rcx=String, edx=MODEL, r8=pos, r9d=n, [rsp+0x28]=bool): AudioPartUri::AudioPartUri 0x141117720 (rcx=temp, rdx=String, r8d=MODEL), the AudioPartDataManager singleton's get 0x141119320, its CriticalSection at +0x48 (rax+0x28+0x20; mac +0x48), HashMap contains 0x141119780 and operator[] 0x1411198a0 on +0x28, the ref count drop, then cmp byte [data+0x5c],0 / cmp byte [data+0x5d],0 / [data+0x20] non-null and the call 0x142d40550 with (rdx=pos, r8d=n, r9b=bool), exactly mac's. 0x142d40550 is AudioPartSeparator::requestSeparateAt: its lock at +0x2a0, engine type [[this+0x238]+8], chunk length by type as magic divisions: type 1 -> 483052 (Demucs3), others 0x7fffffff, as mac. Callers: AudioPartReader::isReadyToRead 0x142d12580 and fileRead 0x142d127d0 (isReadyPosition / getReadyPosition inlined there). Its neighbours with the same prologue (0x142d07f80: numContains path; 0x142d08220: isSeparated-like) differ after the flag checks"
+ },
+ {
+  "item": "__ZNK8djengine10DjEngineIF14getPlayingTimeENS_15EnPlayerChannelE",
+  "kind": "sym",
+  "verdict": "ok",
+  "win": "0x14253bb80",
+  "confidence": "high",
+  "why": "stemcache (7.2.19, 2026-11-27; disassembly). mov rcx,[rcx+0xb8] (the audio graph; mac [rdi+0xc8]); call 0x142cd74d0 (DjUnitAudioGraph::getPlayerControl, edx = channel unchanged); call [rax+0x2a8] (mac slot 0x2b0: one destructor slot less); then xor edx,edx; jmp [rax+0x70] (mac 0x78), as mac's tail call with esi = 0. Next to the matched setPlayingTime 0x14253ba10 / 0x14253baf0, as on mac"
+ },
+ {
+  "item": "__ZN6rbxfrm9audiopart16AudioPartLibrary9s_libraryE",
+  "kind": "sym",
+  "verdict": "pick",
+  "win": "0x145e029e0",
+  "confidence": "high",
+  "why": "stemcache, rekordbox's own model only when it is needed (7.2.19, 2026-11-27; disassembly). Data: the table of the two engines' functions, rows of 0x58 as on mac. AudioPartSeparatorManager::isInitialized 0x142d051a0 (verified, v5) has AudioPartSeparator::isInitialized inlined: the model's row index (2 -> 0, 3 -> 1) times 0x58 (imul rcx,rax,0x58) added to lea rax,[rip+0x30fd80b] at 0x142d051ce = 0x145e029e0, then the same checks as mac's: [row+0x10] (the library) and +0x18, +0x20, +0x28 (called: IsInitialized), +0x30 ... +0x50 all non-null. So the row's layout is mac's: Initialize +0x18, Finalize +0x20, IsInitialized +0x28, PreOperation +0x30, PostOperation +0x38, CancelOperation +0x40, the two OperationAtIndex +0x48 / +0x50. The mod finds the row by its own four wrappers in it, not by these offsets"
  }
 ]

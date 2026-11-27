@@ -51,7 +51,7 @@ features:
     linkText: Four decks on an FLX4
   - icon: 🔇
     title: Quieter, cooler, fewer clicks
-    details: rekordbox does a lot of work while you do nothing. The mods trim it, keep the audio's memory in RAM, and stop playback from clicking when the Mac runs short of memory.
+    details: rekordbox does a lot of work while you do nothing. The mods trim it, keep the audio's memory in RAM, and stop playback from clicking when the Mac runs short of memory. One tester's fanless MacBook Air stays around 55 °C with two decks, stems and FX, where plain rekordbox runs it at 80-90 °C.
     link: /guides/performance
     linkText: Performance and dropouts
 ---

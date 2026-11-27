@@ -22,7 +22,7 @@ const trailer = process.env.PLATENDOOS_TRAILER === 'local' ? '/platendoos-traile
 const modGroups: { text: string; mods: [string, string?][] }[] = [
   { text: 'Spotify', mods: [['spotifyapi'], ['spotifyfix'], ['spotifystart', 'win'], ['autocue'], ['genres'], ['spotifyaudio'], ['artcache'], ['spotifylog'], ['spotifydl']] },
   { text: 'Analysis', mods: [['analyzer'], ['bettergrid'], ['betterkey'], ['quickdeck'], ['parallel'], ['tfpool'], ['streamio'], ['timing']] },
-  { text: 'Browsing and playing', mods: [['stemcache'], ['betterstems'], ['fastwave'], ['audiomem', 'mac'], ['betterfx', 'mac'], ['keepmaster'], ['tidymenu'], ['multisort'], ['keycolumn'], ['xfadelock'], ['outputsync', 'mac'], ['fontcache', 'mac'], ['quickframe', 'mac'], ['relayout', 'mac']] },
+  { text: 'Browsing and playing', mods: [['stemcache'], ['betterstems'], ['fastwave'], ['audiomem', 'mac'], ['betterfx', 'mac'], ['keepmaster'], ['tidymenu'], ['multisort'], ['keycolumn'], ['xfadelock'], ['usbphrases'], ['outputsync', 'mac'], ['fontcache', 'mac'], ['quickframe', 'mac'], ['relayout', 'mac']] },
   { text: 'Controllers', mods: [['flx4'], ['linein']] },
   { text: 'Quieter in the background', mods: [['framerate'], ['badge'], ['prefs'], ['screeninfo', 'mac'], ['midipoll', 'mac'], ['idlewake', 'mac']] },
 ]

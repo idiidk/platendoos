@@ -25,7 +25,7 @@ for line in cov.splitlines():
         if kind.startswith('vt:'): continue
         o = next(o for o in srcoffs if o['fn'] == fn and o['kind'] == kind and str(o['nth']) == nth)
         if o['name'] in pending: continue
-        src = open(glob.glob(os.path.join(repo, '*', o['file']))[0]).read()
+        src = open((glob.glob(os.path.join(repo, '*', o['file'])) + glob.glob(os.path.join(repo, 'private', '*', o['file'])))[0]).read()
         ln = next((l.strip() for l in src.splitlines() if re.search(r'\b%s\b' % o['name'], l) and 'Offset' in l), '')
         items.append(dict(kind='offset', name=o['name'], file=o['file'], fn=fn, recipe=kind, nth=int(nth), mac_value=hex(o['expected']),
                           win_fn=hex(tbl[fn]) if fn in tbl else None, line=ln, prior=done.get(o['name'])))

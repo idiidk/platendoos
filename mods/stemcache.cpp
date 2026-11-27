@@ -29,6 +29,13 @@
 //           stemcache_ondemand=0   1: a deck's track is separated only once a stem control is used on it
 //                                  (a stem muted, a PART ISOLATOR knob turned, the FX taken off a stem), from
 //                                  where it plays; stems that are stored already still come at once
+//           stemcache_quick=1   1: with betterstems' HTDemucs, a stem control used where the track has no stems yet
+//                               gets the few seconds at the playhead separated first, about a third of a second
+//                               (macOS); 0: it waits for that whole part of the track (11-12 s of it, a second
+//                               or so)
+//           stemcache_lazy_model=1   1: with betterstems' HTDemucs separating, rekordbox's own stem model (680 MB for
+//                                    the quality one) is loaded only when it has to separate after all (restart);
+//                                    0: at startup, as rekordbox does it
 //           stemcache_log=0   1 logs every chunk and every stem control (for debugging)
 //           stemcache_dir=<cache folder>/stems (mac ~/Library/Caches/rekordbox-mods/stems)
 //           stemcache_quality=256   how new chunks are stored: lossless | 256 | 192 | 128 (AAC kbps per stem)
@@ -58,6 +65,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <string>
@@ -79,6 +87,8 @@ const Setting dir{"stemcache_dir", "", {.label = "Folder", .help = "Empty: the d
 const Setting minFreeGb{"stemcache_min_free_gb", 5, {.label = "Save nothing new below this much free space", .unit = "GB", .min = 0, .max = 500, .step = 1, .advanced = true, .needs = "stemcache_keep!=none"}};
 const Setting staging{"stemcache_staging", "auto", {.label = "Write to the internal disk first", .choices = {{"0", "Never"}, {"1", "Always"}, {"auto", "When the folder is on an external drive"}}, .advanced = true, .needs = "stemcache_keep!=none"}};
 const Setting stagingGb{"stemcache_staging_gb", 4, {.label = "How much may wait on the internal disk", .unit = "GB", .min = 1, .max = 200, .step = 1, .advanced = true, .needs = "stemcache_staging!=0"}};
+const Setting quick{"stemcache_quick", true, {.label = "Stems at the playhead at once", .help = "With HTDemucs: when you use a stem control where the track has no stems yet, a few seconds at the playhead are separated first, before the rest of that part of the track (macOS)."}};
+const Setting lazyModel{"stemcache_lazy_model", true, {.label = "Load rekordbox's own stem model only when needed", .help = "With HTDemucs separating, rekordbox's own model (680 MB for the quality one) stays out of memory until it has to separate after all.", .restart = true}};
 const Setting log{"stemcache_log", false, {.label = "Log every chunk and stem control", .debug = true}};
 }  // namespace opt
 
@@ -110,6 +120,12 @@ Engine g_engines[] = {{"spleeter", 519168 + 2 * 4096, 519168}, {"demucs3", 48305
 static std::mutex g_lock;  // g_dir
 static std::string g_dir;
 static std::atomic<int> g_hits, g_misses, g_stored;
+static std::atomic<int> g_quicks;  // windows published ahead of their chunk
+// The time of day in seconds (to the ms), for stemcache_log's lines: what happened when between a stem control and the stems.
+static double wallClock() {
+    double t = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+    return fmod(t, 1000);
+}
 static std::atomic<long long> g_bytes;  // what the cache holds (prune)
 static std::atomic<int> g_chunksStarted;   // chunks the engines were asked for (hits and misses)
 static std::atomic<int> g_trackChunks;     // chunks of the last track an engine started (PreOperation)
@@ -118,11 +134,26 @@ static std::atomic<double> g_lastOpAt;
 // One separation (an engine handle, from its PreOperation on): how many chunks it has and how many were asked for, so
 // the stems window's run follows its own track and not the chunks of a deck that loads meanwhile.
 namespace {
+// A window of stems handed to rekordbox ahead of its chunk ("stems at the playhead at once").
+struct Quick {
+    long long w0 = 0;           // the window's first sample (the separator's samples, from the track's start)
+    long long a = 0, b = 0;     // what rekordbox got of it: [a, b), inside one chunk
+    long long chunkEnd = 0;     // where that chunk ends (or the track)
+    int len = 0;                // the window's length
+    std::vector<float> planes;  // its stems as an engine's outputs: 8 planes of len (stem 0 L, R, stem 1 L, ...)
+};
 struct Separation {
     int serial = 0, want = 0, started = 0, hits = 0;
     double lastOpAt = 0;
     int spotify = -1;  // 1 a Spotify track's, 0 not, -1 not known
     std::string uri;   // its track ("" not known)
+    // For the windows published ahead of their chunk (further down, "stems at the playhead at once"):
+    char* separator = nullptr;  // rekordbox's AudioPartSeparator, while its engine calls run (null: not known)
+    long long total = 0;        // the track's length, in the separator's samples
+    long long chunkLen = 0;     // a chunk's, in the same
+    std::set<int> done;         // chunks whose stems rekordbox has
+    std::vector<std::shared_ptr<Quick>> quicks;  // windows published, until their chunk is done
+    double quickFailedAt = -1e9;
 };
 }  // namespace
 static std::mutex g_sepLock;
@@ -130,12 +161,13 @@ static std::map<void*, Separation> g_seps;  // by handle
 static int g_sepSerial;                     // of the last one made (g_sepLock)
 static std::atomic<bool> g_sepSeen;         // an engine call came with a handle PreOperation made: they can be told apart
 
-static void noteSeparation(void* handle, int chunks, const std::string& uri) {
+static void noteSeparation(void* handle, int chunks, const std::string& uri, char* separator = nullptr, long long total = 0, long long chunkLen = 0) {
     int spotify = uri.empty() ? -1 : !strncmp(uri.c_str(), "spotify:", 8) ? 1 : 0;
     std::lock_guard<std::mutex> l(g_sepLock);
     if (g_seps.size() > 64)  // (handles of tracks long gone)
         for (auto it = g_seps.begin(); it != g_seps.end();) it = it->second.serial + 32 < g_sepSerial ? g_seps.erase(it) : std::next(it);
-    g_seps[handle] = Separation{++g_sepSerial, chunks, 0, 0, now(), spotify, uri};
+    Separation& s = g_seps[handle] = Separation{++g_sepSerial, chunks, 0, 0, now(), spotify, uri};
+    s.separator = separator, s.total = total, s.chunkLen = chunkLen;
 }
 // A separation's track, by its engine handle ("" not known).
 static std::string separationUri(void* handle) {
@@ -653,6 +685,16 @@ static std::atomic<int> g_held;          // separations waiting to be asked for
 // Per deck, the stem controls that are on (from the calls that set them): bits 0-3 a muted stem, 4-7 a PART ISOLATOR
 // knob off its centre, 8-11 a stem the FX don't apply to. A deck with any of them needs its track's stems.
 static std::atomic<unsigned> g_stemState[4];
+static std::atomic<bool> g_deckNeeds[4];  // a deck with a track needs its stems now (tick)
+static std::atomic<bool> g_quick{true};   // stemcache_quick (further down: "stems at the playhead at once")
+static std::atomic<double> g_jumpAt[4];   // when a deck's playhead last jumped (tick)
+// Service "stemcache.stemsNeeded": a deck's stems are needed now (a stem control on a deck with a track). betterstems
+// then doesn't hold its separation back for an analysis' beat stage (any thread).
+static bool stemsNeeded() {
+    for (auto& n : g_deckNeeds)
+        if (n) return true;
+    return false;
+}
 static const Addr A_currentThread{"__ZN4juce6Thread16getCurrentThreadEv"};
 static const Addr A_threadShouldExit{"__ZNK4juce6Thread16threadShouldExitEv"};
 
@@ -730,6 +772,40 @@ static int deckOfControl(void* control) {
     }
     return -1;
 }
+// The playhead first. rekordbox's separator keeps a list of chunks with priority besides the in-order one, and the
+// deck's stem reader puts the playhead's chunk on it (AudioPartData::isReadyPosition ->
+// AudioPartDataManager::requestSeparateAt(.., true)), but only where AudioPart::isRandomAccessible(MODEL) says so:
+// the Spleeter models (0, 2), and only while the deck reads stems. With Demucs3 (1, 3: STEMS Analysis Process set
+// to quality; betterstems' HTDemucs then runs behind it as well) the separator goes from the track's start, so a
+// stem muted 2 minutes in waited for every chunk before it (a tester: 5-8 s). The separator itself doesn't care
+// about the model (its run takes the priority list first, the chunks land in a SparseSet), so the same call is made
+// here, for every deck with a track, whether its stems are in use or not: then they are there when a stem control
+// is used. From the tick, at once after a jump of the playhead and else twice a second, and when a stem control is
+// used. Only the playhead's chunk and, in its last 5 s, the next one: the priority list is sorted, so a chunk asked
+// for at a playhead that has since jumped back would come first. Asked of all four models, whichever the track is
+// separated with: the others aren't found, a chunk that is done or not in a list is left alone, and a track whose
+// separation is over isn't looked at (the manager checks).
+// Windows: both verified for 7.2.19 in tools/win/verify/stems.out.json (requestSeparateAt is a static function there
+// too: String, MODEL, position, count, bool).
+static const Addr A_requestSeparateAt{"__ZN6rbxfrm9audiopart20AudioPartDataManager17requestSeparateAtERKN4juce6StringENS0_5MODELExib"};
+static const Addr A_getPlayingTime{"__ZNK8djengine10DjEngineIF14getPlayingTimeENS_15EnPlayerChannelE"};  // ms
+static int playingMs(int d) {  // a deck's playhead, ms (0 if none)
+    void* e = engine();
+    int ms = e && d >= 0 && d < 4 ? at<int (*)(void*, int)>(A_getPlayingTime)(e, d) : 0;
+    return ms > 0 ? ms : 0;
+}
+// ms: where (-1 the playhead; the "separateat" test command gives one).
+RBM_NOINLINE static void separateAtPlayhead(int d, const std::string& uri, int ms = -1) {
+    if (!engine() || uri.empty() || d < 0 || d >= 4) return;
+    if (ms < 0) ms = playingMs(d);
+    long long pos = (long long)ms * 441 / 10;  // the separator's samples (44.1 kHz)
+    const int span = 5 * 44100;                // (chunks are 11-12 s)
+    JStr u(uri.c_str());
+    for (int model = 0; model < 4; model++)
+        at<void (*)(const JStr&, int, long long, int, bool)>(A_requestSeparateAt)(u, model, pos, span, true);
+}
+
+static void buffersAtPlayhead();
 // kind 0 mute, 1 isolator, 2 FX; on: the control now needs the stems.
 static void stemControlUsed(void* control, int kind, int part, double value, bool on) {
     static const char* const kWhat[] = {"a stem was muted", "a PART ISOLATOR knob was turned", "the FX were taken off a stem"};
@@ -737,8 +813,15 @@ static void stemControlUsed(void* control, int kind, int part, double value, boo
     if (d < 0 || d >= 4 || part < 0 || part >= 4) return;
     unsigned bit = 1u << (kind * 4 + part);
     if (on) g_stemState[d].fetch_or(bit); else g_stemState[d].fetch_and(~bit);
-    if (g_logChunks) logf("stemcache: deck %d: %s, stem %d = %g%s", d + 1, kind == 0 ? "mute" : kind == 1 ? "isolator" : "FX", part, value, on ? " (needs the stems)" : "");
-    if (on && g_onDemand) wantStems(deckPath(d), kWhat[kind]);
+    if (g_logChunks) logf("stemcache: [%.3f] deck %d: %s, stem %d = %g%s", wallClock(), d + 1, kind == 0 ? "mute" : kind == 1 ? "isolator" : "FX", part, value, on ? " (needs the stems)" : "");
+    if (!on) return;
+    std::string uri = deckPath(d);
+    if (!uri.empty()) g_deckNeeds[d] = true;  // (at once, not at the next tick: betterstems stops waiting)
+    // Before the held separation is let go (wantStems): its next pick is then the playhead's chunk.
+    separateAtPlayhead(d, uri);
+    if (g_onDemand) wantStems(uri, kWhat[kind]);
+    // Stems that are there already: the deck is asked to take them now, not when its playhead enters the next page.
+    if (g_quick) plat::onMain(buffersAtPlayhead);
 }
 static void setPartMute(void* control, int part, bool muted) {
     stemControlUsed(control, 0, part, muted, muted);
@@ -784,13 +867,635 @@ RBM_NOINLINE static void followStemControls() {
     else if (g_logChunks) logf("stemcache: following the decks' stem controls");
 }
 
+// ---- rekordbox's own model only when it is needed -------------------------------------------------------------------
+//
+// rekordbox loads the selected engine's model when it starts (AudioPartSeparator::initialize -> the library's
+// Initialize): 680 MB for Demucs3 (measured: the app's memory with and without that call), which stays for the
+// session (the engine's Finalize gives next to nothing back). With betterstems every chunk comes from HTDemucs or the
+// cache and that model is never run. So while betterstems is expected to separate ("betterstems.expected"), the
+// engine's Initialize is held back, and rekordbox gets stand-ins for what it does with an engine besides separating:
+// the functions sit in a table per engine (AudioPartLibrary::s_library: Initialize, Finalize, IsInitialized,
+// PreOperation, PostOperation, CancelOperation and the two OperationAtIndex, in that order; four of them are the
+// wrappers of this file already, which is how the others' places are found), and Finalize, IsInitialized,
+// PostOperation and CancelOperation are swapped in it when Initialize is called. A separation then gets a handle
+// of this mod's own (PreOperation). Whenever the engine itself has to separate after all (betterstems off or failed
+// for a chunk, no HTDemucs when a track starts), it is initialised then, with what rekordbox passed, and the
+// separation gets a real handle from its PreOperation.
+// stemcache_lazy_model=0: as rekordbox does it (restart).
+namespace {
+struct StandIn {  // a separation's handle while the engine isn't initialised
+    int engine;
+    unsigned samples;
+    bool parallel;
+    void* real = nullptr;  // the engine's own handle, once it had to separate
+};
+struct LazyEngine {
+    bool held = false;  // Initialize was held back, and the table's other functions are this mod's
+    bool real = false;  // the engine's own Initialize has run
+    std::string modelDir;
+    int a = 0, b = 0, threads = 0, c = 0;
+    bool bigMemory = false;
+    uintptr_t (*finalize)() = nullptr;
+    bool (*isInitialized)() = nullptr;
+    uintptr_t (*post)(void*) = nullptr;
+    uintptr_t (*cancel)(void*) = nullptr;
+};
+}  // namespace
+static LazyEngine g_lazy[2];
+static std::atomic<bool> g_ownEngine{false};  // test command "ownengine 1": chunks go to rekordbox's engine, HTDemucs or not
+static std::recursive_mutex g_lazyLock;  // g_lazy, g_standIns
+static std::set<void*> g_standIns;
+static bool betterExpected() {
+    auto f = service<bool (*)()>("betterstems.expected");
+    return f && f();
+}
+static StandIn* standIn(void* handle) {
+    std::lock_guard<std::recursive_mutex> l(g_lazyLock);
+    return g_standIns.count(handle) ? (StandIn*)handle : nullptr;
+}
+// The engine's own Initialize, if it was held back (any thread; once).
+static void engineNeeded(int E) {
+    std::lock_guard<std::recursive_mutex> l(g_lazyLock);
+    LazyEngine& z = g_lazy[E];
+    if (!z.held || z.real) return;
+    double t0 = now();
+    g_engines[E].init(z.modelDir.c_str(), z.a, z.b, z.bigMemory, z.threads, z.c);
+    z.real = true;
+    logf("stemcache: rekordbox's %s model is needed after all: loaded in %.1f s", g_engines[E].prefix, now() - t0);
+}
+// The engine's own handle for a separation (its PreOperation's), null if it gives none.
+static void* engineHandle(int E, void* handle) {
+    StandIn* s = standIn(handle);
+    if (!s) return handle;
+    engineNeeded(E);
+    std::lock_guard<std::recursive_mutex> l(g_lazyLock);
+    if (!s->real && !g_engines[E].pre(&s->real, s->samples, s->parallel)) s->real = nullptr;
+    return s->real;
+}
+// The engine separates a chunk itself.
+static bool engineOp(int E, int K, void* handle, int chunk, float* inL, float* inR, float* o0L, float* o0R, float* o1L, float* o1R,
+                     float* o2L, float* o2R, float* o3L, float* o3R) {
+    void* real = engineHandle(E, handle);
+    return real && g_engines[E].op[K](real, chunk, inL, inR, o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R);
+}
+template <int E>
+static uintptr_t finalizeWrapper() {
+    std::lock_guard<std::recursive_mutex> l(g_lazyLock);
+    LazyEngine& z = g_lazy[E];
+    bool was = z.real;
+    logf("stemcache: rekordbox closes its %s engine (%s)", g_engines[E].prefix, was ? "its model was loaded" : z.held ? "its model was never loaded" : "not held back");
+    z.real = false, z.held = false;
+    return was && z.finalize ? z.finalize() : 0;
+}
+template <int E>
+static bool isInitializedWrapper() {
+    {
+        std::lock_guard<std::recursive_mutex> l(g_lazyLock);
+        if (g_lazy[E].held && !g_lazy[E].real) return true;
+    }
+    return g_lazy[E].isInitialized && g_lazy[E].isInitialized();
+}
+template <int E>
+static uintptr_t postWrapper(void* handle) {
+    StandIn* s = standIn(handle);
+    if (!s) return g_lazy[E].post ? g_lazy[E].post(handle) : 0;
+    uintptr_t result = s->real && g_lazy[E].post ? g_lazy[E].post(s->real) : 1;
+    std::lock_guard<std::recursive_mutex> l(g_lazyLock);
+    g_standIns.erase(handle);
+    delete s;
+    return result;
+}
+template <int E>
+static uintptr_t cancelWrapper(void* handle) {
+    StandIn* s = standIn(handle);
+    if (!s) return g_lazy[E].cancel ? g_lazy[E].cancel(handle) : 0;
+    return s->real && g_lazy[E].cancel ? g_lazy[E].cancel(s->real) : 1;
+}
+// (Windows: 0x145e029e0 in 7.2.19, the same rows; tools/win/verify/stems.out.json)
+static const Addr A_libraries{"__ZN6rbxfrm9audiopart16AudioPartLibrary9s_libraryE"};
+static bool lazyModelWanted() { return opt::lazyModel.integer() != 0; }
+// This file's functions for an engine: Initialize (0), PreOperation (1), the two OperationAtIndex (2, 3), and the
+// stand-ins: Finalize (4), IsInitialized (5), PostOperation (6), CancelOperation (7).
+static void* engineWrapper(int E, int which);
+
+// ---- stems at the playhead at once ---------------------------------------------------------------------------------
+//
+// rekordbox separates a track in chunks of 11-12 s and a deck gets a chunk's stems when the whole chunk is done:
+// with HTDemucs two runs of the model (0.5 s on an M2 Pro), after the chunk that was under way when the stems were
+// asked for (as long again). But nothing in rekordbox needs whole chunks. Its separator writes each stem into a stream
+// at the sample's place (AudioPartSeparator::OperationAtIndex: setPosition(sample * 8), write), keeps what is there
+// as ranges (two SparseSets: samples and bytes) and hands those to the track's data (AudioPartDataManager::update),
+// which is what the deck's reader asks (AudioPartData::isReadyPosition -> numContains) and what tells it to look
+// again (its listeners; MultiPagingAudioSource::onAudioPartUpdateMessage).
+// So when a deck needs stems where it plays and there are none yet, one window of the model at the playhead is
+// separated and handed over the same way, at once: from inside the engine call that is under way (betterstems gives
+// its caller a turn before each of its segments: "stemcache.betweenSegments"; also after a chunk, and when a
+// separation that waited is asked for), on the separator's own thread, as everything rekordbox does with these
+// streams and ranges. The window's audio is the engine call's own input when it lies in that chunk, else read with
+// the separator's reader (getStreamAt: any position).
+// The chunk the window lies in is separated as always afterwards (it has priority: separateAtPlayhead). What the
+// deck may have played already must not change under it, so the window is kept and laid into the chunk's stems
+// before they go to rekordbox and to the cache (chunkDone): the published samples as they were, and a short
+// cross-fade to the chunk's own stems on each side, inside the part of the window that was not published.
+// A window covers [w0, w0 + len) (len: one segment of the model, 7.8 s) inside one chunk's input. Published is
+// [a, b): the window without half a second at each end (the model is least sure there, and the fades need room),
+// except where the window starts or ends with the chunk's own input: there the chunk itself has no more to go on.
+// macOS only so far (the separator's fields and functions below have no Windows table entries yet).
+static std::string g_deckUri[4];          // the decks' tracks (tick; g_wantLock)
+namespace {
+struct OpContext {  // the engine call this thread is in
+    void* handle = nullptr;
+    int engine = 0, chunk = 0, stems = 0;
+    const float *inL = nullptr, *inR = nullptr;  // its input (the chunk with its context)
+    bool busy = false;                           // a window is being separated (no window inside a window)
+    int segments = 0;                            // of the chunk's own, begun (betterstems' turns)
+};
+}  // namespace
+static thread_local OpContext t_op;
+const int kQuickMargin = 22050;  // samples of a window left out at each end
+const int kQuickFade = 4096;     // the cross-fade to the chunk's own stems
+// A deck reads stems in pages of a second, a page only when all of it is there, and looks for the next pages when
+// its playhead enters one (below: "the deck's side"). So stems are wanted from over a page behind the playhead to
+// two seconds ahead of it: the page it is in and the next one. (Further ahead the chunks themselves are in time:
+// the playhead's and the next have priority, half a second each.)
+const int kQuickPage = 48510;    // 1.1 s: a page, and what the deck's positions and the separator's may differ
+const int kQuickBack = kQuickPage;
+const int kQuickAhead = 88200;
+const int kBufferAhead = 132300;  // what a deck is asked to buffer of its stems ahead of the playhead
+
+// The first sample of [from, to) that has no stems: not in a chunk that is done, nor in a published window; -1 if
+// all have (g_sepLock held).
+static long long firstWithout(const Separation& s, long long chunkLen, long long from, long long to) {
+    for (long long pos = from; pos < to;) {
+        if (s.done.count((int)(pos / chunkLen))) {
+            pos = (pos / chunkLen + 1) * chunkLen;
+            continue;
+        }
+        long long next = -1;
+        for (const auto& q : s.quicks)
+            if (pos >= q->a && pos < q->b) next = q->b;
+        if (next < 0) return pos;
+        pos = next;
+    }
+    return -1;
+}
+
+// Where the stems are in one piece from, back from `at` (the first sample; g_sepLock held): as firstWithout forward.
+static long long firstWith(const Separation& s, long long chunkLen, long long at) {
+    for (long long pos = at; pos > 0;) {
+        if (s.done.count((int)((pos - 1) / chunkLen))) {
+            pos = (pos - 1) / chunkLen * chunkLen;
+            continue;
+        }
+        long long before = -1;
+        for (const auto& q : s.quicks)
+            if (pos > q->a && pos <= q->b) before = q->a;
+        if (before < 0) return pos;
+        pos = before;
+    }
+    return 0;
+}
+
+#ifndef _WIN32
+static const Addr A_separatorVt{"__ZTVN6rbxfrm9audiopart18AudioPartSeparatorE", 0x10};
+static const Addr A_getStreamAt{"__ZN6rbxfrm9audiopart18AudioPartSeparator11getStreamAtEiPfS2_i"};
+static const Addr A_dataUpdate{"__ZN6rbxfrm9audiopart20AudioPartDataManager6updateERKN4juce6StringENS0_5MODELENS2_9SparseSetIxEENS7_IjEE"};
+static const Addr A_separatorUpdate{"__ZN6rbxfrm9audiopart25AudioPartSeparatorManager6updateERKN4juce6StringENS0_5MODELEPNS0_18AudioPartSeparatorE"};
+static const Addr A_addSamples{"__ZN4juce9SparseSetIjE8addRangeENS_5RangeIjEE"};
+static const Addr A_addBytes{"__ZN4juce9SparseSetIxE8addRangeENS_5RangeIxEE"};
+#define RBM_SEP_PRE "__ZN6rbxfrm9audiopart18AudioPartSeparator12PreOperationEv"
+#define RBM_SEP_OP "__ZN6rbxfrm9audiopart18AudioPartSeparator16OperationAtIndexEi"
+// AudioPartSeparator's fields
+static const Offset O_sepHandle{0x358, RBM_SEP_PRE, "add x19", 5};   // the engine's handle (what PreOperation is given the address of)
+static const Offset O_sepUri{0x1e8, RBM_SEP_PRE, "add x19", 0};      // juce::String: its track
+static const Offset O_sepModel{0x1f0, RBM_SEP_PRE, "ldr x19", 0};    // MODEL
+static const Offset O_sepStems{0x1f4, RBM_SEP_PRE, "ldr x19", 1};    // 3 or 4
+static const Offset O_sepStreams{0x2a0, RBM_SEP_PRE, "add x19", 1};  // juce::OutputStream* per stem, in the order of the engine's outputs
+static const Offset O_sepTotal{0x208, RBM_SEP_PRE, "ldr x19", 3};    // the track's length in samples
+static const Offset O_sepSamples{0x218, RBM_SEP_OP, "add x19", 1};   // juce::SparseSet<unsigned>: the samples that have stems
+static const Offset O_sepBytes{0x228, RBM_SEP_OP, "add x19", 2};     // juce::SparseSet<long long>: the same in bytes (8 per sample)
+// juce::OutputStream's slots, as OperationAtIndex calls them
+static const Offset V_streamSetPosition{0x18, RBM_SEP_OP, "ldr x8", 6};
+static const Offset V_streamWrite{0x28, RBM_SEP_OP, "ldr x8", 8};
+
+// rekordbox's separator for the handle its engine's PreOperation is given the address of; null if that isn't one.
+static char* separatorOf(void** handleAt) {
+    char* sep = (char*)handleAt - O_sepHandle;
+    return *(void**)sep == at<void*>(A_separatorVt) ? sep : nullptr;
+}
+
+// Hands rekordbox the stems of [a, b) of a window (separator thread): into the streams, into the separator's ranges,
+// and from there to the track's data and its listeners, as AudioPartSeparator::run does after a chunk.
+// Written is more than is announced: from a to the chunk's end, the window's own samples as far as it has any and
+// silence after. A streaming track's stems are kept in memory, one array per stem that grows with what is written
+// (AudioPartData::writeData), and a write that starts inside the array and ends beyond it is refused, which ends the
+// whole separation (found with a Spotify track: the chunk's own write, after a window that ended short of it). With
+// every write ending where a chunk ends, as rekordbox's own do, no write can lie across the array's end.
+// (The buffer is made again for every stem: where memory is short rekordbox turns it into 16-bit samples in place.)
+static bool publishQuick(char* sep, const Quick& q, int stems) {
+    long long count = q.chunkEnd - q.a, have = std::min(count, q.w0 + q.len - q.a);
+    if (count <= 0 || have < q.b - q.a) return false;
+    std::vector<float> both((size_t)2 * count);
+    for (int stem = 0; stem < stems; stem++) {
+        void* stream = *(void**)(sep + O_sepStreams + 8 * stem);
+        if (!stream) return false;
+        const float* l = q.planes.data() + (size_t)(2 * stem) * q.len + (q.a - q.w0);
+        const float* r = l + q.len;
+        for (long long i = 0; i < have; i++) both[2 * i] = l[i], both[2 * i + 1] = r[i];
+        std::fill(both.begin() + 2 * have, both.end(), 0.f);
+        void** vt = *(void***)stream;
+        if (!((bool (*)(void*, long long))vt[V_streamSetPosition / 8])(stream, q.a * 8)) return false;
+        if (!((bool (*)(void*, const void*, size_t))vt[V_streamWrite / 8])(stream, both.data(), (size_t)count * 8)) return false;
+    }
+    // (juce::Range<unsigned> goes in one register, start low; Range<long long> in two)
+    at<void (*)(void*, unsigned long long)>(A_addSamples)(sep + O_sepSamples, (unsigned long long)q.a | (unsigned long long)q.b << 32);
+    at<void (*)(void*, long long, long long)>(A_addBytes)(sep + O_sepBytes, q.a * 8, q.b * 8);
+    // update() takes both sets by value: copies, as the caller makes them (juce::Array: data, allocated, used).
+    struct Array { void* data; int allocated, used; };
+    auto copy = [](const Array& from, size_t each) {
+        Array to{nullptr, from.used, from.used};
+        if (from.used > 0 && (to.data = malloc(from.used * each))) memcpy(to.data, from.data, from.used * each);
+        if (!to.data) to.allocated = to.used = 0;
+        return to;
+    };
+    Array bytes = copy(*(Array*)(sep + O_sepBytes), 16), samples = copy(*(Array*)(sep + O_sepSamples), 8);
+    const JStr& uri = *(const JStr*)(sep + O_sepUri);
+    int model = *(int*)(sep + O_sepModel);
+    at<void (*)(const JStr&, int, Array*, Array*)>(A_dataUpdate)(uri, model, &bytes, &samples);
+    free(bytes.data), free(samples.data);
+    at<void (*)(const JStr&, int, void*)>(A_separatorUpdate)(uri, model, sep);
+    return true;
+}
+
+// The deck's side. Its audio source (StretchableAudioSource around a MultiPagingAudioSource: the mix and one child
+// source per stem) keeps pages of a second buffered around the playhead. For a stem a page is read only when the
+// track's data has all of it (AudioPartReader::isReadyToRead), and which pages to read is looked at when the playhead
+// enters a new page, a second apart: stems that arrive in between would wait for that, and a page that wasn't whole
+// then is played as the mix (measured with tools/dev/stemtest.mm's "reads": silent 0.1 to 1 s after the window was
+// there, and a quarter second of the mix further on, at the page across a chunk's end).
+// So the deck is told: IStereoAudioSource::ensureBufferedRange(range), which buffers the stems for the range now when
+// they are all there, and else keeps the range until the track's data is updated (MultiPagingAudioSource's own
+// handler of that update, on the message thread, as this call). Made for the stretch around the playhead whenever
+// what is there of it has grown: after a window was published, and from the tick after a chunk.
+static const Addr A_stateVt{"__ZTVN6rbxfrm17DjPlayerUnitStateE", 0x18};
+static const Addr A_refAudioSource{"__ZNK6rbxfrm17DjPlayerUnitState14refAudioSourceEv"};
+static const Addr A_dropReference{"__ZN6rbxfrm15RefCountedObjEx32decReferenceCountWithoutDeletingEv"};
+static const Offset V_controlState{0x2b0, "__ZNK8djengine10DjEngineIF14getPlayingTimeENS_15EnPlayerChannelE", "ldr x8", 0};  // IDjPlayerControl: its state
+static const Offset V_sourceEnsure{0xb8, "__ZN6rbxfrm22StretchableAudioSource19ensureBufferedRangeEN4juce5RangeIiEE", "ldr x8", 2};  // IStereoAudioSource
+static const Offset V_sourceRate{0x78, "__ZNK6rbxfrm22StretchableAudioSource15getSamplingRateEv", "ldr x8", 2};
+namespace {
+// rbxfrm::RefCountedObjExPtr<IStereoAudioSource>, as refAudioSource returns it (a class with a destructor: through
+// the hidden pointer, as rekordbox's).
+struct SourceRef {
+    void* source;
+    SourceRef(const SourceRef&) = delete;
+    ~SourceRef() {
+        if (source && at<bool (*)(void*)>(A_dropReference)(source)) ((void (*)(void*))(*(void***)source)[1])(source);
+    }
+};
+}  // namespace
+// Main thread: every deck that needs its track's stems is asked to buffer what there is of them around its playhead,
+// when that is more than at the last time.
+static void buffersAtPlayhead() {
+    static long long askedFrom[4], askedTo[4];
+    static std::string askedUri[4];
+    void* e = engine();
+    void* sys = e ? at<void* (*)(void*)>(A_djSystem)(e) : nullptr;
+    for (int d = 0; sys && d < deckCount() && d < 4; d++) {
+        if (!g_deckNeeds[d]) {
+            askedUri[d].clear();
+            continue;
+        }
+        std::string uri;
+        {
+            std::lock_guard<std::mutex> l(g_wantLock);
+            uri = g_deckUri[d];
+        }
+        long long playhead = (long long)playingMs(d) * 441 / 10, from = -1, to = -1, total = 0;
+        {
+            // (the track's separation: the latest one of it)
+            std::lock_guard<std::mutex> l(g_sepLock);
+            const Separation* s = nullptr;
+            for (const auto& kv : g_seps)
+                if (kv.second.uri == uri && kv.second.chunkLen > 0 && (!s || kv.second.serial > s->serial)) s = &kv.second;
+            if (s && playhead < s->total && firstWithout(*s, s->chunkLen, playhead, playhead + 1) < 0) {
+                total = s->total;
+                from = firstWith(*s, s->chunkLen, playhead);
+                to = firstWithout(*s, s->chunkLen, playhead, total);
+                if (to < 0) to = total;
+            }
+        }
+        if (from < 0) continue;
+        // Whole pages only: a page of margin where the stems end short of the track's.
+        long long lo = std::max(playhead - 2205, from > 0 ? from + kQuickPage : 0), hi = std::min(playhead + kBufferAhead, to < total ? to - kQuickPage : total);
+        if (hi - lo < 22050) continue;
+        if (uri == askedUri[d] && from == askedFrom[d] && to == askedTo[d]) continue;
+        askedUri[d] = uri, askedFrom[d] = from, askedTo[d] = to;
+        void* control = at<void* (*)(void*, int)>(A_playerControl)(sys, d);
+        void* state = control ? ((void* (*)(void*))(*(void***)control)[V_controlState / 8])(control) : nullptr;
+        if (!state || *(void**)state != at<void*>(A_stateVt)) continue;
+        SourceRef ref = at<SourceRef (*)(void*)>(A_refAudioSource)(state);
+        if (!ref.source) continue;
+        void** vt = *(void***)ref.source;
+        long long rate = ((int (*)(void*))vt[V_sourceRate / 8])(ref.source);
+        if (rate <= 0) continue;
+        unsigned long long range = (unsigned long long)(unsigned)(lo * rate / 44100) | (unsigned long long)(unsigned)(hi * rate / 44100) << 32;
+        ((void (*)(void*, unsigned long long))vt[V_sourceEnsure / 8])(ref.source, range);
+        if (g_logChunks) logf("stemcache: [%.3f] deck %d asked to buffer its stems for %.1f-%.1f s (there for %.1f-%.1f s)", wallClock(), d + 1, lo / 44100.0, hi / 44100.0, from / 44100.0, to / 44100.0);
+    }
+}
+
+// What a deck's stem readers wait for. With the Spleeter models (the ones rekordbox calls random-accessible: the
+// speed setting, its default) a page isn't looked at before it is read: AudioPartReader::isReadyToRead asks for the
+// page's chunk and says yes, and fileRead then waits inside the call until the data is there. Each stem's buffering
+// thread reads the pages around the playhead one after the other, so after a jump it is still inside the read of a
+// page of the old place (one whose chunk hasn't been separated), and the new place's stems, there or not, aren't
+// read until that returns (measured with stemtest's "reads": a window out 0.4 s after a jump, the deck silent
+// 2.2 s after it, when the old page's chunk had had its turn). So the reads that are under way are kept here
+// (AudioPartReader::fileRead's slot of its vtable), and a deck that needs stems gets a window for the page its
+// readers were still waiting in from before its last jump as well (quickAtPlayhead). Only those: a read begun after the
+// jump is of the new place, the readers working outwards from the playhead, and waits for chunks that are on their
+// way (served like the first kind, they made the separation one window after another, as far as 20 s from the
+// playhead).
+static const Addr A_readerVt{"__ZTVN6rbxfrm9audiopart15AudioPartReaderE", 0x10};
+static const Offset V_readerFileRead{0x20, "__ZTVN6rbxfrm9audiopart15AudioPartReaderE", "vt:__ZN6rbxfrm9audiopart15AudioPartReader8fileReadEiPNS_6Float2Ei", 0};
+static const Offset O_readerSource{0x20, "__ZN6rbxfrm9audiopart15AudioPartReader13isReadyToReadEii", "ldr x20", 0};  // AudioPartReader: what it reads from
+static const Offset O_sourceData{0x8, "__ZN6rbxfrm9audiopart15AudioPartReader13isReadyToReadEii", "ldr x8", 0};     // ... whose AudioPartData
+static const Offset O_dataUri{0x10, "__ZNK6rbxfrm9audiopart13AudioPartData11numContainsExi", "add x0", 0};           // AudioPartData: its track (juce::String)
+namespace {
+struct Reading {  // a stem reader inside fileRead
+    void* reader;
+    std::string uri;
+    long long pos;  // samples, as the separator's
+    int count;
+    double since;
+};
+}  // namespace
+static std::mutex g_readingLock;
+static std::vector<Reading> g_reading;
+static int (*o_fileRead)(void*, int, void*, int);
+static int fileRead(void* reader, int pos, void* to, int count) {  // (a stem's buffering thread)
+    if (!g_quick || !stemsNeeded()) return o_fileRead(reader, pos, to, count);
+    std::string uri;
+    char* source = *(char**)((char*)reader + O_readerSource);
+    char* data = source ? *(char**)(source + O_sourceData) : nullptr;
+    if (data && ((const JStr*)(data + O_dataUri))->text) uri = ((const JStr*)(data + O_dataUri))->text;
+    {
+        std::lock_guard<std::mutex> l(g_readingLock);
+        g_reading.push_back({reader, uri, pos, count, now()});
+    }
+    int got = o_fileRead(reader, pos, to, count);
+    std::lock_guard<std::mutex> l(g_readingLock);
+    for (size_t i = 0; i < g_reading.size(); i++)
+        if (g_reading[i].reader == reader) {
+            g_reading.erase(g_reading.begin() + i);
+            break;
+        }
+    return got;
+}
+// Swapped in once (main thread, from the tick).
+static void followStemReads() {
+    static bool done;
+    if (done) return;
+    done = true;
+    void** slot = at<void**>(A_readerVt) + V_readerFileRead / 8;
+    o_fileRead = (int (*)(void*, int, void*, int))*slot;
+    if (!o_fileRead || !patchSlot(slot, (void*)&fileRead)) logf("stemcache: the decks' stem reads can't be followed: after a jump the stems may take a second or two (speed setting)");
+}
+// The first sample without stems that a reader of this track is waiting for in a read it began before `before`
+// (the deck's last jump), -1 if none (g_sepLock held).
+static long long waitedFor(const Separation& s, const std::string& uri, double before) {
+    std::lock_guard<std::mutex> l(g_readingLock);
+    for (const Reading& r : g_reading) {
+        if (r.uri != uri || r.since >= before) continue;
+        long long at = firstWithout(s, s.chunkLen, std::max(0LL, r.pos), std::min(s.total, r.pos + r.count));
+        if (at >= 0) return at;
+    }
+    return -1;
+}
+
+// On a separator's thread, inside its engine call: a deck that needs this track's stems where it plays, and has
+// none there, gets one window of them now.
+RBM_NOINLINE static void quickAtPlayhead() {
+    OpContext& op = t_op;
+    if (!g_quick || !op.handle || op.busy || !stemsNeeded() || !betterActive()) return;
+    auto segment = service<int (*)()>("betterstems.segment");
+    const Engine& e = g_engines[op.engine];
+    const int len = segment ? segment() : 0;
+    const long long chunkLen = e.outSamples, ctx = (e.inSamples - e.outSamples) / 2;
+    if (len <= 4 * kQuickMargin || len > e.inSamples) return;
+    void* thread = at<void* (*)()>(A_currentThread)();
+    int skipped = 0;
+    for (int round = 0; round < 3; round++) {  // (the playhead near a chunk's end: the next chunk's start as well; and where a reader waits)
+        std::string uri;
+        char* sep;
+        long long total;
+        {
+            std::lock_guard<std::mutex> l(g_sepLock);
+            auto it = g_seps.find(op.handle);
+            if (it == g_seps.end() || !it->second.separator || now() - it->second.quickFailedAt < 2) return;
+            uri = it->second.uri, sep = it->second.separator, total = it->second.total;
+        }
+        if (uri.empty() || *(int*)(sep + O_sepStems) != op.stems) return;
+        // Where: the first sample without stems around the playhead of a deck that needs them; all there: the first
+        // one a stem reader of the track waits for (see fileRead above).
+        long long want = -1, playhead = 0;
+        int deck = -1;
+        bool forReader = false;
+        for (int d = 0; d < 4 && want < 0; d++) {
+            if (!g_deckNeeds[d]) continue;
+            {
+                std::lock_guard<std::mutex> l(g_wantLock);
+                if (g_deckUri[d] != uri) continue;
+            }
+            playhead = (long long)playingMs(d) * 441 / 10;
+            std::lock_guard<std::mutex> l(g_sepLock);
+            auto it = g_seps.find(op.handle);
+            if (it == g_seps.end()) return;
+            want = firstWithout(it->second, chunkLen, std::max(0LL, playhead - kQuickBack), std::min(total, playhead + kQuickAhead));
+            deck = d;
+        }
+        if (deck < 0) return;
+        if (want < 0) {
+            std::lock_guard<std::mutex> l(g_sepLock);
+            auto it = g_seps.find(op.handle);
+            if (it == g_seps.end()) return;
+            double jumpedAt = g_jumpAt[deck];
+            if (now() - jumpedAt > 10) return;
+            want = waitedFor(it->second, uri, jumpedAt);
+            forReader = true;
+        }
+        if (want < 0) return;
+        // The window: half a second before that sample, kept inside the chunk's own input.
+        auto q = std::make_shared<Quick>();
+        long long chunk = want / chunkLen, lo = chunk * chunkLen - ctx, hi = (chunk + 1) * chunkLen + ctx - len;
+        q->len = len;
+        q->w0 = std::min(std::max(want - kQuickMargin, lo), hi);
+        q->a = q->w0 == lo ? chunk * chunkLen : q->w0 + kQuickMargin;
+        q->chunkEnd = std::min((chunk + 1) * chunkLen, total);
+        q->b = std::min(q->w0 == hi ? (chunk + 1) * chunkLen : q->w0 + len - kQuickMargin, total);
+        // (the chunk this call is separating, past its first segment: its own stems are as near as a window's)
+        if (chunk == op.chunk && op.segments > 1) return;
+        // Not what another window of this chunk has published already (a jump inside the chunk): this one ends or
+        // starts where that one does, and is faded into it there before it goes out (below).
+        std::shared_ptr<Quick> left, right;
+        {
+            std::lock_guard<std::mutex> l(g_sepLock);
+            auto it = g_seps.find(op.handle);
+            if (it == g_seps.end()) return;
+            for (const auto& o : it->second.quicks) {
+                if (o->a >= q->b || o->b <= q->a) continue;
+                if (o->b <= want && o->b > q->a) q->a = o->b, left = o;
+                else if (o->a > want && o->a < q->b) q->b = o->a, right = o;
+            }
+        }
+        if (q->a > want || q->b <= want) return;
+        auto failed = [&](const char* what) {
+            std::lock_guard<std::mutex> l(g_sepLock);
+            auto it = g_seps.find(op.handle);
+            if (it != g_seps.end()) it->second.quickFailedAt = now();
+            if (g_logChunks) logf("stemcache: no stems ahead of chunk %lld for deck %d (%s)", chunk, deck + 1, what);
+        };
+        // Its audio: this engine call's input, or read as the separator reads a chunk's.
+        double began = now(), readTime = 0;
+        std::vector<float> readL, readR;
+        const float *inL, *inR;
+        long long opLo = (long long)op.chunk * chunkLen - ctx;
+        if (op.inL && q->w0 >= opLo && q->w0 + len <= opLo + e.inSamples) {
+            inL = op.inL + (q->w0 - opLo), inR = op.inR + (q->w0 - opLo);
+        } else {
+            readL.resize(len), readR.resize(len);
+            if (!at<bool (*)(void*, int, float*, float*, int)>(A_getStreamAt)(sep, (int)q->w0, readL.data(), readR.data(), len)) return failed("its audio couldn't be read");
+            inL = readL.data(), inR = readR.data();
+            readTime = now() - began;
+        }
+        // (the deck may have jumped on while that was read: then not this window, the one where it plays now)
+        if (llabs((long long)playingMs(deck) * 441 / 10 - playhead) > 2 * 44100) {
+            round--;
+            if (++skipped > 3) return;
+            continue;
+        }
+        // One run of the model, and its four sources in the engine's order (as separateBetter).
+        std::vector<float> sources((size_t)8 * len);
+        float* src[8];
+        for (int i = 0; i < 8; i++) src[i] = sources.data() + (size_t)i * len;
+        op.busy = true;
+        bool ok = betterSeparate(inL, inR, len, src);
+        op.busy = false;
+        if (!ok) return failed("HTDemucs didn't separate it");
+        if (thread && at<bool (*)(void*)>(A_threadShouldExit)(thread)) return;
+        q->planes.assign((size_t)8 * len, 0.f);
+        for (int c = 0; c < 2; c++) {
+            const float *drums = src[c], *bass = src[2 + c], *other = src[4 + c], *vocals = src[6 + c];
+            float* out = q->planes.data();
+            for (int i = 0; i < len; i++) {
+                out[(size_t)c * len + i] = other[i] + (op.stems == 3 ? bass[i] : 0);
+                out[(size_t)(2 + c) * len + i] = vocals[i];
+                out[(size_t)(4 + c) * len + i] = drums[i];
+                out[(size_t)(6 + c) * len + i] = bass[i];
+            }
+        }
+        // The seams with the windows beside it: over a fade's length this window becomes the other one, whose
+        // samples are what the deck has there.
+        auto seam = [&](const Quick& other, long long from, bool rising) {  // rising: this window's share grows
+            for (int k = 0; k < kQuickFade; k++) {
+                long long at = from + k, mine = at - q->w0, theirs = at - other.w0;
+                if (mine < 0 || mine >= len || theirs < 0 || theirs >= other.len) continue;
+                float w = (float)(k + 1) / (kQuickFade + 1);
+                if (!rising) w = 1 - w;
+                for (int plane = 0; plane < 8; plane++) {
+                    float& x = q->planes[(size_t)plane * len + mine];
+                    x = other.planes[(size_t)plane * other.len + theirs] + w * (x - other.planes[(size_t)plane * other.len + theirs]);
+                }
+            }
+        };
+        if (left) seam(*left, q->a, true);
+        if (right) seam(*right, q->b - kQuickFade, false);
+        if (!publishQuick(sep, *q, op.stems)) return failed("rekordbox's streams didn't take it");
+        {
+            std::lock_guard<std::mutex> l(g_sepLock);
+            auto it = g_seps.find(op.handle);
+            if (it != g_seps.end()) it->second.quicks.push_back(q);
+        }
+        g_quicks++;
+        plat::onMain(buffersAtPlayhead);
+        if (g_logChunks)
+            logf("stemcache: [%.3f] deck %d plays at %.1f s: stems for %.1f-%.1f s ahead of chunk %lld, in %.2f s%s%s", wallClock(), deck + 1, playhead / 44100.0,
+                 q->a / 44100.0, q->b / 44100.0, chunk, now() - began, readTime > 0 ? (" (" + std::to_string((int)(readTime * 1000)) + " ms reading)").c_str() : "",
+                 forReader ? ": its stem readers waited there" : "");
+    }
+}
+#else
+static char* separatorOf(void**) { return nullptr; }
+static void quickAtPlayhead() {}
+static void buffersAtPlayhead() {}
+static void followStemReads() {}
+#endif
+
+// A chunk's stems are there (out: the engine's outputs, n planes of e.outSamples): from now on the chunk counts as
+// done, and what was published of it ahead stays as it was (see above).
+static void chunkDone(void* handle, const Engine& e, int chunk, float* const* out, int n) {
+    std::vector<std::shared_ptr<Quick>> mine;
+    const long long chunkLen = e.outSamples, first = chunk * chunkLen;
+    {
+        std::lock_guard<std::mutex> l(g_sepLock);
+        auto it = g_seps.find(handle);
+        if (it == g_seps.end()) return;
+        it->second.done.insert(chunk);
+        auto& all = it->second.quicks;
+        for (size_t i = 0; i < all.size();)
+            if (all[i]->a / chunkLen == chunk) mine.push_back(all[i]), all.erase(all.begin() + i);
+            else i++;
+    }
+    auto meets = [&](long long at, bool starts) {  // another window of the chunk starts (or ends) at this sample
+        for (const auto& o : mine)
+            if ((starts ? o->a : o->b) == at) return true;
+        return false;
+    };
+    for (const auto& q : mine) {
+        long long a = q->a - first, b = q->b - first, shift = first - q->w0;  // (a sample i of the chunk is the window's i + shift)
+        if (g_logChunks) {
+            // How far the window's stems were from the chunk's own, per stem, against the level of all stems together:
+            // two runs of the model over the same music, so far below it (-25 dB and less); near 0 dB would be the
+            // wrong place or the wrong stem.
+            double diff[4] = {0, 0, 0, 0}, level = 0;
+            for (int plane = 0; plane < n; plane++) {
+                const float* quick = q->planes.data() + (size_t)plane * q->len;
+                for (long long i = std::max(a, 0LL); i < b && i < chunkLen; i++) {
+                    double own = out[plane][i], d = quick[i + shift] - own;
+                    diff[plane / 2] += d * d, level += own * own;
+                }
+            }
+            std::string said;
+            for (int stem = 0; stem < n / 2; stem++) {
+                char one[32];
+                snprintf(one, sizeof one, "%s%.0f", stem ? ", " : "", level > 0 && diff[stem] > 0 ? 10 * log10(diff[stem] / level) : -99.0);
+                said += one;
+            }
+            logf("stemcache: chunk %d: the window at %.1f-%.1f s was %s dB from the chunk's own stems (per stem, against all of them)", chunk, q->a / 44100.0, q->b / 44100.0, said.c_str());
+        }
+        for (int plane = 0; plane < n; plane++) {
+            const float* quick = q->planes.data() + (size_t)plane * q->len;
+            float* to = out[plane];
+            auto mix = [&](long long i, float w) {  // w of the window's, the rest the chunk's own
+                if (i >= 0 && i < chunkLen && i + shift >= 0 && i + shift < q->len) to[i] += w * (quick[i + shift] - to[i]);
+            };
+            // (no fade where another window of the chunk carries on: the two were made to meet there)
+            if (a > 0 && !meets(q->a, false))
+                for (int k = 0; k < kQuickFade; k++) mix(a - kQuickFade + k, (float)(k + 1) / (kQuickFade + 1));
+            for (long long i = a; i < b; i++) mix(i, 1);
+            if (b < chunkLen && !meets(q->b, true))
+                for (int k = 0; k < kQuickFade; k++) mix(b + k, 1 - (float)(k + 1) / (kQuickFade + 1));
+        }
+    }
+}
+
 template <int E, int K>
 static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0L, float* o0R, float* o1L, float* o1R,
                       float* o2L, float* o2R, float* o3L, float* o3R) {
     Engine& e = g_engines[E];
-    OpFn orig = e.op[K];
     bool better = betterActive();
-    if ((!g_on && !better) || !inL || !inR || !o0L) return orig(handle, chunk, inL, inR, o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R);
+    if ((!g_on && !better) || !inL || !inR || !o0L) return engineOp(E, K, handle, chunk, inL, inR, o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R);
     g_chunksStarted++;
     g_lastOpAt = now();
     noteChunk(handle, false, true);
@@ -798,6 +1503,11 @@ static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0
     if (K == 0) o3L = o3R = nullptr;
     float* out[8] = {o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R};
     int n = K == 1 ? 8 : 6, stems = n / 2;
+    // (for the windows at a deck's playhead, which are separated from inside this call: quickAtPlayhead)
+    struct InCall {
+        InCall(void* handle, int engine, int chunk, int stems, const float* l, const float* r) { t_op = OpContext{handle, engine, chunk, stems, l, r, false}; }
+        ~InCall() { t_op = OpContext{}; }
+    } inCall(handle, E, chunk, stems, inL, inR);
     std::string model = better ? betterVersion() : e.version;
     // A Spotify track's chunks (or a separation's whose track isn't known) are kept in memory, never on disk.
     bool inMemory = g_on && separationSpotify(handle) != 0;
@@ -813,19 +1523,62 @@ static bool opWrapper(void* handle, int chunk, float* inL, float* inR, float* o0
         g_hits++;
         noteChunk(handle, true, false);
         if (g_logChunks) logf("stemcache: chunk %d from the cache", chunk);
+        chunkDone(handle, e, chunk, out, n);
         return true;
     }
     double began = now();
-    bool viaBetter = better && separateBetter(e, inL, inR, out, n);
-    if (!viaBetter && !orig(handle, chunk, inL, inR, o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R)) return false;
-    if (g_logChunks) logf("stemcache: chunk %d separated in %.2f s (%s)", chunk, now() - began, viaBetter ? "HTDemucs" : e.prefix);
+    bool viaBetter = better && !g_ownEngine && separateBetter(e, inL, inR, out, n);
+    if (!viaBetter && !engineOp(E, K, handle, chunk, inL, inR, o0L, o0R, o1L, o1R, o2L, o2R, o3L, o3R)) return false;
+    if (g_logChunks) logf("stemcache: [%.3f] chunk %d separated in %.2f s (%s)", wallClock(), chunk, now() - began, viaBetter ? "HTDemucs" : e.prefix);
     g_misses++;
+    chunkDone(handle, e, chunk, out, n);
     if (viaBetter || !better) {  // (not rekordbox's stems under betterstems' key)
         if (inMemory) memStore(relOf(path), e.outSamples, out, n);
         else if (cached) store(path, e.outSamples, out, n);
     }
     waitUntilWanted(handle);
+    quickAtPlayhead();  // (before the next chunk, whichever that is; and at once when a separation that waited is asked for)
     return true;
+}
+
+// rekordbox initialises engine E: whether that is held back (g_lazyLock held). wanted: it should be, if it isn't yet.
+// The engine's row of the table is found by where this file's Initialize stands, with PreOperation three places on
+// and the two OperationAtIndex after it, as wrap() put them there. rekordbox fills the table again before every
+// Initialize (it initialises an engine twice when it starts, for its 3-stem and its 4-stem model), so the other
+// four are swapped every time; the engine's own are the ones that aren't this file's.
+RBM_NOINLINE static bool holdEngine(int E, bool wanted, const char* modelDir, int a, int b, bool bigMemory, int threads, int c) {
+    LazyEngine& z = g_lazy[E];
+    if (!z.held && !wanted) return false;
+    void** table = at<void**>(A_libraries);
+    static const int kPlace[4] = {1, 2, 4, 5};
+    bool found = false;
+    for (int i = 0; i < 24 && !found; i++) {
+        if (table[i] != engineWrapper(E, 0) || table[i + 3] != engineWrapper(E, 1) || table[i + 6] != engineWrapper(E, 2) || table[i + 7] != engineWrapper(E, 3)) continue;
+        if (!table[i + 1] || !table[i + 2] || !table[i + 4] || !table[i + 5]) break;
+        void* own[4];
+        for (int k = 0; k < 4; k++) own[k] = table[i + kPlace[k]];
+        if (own[0] != engineWrapper(E, 4)) z.finalize = (uintptr_t (*)())own[0];
+        if (own[1] != engineWrapper(E, 5)) z.isInitialized = (bool (*)())own[1];
+        if (own[2] != engineWrapper(E, 6)) z.post = (uintptr_t (*)(void*))own[2];
+        if (own[3] != engineWrapper(E, 7)) z.cancel = (uintptr_t (*)(void*))own[3];
+        for (int k = 0; k < 4; k++) table[i + kPlace[k]] = engineWrapper(E, 4 + k);
+        found = true;
+    }
+    if (found) {
+        if (!z.held) {
+            z.held = true, z.real = false;
+            z.modelDir = modelDir ? modelDir : "", z.a = a, z.b = b, z.bigMemory = bigMemory, z.threads = threads, z.c = c;
+            logf("stemcache: rekordbox's %s model isn't loaded while HTDemucs separates (stemcache_lazy_model)", g_engines[E].prefix);
+        }
+        return !z.real;  // (loaded since, and rekordbox initialises it once more: as it would have)
+    }
+    if (z.held) {  // (the row was there before: it can't be gone)
+        logf("stemcache: rekordbox's table of engine functions changed: its %s model is loaded now", g_engines[E].prefix);
+        z.held = z.real = false;
+    } else {
+        logf("stemcache: rekordbox's table of engine functions isn't as expected: its %s model is loaded as always", g_engines[E].prefix);
+    }
+    return false;
 }
 
 template <int E>
@@ -834,6 +1587,9 @@ static int initWrapper(const char* modelDir, int a, int b, bool bigMemory, int t
     v.erase(std::remove_if(v.begin(), v.end(), [](char ch) { return !isalnum((unsigned char)ch); }), v.end());
     g_engines[E].version = v.empty() ? "0" : v;
     logf("stemcache: %s model %s", g_engines[E].prefix, g_engines[E].version.c_str());
+    // Held back while HTDemucs is what separates (see "rekordbox's own model only when it is needed").
+    std::lock_guard<std::recursive_mutex> l(g_lazyLock);
+    if (holdEngine(E, lazyModelWanted() && betterExpected(), modelDir, a, b, bigMemory, threads, c)) return 0;
     return g_engines[E].init(modelDir, a, b, bigMemory, threads, c);
 }
 
@@ -841,14 +1597,33 @@ template <int E>
 static bool preWrapper(void** handle, unsigned samples, bool parallel) {
     const Engine& e = g_engines[E];
     g_trackChunks = (int)((samples + e.outSamples - 1) / e.outSamples);
-    bool ok = e.pre(handle, samples, parallel);
-    if (ok && handle && *handle) noteSeparation(*handle, g_trackChunks, handleUri(handle));
+    bool ok, better = betterActive();  // (before the lock: this may be what loads HTDemucs)
+    {
+        // (the engine's model not loaded, and HTDemucs there to separate: a handle of our own; else the engine's)
+        std::lock_guard<std::recursive_mutex> l(g_lazyLock);
+        bool held = g_lazy[E].held && !g_lazy[E].real;
+        if (held && handle && better) {
+            *handle = new StandIn{E, samples, parallel};
+            g_standIns.insert(*handle);
+            ok = true;
+        } else {
+            if (held) engineNeeded(E);
+            ok = e.pre(handle, samples, parallel);
+        }
+    }
+    if (ok && handle && *handle) noteSeparation(*handle, g_trackChunks, handleUri(handle), separatorOf(handle), samples, e.outSamples);
     return ok;
 }
 
 static const PreFn kPres[2] = {preWrapper<0>, preWrapper<1>};
 static const OpFn kOps[2][2] = {{opWrapper<0, 0>, opWrapper<0, 1>}, {opWrapper<1, 0>, opWrapper<1, 1>}};
 static const InitFn kInits[2] = {initWrapper<0>, initWrapper<1>};
+RBM_NOINLINE static void* engineWrapper(int E, int which) {
+    static void* const kStandIns[2][4] = {
+        {(void*)(uintptr_t (*)())&finalizeWrapper<0>, (void*)(bool (*)())&isInitializedWrapper<0>, (void*)(uintptr_t (*)(void*))&postWrapper<0>, (void*)(uintptr_t (*)(void*))&cancelWrapper<0>},
+        {(void*)(uintptr_t (*)())&finalizeWrapper<1>, (void*)(bool (*)())&isInitializedWrapper<1>, (void*)(uintptr_t (*)(void*))&postWrapper<1>, (void*)(uintptr_t (*)(void*))&cancelWrapper<1>}};
+    return which == 0 ? (void*)kInits[E] : which == 1 ? (void*)kPres[E] : which < 4 ? (void*)kOps[E][which - 2] : kStandIns[E][which - 4];
+}
 
 // AudioPartLibrary::load -> juce::DynamicLibrary::getFunction(<engine> + "Initialize" / "OperationAtIndex...").
 // (Windows: getFunction is inlined, the sites are its GetProcAddress(module, name) import calls.)
@@ -1534,6 +2309,7 @@ static void tick() {
     double t = now();
     g_spotify = opt::spotify.integer() != 0;
     g_onDemand = opt::ondemand.integer();
+    g_quick = opt::quick.integer() != 0;
     followStemControls();
     g_logChunks = opt::log.integer() != 0;
     {
@@ -1546,6 +2322,34 @@ static void tick() {
         for (int d = 0; d < 4; d++) decks[d] = deckPath(d);
         for (int d = 0; d < 4; d++)  // a control that is on already (left on across a load)
             if (g_onDemand && g_stemState[d] && !decks[d].empty()) wantStems(decks[d], "a stem control is on");
+        // Keeps the playhead's chunks first while a deck needs its stems (see separateAtPlayhead): at once when the
+        // playhead jumped (a seek, a hot cue, a loop going back), else twice a second.
+        // Every deck with a track, whether its stems are in use or not: then they are there when a stem control is
+        // used. (With stemcache_ondemand only a track that was asked for: the others aren't separated at all.)
+        static double askedAt[4], lastAt[4];
+        static int lastMs[4];
+        for (int d = 0; d < 4; d++) {
+            bool loaded = d < deckCount() && !decks[d].empty();
+            bool needs = loaded && (g_stemState[d] || (g_onDemand && isWanted(decks[d])));
+            g_deckNeeds[d] = needs;
+            if (!loaded || (g_onDemand && !needs)) continue;
+            int ms = playingMs(d);
+            // (a deck plays at most 2x: 0.1 s apart that is 200 ms, never 1.5 s)
+            bool jumped = lastAt[d] > 0 && std::abs(ms - lastMs[d]) > 1500 + (t - lastAt[d]) * 2000;
+            if (jumped) g_jumpAt[d] = t;
+            if (jumped || t - askedAt[d] >= 0.5) {
+                askedAt[d] = t;
+                separateAtPlayhead(d, decks[d], ms);
+                if (jumped && g_logChunks) logf("stemcache: [%.3f] deck %d jumped to %.1f s: that chunk first", wallClock(), d + 1, ms / 1000.0);
+            }
+            lastMs[d] = ms, lastAt[d] = t;
+        }
+        {
+            std::lock_guard<std::mutex> l(g_wantLock);
+            for (int d = 0; d < 4; d++)
+                if (g_deckUri[d] != decks[d]) g_deckUri[d] = decks[d];
+        }
+        if (g_quick) followStemReads(), buffersAtPlayhead();
         std::lock_guard<std::mutex> l(g_wantLock);
         g_runUri = g_prep.running && g_prep.cur >= 0 && g_prep.cur < (int)g_prep.items.size() ? g_prep.items[g_prep.cur].uri : "";
         for (auto it = g_wanted.begin(); it != g_wanted.end();)
@@ -1557,6 +2361,13 @@ static void tick() {
     else if (cmd.rfind("separate ", 0) == 0) stemcache::separatePlaylist(cmd.substr(9));
     else if (cmd == "stop") stemcache::stop();
     else if (cmd.rfind("want ", 0) == 0) wantStems(deckPath(atoi(cmd.c_str() + 5) - 1), "command");  // "want <deck 1-4>"
+    else if (cmd.rfind("ownengine ", 0) == 0) g_ownEngine = atoi(cmd.c_str() + 10) != 0;  // "ownengine <0|1>"
+    else if (cmd.rfind("separateat ", 0) == 0) {  // "separateat <deck 1-4> <seconds>": the chunk there next
+        int d = atoi(cmd.c_str() + 11) - 1;
+        size_t sp = cmd.find(' ', 11);
+        double sec = sp == std::string::npos ? 0 : atof(cmd.c_str() + sp + 1);
+        if (d >= 0 && d < 4) separateAtPlayhead(d, deckPath(d), (int)(sec * 1000)), logf("stemcache: deck %d: chunks at %.0f s asked for first", d + 1, sec);
+    }
     if (g_prep.running) stepPrep();
     static double uiAt;
     // Twice a second during a run; otherwise every few seconds (a playlist's view looks up every track).
@@ -1606,6 +2417,14 @@ static void provideStore(const float* inL, const float* inR, int inSamples, floa
     if (!stored(path)) store(path, e.outSamples, out, 8);
 }
 RBM_PROVIDE("stemcache", "stemcache.store", provideStore, &g_on);
+RBM_PROVIDE("stemcache", "stemcache.stemsNeeded", stemsNeeded, &g_on);
+// betterstems' turn before each of its segments (not the window's own: that is one segment, inside quickAtPlayhead).
+static void betweenSegments() {
+    if (t_op.busy) return;
+    t_op.segments++;
+    quickAtPlayhead();
+}
+RBM_PROVIDE("stemcache", "stemcache.betweenSegments", betweenSegments, &g_on);
 // ...the same for a Spotify track's chunk: in memory, never on disk.
 static void provideStoreSpotify(const float* inL, const float* inR, int inSamples, float* const out[8]) {
     const Engine& e = g_engines[0];

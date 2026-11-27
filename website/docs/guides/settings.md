@@ -86,7 +86,7 @@ Playlist analysis: Open analysis window in a playlist's menu analyses the whole 
 | `analyze_import_timeout` | `20` | Wait for an imported track [s] |
 | `analyze_live` | `1` | Tracks at once while a deck is playing. 0: the run waits until the decks have stopped. |
 | `analyze_min_free_gb` | `5` | Stop a run below this much free disk space [GB] |
-| `analyze_parallel` | `6` | Tracks analysed at once. 6 is fastest on a 10-core Mac. |
+| `analyze_parallel` | `6` | Tracks analysed at once. More is quicker until the computer runs out of cores; 6 was fastest on a 10-core Mac. |
 | `analyze_reopen` | `1` | Reopen the playlist analysed last after a restart (1 on, 0 off) |
 | `analyze_start_timeout` | `15` | Retry a track whose analysis doesn't start after [s] |
 | `analyze_streams` | `3` | Spotify tracks loaded at once, all decks counted |
@@ -298,7 +298,7 @@ Turntables and other inputs: Play a turntable, a CD player or any audio input th
 
 | Option | Default | Meaning |
 |---|---|---|
-| `linein` | `1` (macOS), `0` (Windows) | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. Off on Windows until it has been run on more PCs: `1` there to try it. |
+| `linein` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 | `linein_1` | *(empty)* | Deck 1: input. The audio input this deck plays: the device's name, "name #2" for a second one of the same name, or its UID. |
 | `linein_1_ch` | `1-2` | Deck 1: channels. The device's channels to take: 1-2, 3-4, or 1 for a mono input. |
 | `linein_1_gain` | `0` | Deck 1: gain. Gain on the input, on top of the mixer's trim. [dB] |
@@ -337,7 +337,7 @@ Sort by several columns: Each click on a column header adds it to the sort. [Mor
 
 ### outputsync <span class="pd-tag">mac</span>
 
-Speakers and headphones: Lines up speakers and headphones when rekordbox plays to two devices, such as Bluetooth speakers and a controller. The metronome for tuning it by ear is in rekordbox's Preferences > Audio. [More →](/mods/outputsync)
+Speakers and headphones: Lines up speakers and headphones when rekordbox plays to two devices, such as Bluetooth speakers and a controller. [More →](/mods/outputsync)
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -361,7 +361,7 @@ rekordbox's preferences in this window: Shows rekordbox's own preferences in thi
 
 | Option | Default | Meaning |
 |---|---|---|
-| `prefs` | `1` (macOS), `0` (Windows) | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. Off on Windows until it has been run on more PCs: `1` there to try it. |
+| `prefs` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 
 ### quickdeck
 
@@ -467,12 +467,14 @@ Stems that are kept: Keeps separated stems, so a track has them at once the next
 | `stemcache` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 | `stemcache_dir` | *(empty)* | Folder. Empty: the default folder. |
 | `stemcache_keep` | `all` | Save stems to disk. Everything: every track that gets stems. Only what I separate: a track you just load onto a deck gets stems that are thrown away when rekordbox quits. (all: Everything; chosen: Only what I separate in the stems window; none: Nothing) |
+| `stemcache_lazy_model` | `1` | Load rekordbox's own stem model only when needed. With HTDemucs separating, rekordbox's own model (680 MB for the quality one) stays out of memory until it has to separate after all. (1 on, 0 off) (applies after a restart) |
 | `stemcache_log` | `0` | Log every chunk and stem control (1 on, 0 off) |
 | `stemcache_max_gb` | `10` | Disk space for stems. Past this the stems used longest ago are deleted. 0: no limit. [GB] |
 | `stemcache_memory_mb` | `384` | Memory for stems that aren't saved [MB] |
 | `stemcache_min_free_gb` | `5` | Save nothing new below this much free space [GB] |
 | `stemcache_ondemand` | `0` | Separate only when a stem control is used. A deck's track is separated from the moment you mute a stem, turn a PART ISOLATOR knob or take the FX off a stem, starting where it plays. (1 on, 0 off) |
 | `stemcache_quality` | `256` | Quality of saved stems. 256 kbps takes about 35 MB for a 5-minute track, lossless about 125 MB. (128: 128 kbps; 192: 192 kbps; 256: 256 kbps; lossless: Lossless) |
+| `stemcache_quick` | `1` | Stems at the playhead at once. With HTDemucs: when you use a stem control where the track has no stems yet, a few seconds at the playhead are separated first, before the rest of that part of the track (macOS). (1 on, 0 off) |
 | `stemcache_spotify` | `1` | Stems for Spotify tracks (1 on, 0 off) |
 | `stemcache_staging` | `auto` | Write to the internal disk first (0: Never; 1: Always; auto: When the folder is on an external drive) |
 | `stemcache_staging_gb` | `4` | How much may wait on the internal disk [GB] |
@@ -513,6 +515,14 @@ Analysis timing: Logs how long each step of an analysis takes. [More →](/mods/
 | Option | Default | Meaning |
 |---|---|---|
 | `timing` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
+
+### usbphrases
+
+Phrases from USB sticks: A track loaded straight from a USB stick shows its phrases under the waveform, as a collection track does. They come from the stick's export; nothing is copied into your collection, and phrase edits on such a deck are not saved. [More →](/mods/usbphrases)
+
+| Option | Default | Meaning |
+|---|---|---|
+| `usbphrases` | `1` | `0` switches the mod off, `1` on. Applies after a restart of rekordbox. |
 
 ### xfadelock
 

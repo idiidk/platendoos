@@ -51,6 +51,7 @@ patcher); a restart of rekordbox applies that. Mods marked <span class="pd-tag">
 | [multisort](./multisort) | Sort the track list by several columns at once. |
 | [keycolumn](./keycolumn) | A **Key @ Master** column: each track's key as it would sound at the master deck's tempo. |
 | [xfadelock](./xfadelock) | A lock button that holds the crossfader exactly in the middle. |
+| [usbphrases](./usbphrases) | A track loaded from a USB stick shows its phrases on the deck, as a collection track does. |
 | [outputsync](./outputsync) <span class="pd-tag">mac</span> | Lines up speakers and headphones when rekordbox plays to two devices, e.g. Bluetooth speakers and a controller. |
 | [fontcache](./fontcache) <span class="pd-tag">mac</span> | Makes drawing text a lot cheaper, so scrolling feels lighter. |
 | [quickframe](./quickframe) <span class="pd-tag">mac</span> | Clicks show on screen sooner: a shorter queue of frames, and none while no deck plays. |
