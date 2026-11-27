@@ -118,12 +118,23 @@ export default defineConfig({
       { text: 'Download', link: `${site.repo}/releases/latest` },
     ],
     sidebar,
-    socialLinks: [{ icon: 'github', link: site.repo }],
+    socialLinks: [
+      { icon: 'github', link: site.repo },
+      {
+        // a coffee cup (the footer on the home page has the same link in words)
+        icon: {
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/></svg>',
+        },
+        link: 'https://buymeacoffee.com/idiidk',
+        ariaLabel: 'Buy me a coffee',
+      },
+    ],
     search: { provider: 'local' },
     outline: { level: [2, 3], label: 'On this page' },
     docFooter: { prev: 'Previous', next: 'Next' },
     footer: {
       message: 'platendoos is an unofficial hobby project, not made by or affiliated with AlphaTheta / Pioneer DJ or Spotify. Licensed under CC BY-NC-SA 4.0.',
+      copyright: 'Made with late nights and loud music. If it saved your set, <a href="https://buymeacoffee.com/idiidk" target="_blank" rel="noopener">buy me a coffee ☕</a>',
     },
     // read by the <Trailer> component on the home page
     trailer,
